@@ -25,11 +25,19 @@ func (r *UserRepository) Create(user *model.User) error {
 	return r.db.Create(user).Error
 }
 
-// FindAll returns all users
-func (r *UserRepository) FindAll() ([]model.User, error) {
+// FindAll returns all users with pagination and sorting
+func (r *UserRepository) FindAll(offset, limit int, sort string) ([]model.User, int64, error) {
 	var users []model.User
-	err := r.db.Find(&users).Error
-	return users, err
+	var total int64
+
+	// Count total
+	if err := r.db.Model(&model.User{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// Get paginated and sorted data
+	err := r.db.Offset(offset).Limit(limit).Order(sort).Find(&users).Error
+	return users, total, err
 }
 
 // FindByID finds a user by ID

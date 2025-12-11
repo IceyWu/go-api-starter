@@ -24,9 +24,9 @@ func (s *UserService) Create(req *model.CreateUserRequest) (*model.User, error) 
 	return user, nil
 }
 
-// List returns all users
-func (s *UserService) List() ([]model.User, error) {
-	return s.repo.FindAll()
+// List returns users with pagination and sorting
+func (s *UserService) List(offset, limit int, sort string) ([]model.User, int64, error) {
+	return s.repo.FindAll(offset, limit, sort)
 }
 
 // GetByID returns a user by ID

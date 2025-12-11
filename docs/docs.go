@@ -17,14 +17,37 @@ const docTemplate = `{
     "paths": {
         "/api/v1/users": {
             "get": {
-                "description": "Get a list of all users",
+                "description": "Get a paginated list of users. Supports sorting by: id, name, email, age, createdAt, updatedAt",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "users"
                 ],
-                "summary": "List all users",
+                "summary": "List users with pagination",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "example": 1,
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "example": 10,
+                        "description": "Items per page, max 100 (default: 10)",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "createdAt,desc",
+                        "description": "Sort: field,order. Example: createdAt,desc or name,asc (default: id,desc)",
+                        "name": "sort",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -37,10 +60,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/model.User"
-                                            }
+                                            "$ref": "#/definitions/response.UserPageResult"
                                         }
                                     }
                                 }
@@ -56,7 +76,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new user with the provided data",
+                "description": "Create a new user with name, email and age",
                 "consumes": [
                     "application/json"
                 ],
@@ -69,7 +89,7 @@ const docTemplate = `{
                 "summary": "Create a new user",
                 "parameters": [
                     {
-                        "description": "User data",
+                        "description": "User data: name(required,2-100), email(required), age(0-150)",
                         "name": "user",
                         "in": "body",
                         "required": true,
@@ -80,7 +100,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Created successfully",
                         "schema": {
                             "allOf": [
                                 {
@@ -98,7 +118,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Validation error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -119,6 +145,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 1,
                         "description": "User ID",
                         "name": "id",
                         "in": "path",
@@ -127,7 +154,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Success",
                         "schema": {
                             "allOf": [
                                 {
@@ -145,13 +172,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid ID",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "User not found",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -159,7 +186,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Update an existing user by ID",
+                "description": "Update an existing user by ID. All fields are optional.",
                 "consumes": [
                     "application/json"
                 ],
@@ -173,13 +200,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 1,
                         "description": "User ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "User data",
+                        "description": "User data: name(2-100), email, age(0-150). All optional.",
                         "name": "user",
                         "in": "body",
                         "required": true,
@@ -190,7 +218,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Updated successfully",
                         "schema": {
                             "allOf": [
                                 {
@@ -208,13 +236,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Validation error",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "User not found",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -222,7 +250,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete a user by ID",
+                "description": "Delete a user by ID (soft delete)",
                 "tags": [
                     "users"
                 ],
@@ -230,6 +258,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
+                        "example": 1,
                         "description": "User ID",
                         "name": "id",
                         "in": "path",
@@ -238,16 +267,16 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "No Content"
+                        "description": "Deleted successfully"
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid ID",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "User not found",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -267,15 +296,18 @@ const docTemplate = `{
                 "age": {
                     "type": "integer",
                     "maximum": 150,
-                    "minimum": 0
+                    "minimum": 0,
+                    "example": 25
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "john@example.com"
                 },
                 "name": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 2
+                    "minLength": 2,
+                    "example": "John Doe"
                 }
             }
         },
@@ -285,15 +317,18 @@ const docTemplate = `{
                 "age": {
                     "type": "integer",
                     "maximum": 150,
-                    "minimum": 0
+                    "minimum": 0,
+                    "example": 30
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "john@example.com"
                 },
                 "name": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 2
+                    "minLength": 2,
+                    "example": "John Doe"
                 }
             }
         },
@@ -329,6 +364,27 @@ const docTemplate = `{
                 "data": {},
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "response.UserPageResult": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {}
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
                 }
             }
         }

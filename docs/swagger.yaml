@@ -3,12 +3,15 @@ definitions:
   model.CreateUserRequest:
     properties:
       age:
+        example: 25
         maximum: 150
         minimum: 0
         type: integer
       email:
+        example: john@example.com
         type: string
       name:
+        example: John Doe
         maxLength: 100
         minLength: 2
         type: string
@@ -19,12 +22,15 @@ definitions:
   model.UpdateUserRequest:
     properties:
       age:
+        example: 30
         maximum: 150
         minimum: 0
         type: integer
       email:
+        example: john@example.com
         type: string
       name:
+        example: John Doe
         maxLength: 100
         minLength: 2
         type: string
@@ -52,6 +58,20 @@ definitions:
       message:
         type: string
     type: object
+  response.UserPageResult:
+    properties:
+      list:
+        items: {}
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
 host: localhost:9527
 info:
   contact: {}
@@ -62,7 +82,25 @@ info:
 paths:
   /api/v1/users:
     get:
-      description: Get a list of all users
+      description: 'Get a paginated list of users. Supports sorting by: id, name,
+        email, age, createdAt, updatedAt'
+      parameters:
+      - description: 'Page number (default: 1)'
+        example: 1
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page, max 100 (default: 10)'
+        example: 10
+        in: query
+        name: page_size
+        type: integer
+      - description: 'Sort: field,order. Example: createdAt,desc or name,asc (default:
+          id,desc)'
+        example: createdAt,desc
+        in: query
+        name: sort
+        type: string
       produces:
       - application/json
       responses:
@@ -73,23 +111,21 @@ paths:
             - $ref: '#/definitions/response.Response'
             - properties:
                 data:
-                  items:
-                    $ref: '#/definitions/model.User'
-                  type: array
+                  $ref: '#/definitions/response.UserPageResult'
               type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Response'
-      summary: List all users
+      summary: List users with pagination
       tags:
       - users
     post:
       consumes:
       - application/json
-      description: Create a new user with the provided data
+      description: Create a new user with name, email and age
       parameters:
-      - description: User data
+      - description: 'User data: name(required,2-100), email(required), age(0-150)'
         in: body
         name: user
         required: true
@@ -99,7 +135,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Created successfully
           schema:
             allOf:
             - $ref: '#/definitions/response.Response'
@@ -108,7 +144,11 @@ paths:
                   $ref: '#/definitions/model.User'
               type: object
         "400":
-          description: Bad Request
+          description: Validation error
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal error
           schema:
             $ref: '#/definitions/response.Response'
       summary: Create a new user
@@ -116,22 +156,23 @@ paths:
       - users
   /api/v1/users/{id}:
     delete:
-      description: Delete a user by ID
+      description: Delete a user by ID (soft delete)
       parameters:
       - description: User ID
+        example: 1
         in: path
         name: id
         required: true
         type: integer
       responses:
         "204":
-          description: No Content
+          description: Deleted successfully
         "400":
-          description: Bad Request
+          description: Invalid ID
           schema:
             $ref: '#/definitions/response.Response'
         "404":
-          description: Not Found
+          description: User not found
           schema:
             $ref: '#/definitions/response.Response'
       summary: Delete a user
@@ -141,6 +182,7 @@ paths:
       description: Get a single user by their ID
       parameters:
       - description: User ID
+        example: 1
         in: path
         name: id
         required: true
@@ -149,7 +191,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Success
           schema:
             allOf:
             - $ref: '#/definitions/response.Response'
@@ -158,11 +200,11 @@ paths:
                   $ref: '#/definitions/model.User'
               type: object
         "400":
-          description: Bad Request
+          description: Invalid ID
           schema:
             $ref: '#/definitions/response.Response'
         "404":
-          description: Not Found
+          description: User not found
           schema:
             $ref: '#/definitions/response.Response'
       summary: Get a user by ID
@@ -171,14 +213,15 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update an existing user by ID
+      description: Update an existing user by ID. All fields are optional.
       parameters:
       - description: User ID
+        example: 1
         in: path
         name: id
         required: true
         type: integer
-      - description: User data
+      - description: 'User data: name(2-100), email, age(0-150). All optional.'
         in: body
         name: user
         required: true
@@ -188,7 +231,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Updated successfully
           schema:
             allOf:
             - $ref: '#/definitions/response.Response'
@@ -197,11 +240,11 @@ paths:
                   $ref: '#/definitions/model.User'
               type: object
         "400":
-          description: Bad Request
+          description: Validation error
           schema:
             $ref: '#/definitions/response.Response'
         "404":
-          description: Not Found
+          description: User not found
           schema:
             $ref: '#/definitions/response.Response'
       summary: Update a user

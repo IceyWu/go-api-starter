@@ -19,16 +19,16 @@ type User struct {
 
 // CreateUserRequest represents the request body for creating a user
 type CreateUserRequest struct {
-	Name  string `json:"name" binding:"required,min=2,max=100"`
-	Email string `json:"email" binding:"required,email"`
-	Age   int    `json:"age" binding:"gte=0,lte=150"`
+	Name  string `json:"name" binding:"required,min=2,max=100" example:"John Doe"`
+	Email string `json:"email" binding:"required,email" example:"john@example.com"`
+	Age   int    `json:"age" binding:"gte=0,lte=150" example:"25"`
 }
 
 // UpdateUserRequest represents the request body for updating a user
 type UpdateUserRequest struct {
-	Name  string `json:"name" binding:"omitempty,min=2,max=100"`
-	Email string `json:"email" binding:"omitempty,email"`
-	Age   *int   `json:"age" binding:"omitempty,gte=0,lte=150"`
+	Name  string `json:"name" binding:"omitempty,min=2,max=100" example:"John Doe"`
+	Email string `json:"email" binding:"omitempty,email" example:"john@example.com"`
+	Age   *int   `json:"age" binding:"omitempty,gte=0,lte=150" example:"30"`
 }
 
 // ToUser converts CreateUserRequest to User model

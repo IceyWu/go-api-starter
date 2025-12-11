@@ -24,13 +24,14 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 
 // Create godoc
 // @Summary Create a new user
-// @Description Create a new user with the provided data
+// @Description Create a new user with name, email and age
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param user body model.CreateUserRequest true "User data"
-// @Success 201 {object} response.Response{data=model.User}
-// @Failure 400 {object} response.Response
+// @Param user body model.CreateUserRequest true "User data: name(required,2-100), email(required), age(0-150)"
+// @Success 201 {object} response.Response{data=model.User} "Created successfully"
+// @Failure 400 {object} response.Response "Validation error"
+// @Failure 500 {object} response.Response "Internal error"
 // @Router /api/v1/users [post]
 func (h *UserHandler) Create(c *gin.Context) {
 	var req model.CreateUserRequest
@@ -50,20 +51,29 @@ func (h *UserHandler) Create(c *gin.Context) {
 
 
 // List godoc
-// @Summary List all users
-// @Description Get a list of all users
+// @Summary List users with pagination
+// @Description Get a paginated list of users. Supports sorting by: id, name, email, age, createdAt, updatedAt
 // @Tags users
 // @Produce json
-// @Success 200 {object} response.Response{data=[]model.User}
+// @Param page query int false "Page number (default: 1)" Example(1)
+// @Param page_size query int false "Items per page, max 100 (default: 10)" Example(10)
+// @Param sort query string false "Sort: field,order. Example: createdAt,desc or name,asc (default: id,desc)" Example(createdAt,desc)
+// @Success 200 {object} response.Response{data=response.UserPageResult}
 // @Failure 500 {object} response.Response
 // @Router /api/v1/users [get]
 func (h *UserHandler) List(c *gin.Context) {
-	users, err := h.service.List()
+	var pagination response.Pagination
+	if err := c.ShouldBindQuery(&pagination); err != nil {
+		response.BadRequest(c, "invalid pagination params")
+		return
+	}
+
+	users, total, err := h.service.List(pagination.GetOffset(), pagination.GetPageSize(), pagination.GetSort())
 	if err != nil {
 		response.InternalError(c, err.Error())
 		return
 	}
-	response.Success(c, users)
+	response.SuccessWithPage(c, users, total, &pagination)
 }
 
 // Get godoc
@@ -71,10 +81,10 @@ func (h *UserHandler) List(c *gin.Context) {
 // @Description Get a single user by their ID
 // @Tags users
 // @Produce json
-// @Param id path int true "User ID"
-// @Success 200 {object} response.Response{data=model.User}
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Param id path int true "User ID" Example(1)
+// @Success 200 {object} response.Response{data=model.User} "Success"
+// @Failure 400 {object} response.Response "Invalid ID"
+// @Failure 404 {object} response.Response "User not found"
 // @Router /api/v1/users/{id} [get]
 func (h *UserHandler) Get(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
@@ -97,15 +107,15 @@ func (h *UserHandler) Get(c *gin.Context) {
 
 // Update godoc
 // @Summary Update a user
-// @Description Update an existing user by ID
+// @Description Update an existing user by ID. All fields are optional.
 // @Tags users
 // @Accept json
 // @Produce json
-// @Param id path int true "User ID"
-// @Param user body model.UpdateUserRequest true "User data"
-// @Success 200 {object} response.Response{data=model.User}
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Param id path int true "User ID" Example(1)
+// @Param user body model.UpdateUserRequest true "User data: name(2-100), email, age(0-150). All optional."
+// @Success 200 {object} response.Response{data=model.User} "Updated successfully"
+// @Failure 400 {object} response.Response "Validation error"
+// @Failure 404 {object} response.Response "User not found"
 // @Router /api/v1/users/{id} [put]
 func (h *UserHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
@@ -134,12 +144,12 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 // Delete godoc
 // @Summary Delete a user
-// @Description Delete a user by ID
+// @Description Delete a user by ID (soft delete)
 // @Tags users
-// @Param id path int true "User ID"
-// @Success 204 "No Content"
-// @Failure 400 {object} response.Response
-// @Failure 404 {object} response.Response
+// @Param id path int true "User ID" Example(1)
+// @Success 204 "Deleted successfully"
+// @Failure 400 {object} response.Response "Invalid ID"
+// @Failure 404 {object} response.Response "User not found"
 // @Router /api/v1/users/{id} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)

@@ -1,0 +1,210 @@
+basePath: /
+definitions:
+  model.CreateUserRequest:
+    properties:
+      age:
+        maximum: 150
+        minimum: 0
+        type: integer
+      email:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+    required:
+    - email
+    - name
+    type: object
+  model.UpdateUserRequest:
+    properties:
+      age:
+        maximum: 150
+        minimum: 0
+        type: integer
+      email:
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+    type: object
+  model.User:
+    properties:
+      age:
+        type: integer
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  response.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+host: localhost:9527
+info:
+  contact: {}
+  description: "\U0001F680 A production-ready Go RESTful API starter template with
+    best practices"
+  title: Go API Starter
+  version: "1.0"
+paths:
+  /api/v1/users:
+    get:
+      description: Get a list of all users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.User'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: List all users
+      tags:
+      - users
+    post:
+      consumes:
+      - application/json
+      description: Create a new user with the provided data
+      parameters:
+      - description: User data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Create a new user
+      tags:
+      - users
+  /api/v1/users/{id}:
+    delete:
+      description: Delete a user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Delete a user
+      tags:
+      - users
+    get:
+      description: Get a single user by their ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Get a user by ID
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      description: Update an existing user by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: User data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.User'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Update a user
+      tags:
+      - users
+swagger: "2.0"

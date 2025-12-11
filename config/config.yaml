@@ -1,0 +1,30 @@
+# Application Configuration
+app:
+  name: go-api-starter
+  env: development  # development, production, test
+
+# Server Configuration
+server:
+  host: localhost
+  port: 9527
+  mode: debug  # debug, release, test
+
+# Database Configuration
+database:
+  driver: mysql  # sqlite, mysql
+  # SQLite config
+  path: ./data.db
+  # MySQL config
+  host: localhost
+  port: 3306
+  username: root
+  password: "123456"
+  dbname: go_api_starter
+  charset: utf8mb4
+
+# Log Configuration
+log:
+  level: debug  # debug, info, warn, error
+  format: console  # console, json
+  output: stdout  # stdout, file
+  file_path: ./logs/app.log

@@ -38,3 +38,16 @@ lint:
 # Build for production
 build-prod:
 	CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/server ./cmd/server
+
+# Install pre-commit hooks
+hooks:
+	pre-commit install
+
+# Run pre-commit on all files
+hooks-run:
+	pre-commit run --all-files
+
+# Update dependencies
+update:
+	go get -u ./...
+	go mod tidy

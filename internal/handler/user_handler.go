@@ -49,7 +49,6 @@ func (h *UserHandler) Create(c *gin.Context) {
 	response.Created(c, user)
 }
 
-
 // List godoc
 // @Summary List users with pagination
 // @Description Get a paginated list of users. Supports sorting by: id, name, email, age, createdAt, updatedAt

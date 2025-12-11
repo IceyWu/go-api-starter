@@ -46,16 +46,13 @@ type LogConfig struct {
 
 var GlobalConfig *Config
 
-// Load loads configuration from file and environment
+// Load loads configuration from file and environment variables
 func Load() *Config {
+	// Load base config
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./config")
 	viper.AddConfigPath(".")
-
-	// Environment variable support
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// Set defaults
 	setDefaults()
@@ -64,6 +61,13 @@ func Load() *Config {
 		log.Printf("Config file not found, using defaults: %v", err)
 	}
 
+	// Environment variable support (highest priority, overrides config file)
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	// Bind specific environment variables
+	bindEnvVariables()
+
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		log.Fatalf("Failed to unmarshal config: %v", err)
@@ -71,6 +75,22 @@ func Load() *Config {
 
 	GlobalConfig = &cfg
 	return &cfg
+}
+
+// bindEnvVariables binds specific environment variables to config keys
+func bindEnvVariables() {
+	viper.BindEnv("app.env", "APP_ENV")
+	viper.BindEnv("server.host", "SERVER_HOST")
+	viper.BindEnv("server.port", "SERVER_PORT")
+	viper.BindEnv("server.mode", "SERVER_MODE")
+	viper.BindEnv("database.driver", "DB_DRIVER")
+	viper.BindEnv("database.path", "DB_PATH")
+	viper.BindEnv("database.host", "DB_HOST")
+	viper.BindEnv("database.port", "DB_PORT")
+	viper.BindEnv("database.username", "DB_USER")
+	viper.BindEnv("database.password", "DB_PASSWORD")
+	viper.BindEnv("database.dbname", "DB_NAME")
+	viper.BindEnv("log.level", "LOG_LEVEL")
 }
 
 func setDefaults() {

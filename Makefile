@@ -4,9 +4,23 @@
 build:
 	go build -o bin/server ./cmd/server
 
-# Run the application
+# Run the application (development)
 run:
-	go run ./cmd/server
+	@if exist .env.dev (for /f "tokens=*" %%a in (.env.dev) do @set "%%a") & go run ./cmd/server
+	@if not exist .env.dev set APP_ENV=development & go run ./cmd/server
+
+# Run the application (production mode locally)
+run-prod:
+	@if exist .env.prod (for /f "tokens=*" %%a in (.env.prod) do @set "%%a") & go run ./cmd/server
+	@if not exist .env.prod set APP_ENV=production & go run ./cmd/server
+
+# Run dev (cross-platform using PowerShell)
+dev:
+	powershell -Command "Get-Content .env.dev | ForEach-Object { if($$_ -match '^([^#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } }; go run ./cmd/server"
+
+# Run prod (cross-platform using PowerShell)
+prod:
+	powershell -Command "Get-Content .env.prod | ForEach-Object { if($$_ -match '^([^#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } }; go run ./cmd/server"
 
 # Run tests
 test:
@@ -51,3 +65,7 @@ hooks-run:
 update:
 	go get -u ./...
 	go mod tidy
+
+# Sync from template repository
+sync:
+	npx syn --repo https://github.com/IceyWu/go-api-starter --branch main

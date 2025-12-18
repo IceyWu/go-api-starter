@@ -1,26 +1,29 @@
-.PHONY: build run test clean swagger
+.PHONY: build run test clean swagger dev prod
+
+# Detect OS
+ifeq ($(OS),Windows_NT)
+    SHELL := powershell.exe
+    .SHELLFLAGS := -NoProfile -Command
+    RM = Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    LOAD_ENV_DEV = Get-Content .env.dev -ErrorAction SilentlyContinue | ForEach-Object { if($$_ -match '^([^#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } };
+    LOAD_ENV_PROD = Get-Content .env.prod -ErrorAction SilentlyContinue | ForEach-Object { if($$_ -match '^([^#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } };
+else
+    RM = rm -rf
+    LOAD_ENV_DEV = set -a && [ -f .env.dev ] && . ./.env.dev; set +a;
+    LOAD_ENV_PROD = set -a && [ -f .env.prod ] && . ./.env.prod; set +a;
+endif
 
 # Build the application
 build:
 	go build -o bin/server ./cmd/server
 
-# Run the application (development)
-run:
-	@if exist .env.dev (for /f "tokens=*" %%a in (.env.dev) do @set "%%a") & go run ./cmd/server
-	@if not exist .env.dev set APP_ENV=development & go run ./cmd/server
-
-# Run the application (production mode locally)
-run-prod:
-	@if exist .env.prod (for /f "tokens=*" %%a in (.env.prod) do @set "%%a") & go run ./cmd/server
-	@if not exist .env.prod set APP_ENV=production & go run ./cmd/server
-
-# Run dev (cross-platform using PowerShell)
+# Run development
 dev:
-	powershell -Command "Get-Content .env.dev | ForEach-Object { if($$_ -match '^([^#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } }; go run ./cmd/server"
+	$(LOAD_ENV_DEV) go run ./cmd/server
 
-# Run prod (cross-platform using PowerShell)
+# Run production
 prod:
-	powershell -Command "Get-Content .env.prod | ForEach-Object { if($$_ -match '^([^#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } }; go run ./cmd/server"
+	$(LOAD_ENV_PROD) go run ./cmd/server
 
 # Run tests
 test:
@@ -28,9 +31,10 @@ test:
 
 # Clean build artifacts
 clean:
-	rm -rf bin/
-	rm -f *.db
-	rm -f server.exe
+	$(RM) bin/
+	$(RM) *.db
+	$(RM) server.exe
+	$(RM) server
 
 # Generate swagger docs
 swagger:
@@ -49,9 +53,13 @@ fmt:
 lint:
 	golangci-lint run
 
-# Build for production
-build-prod:
-	CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o bin/server ./cmd/server
+# Build for Linux production
+build-linux:
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o bin/server ./cmd/server
+
+# Build for Windows production
+build-windows:
+	set CGO_ENABLED=0&& set GOOS=windows&& set GOARCH=amd64&& go build -ldflags="-s -w" -o bin/server.exe ./cmd/server
 
 # Install pre-commit hooks
 hooks:
@@ -65,7 +73,3 @@ hooks-run:
 update:
 	go get -u ./...
 	go mod tidy
-
-# Sync from template repository
-sync:
-	npx syn --repo https://github.com/IceyWu/go-api-starter --branch main

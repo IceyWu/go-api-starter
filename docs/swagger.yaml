@@ -1,5 +1,40 @@
 basePath: /
 definitions:
+  handler.CallbackRequest:
+    properties:
+      content_type:
+        type: string
+      file_name:
+        type: string
+      file_size:
+        type: integer
+      key:
+        type: string
+    required:
+    - file_name
+    - file_size
+    - key
+    type: object
+  handler.HealthResponse:
+    properties:
+      status:
+        type: string
+      timestamp:
+        type: string
+      uptime:
+        type: string
+      version:
+        type: string
+    type: object
+  handler.ReadinessResponse:
+    properties:
+      checks:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        type: string
+    type: object
   model.CreateUserRequest:
     properties:
       age:
@@ -18,6 +53,47 @@ definitions:
     required:
     - email
     - name
+    type: object
+  model.OSSFile:
+    properties:
+      content_type:
+        description: MIME type
+        example: image/jpeg
+        type: string
+      created_at:
+        type: string
+      extension:
+        description: File extension
+        example: .jpg
+        type: string
+      file_name:
+        description: Original file name
+        example: example.jpg
+        type: string
+      file_size:
+        description: File size in bytes
+        example: 102400
+        type: integer
+      id:
+        type: integer
+      key:
+        description: OSS file path
+        example: uploads/2026/01/12/uuid.jpg
+        type: string
+      status:
+        description: 'Status: 1=active, 0=deleted'
+        example: 1
+        type: integer
+      updated_at:
+        type: string
+      url:
+        description: Access URL
+        example: https://bucket.oss-cn-hangzhou.aliyuncs.com/uploads/2026/01/12/uuid.jpg
+        type: string
+      user_id:
+        description: Uploader user ID
+        example: 1
+        type: integer
     type: object
   model.UpdateUserRequest:
     properties:
@@ -50,6 +126,23 @@ definitions:
       updated_at:
         type: string
     type: object
+  oss.UploadToken:
+    properties:
+      accessid:
+        type: string
+      dir:
+        type: string
+      expire:
+        type: integer
+      host:
+        type: string
+      key:
+        type: string
+      policy:
+        type: string
+      signature:
+        type: string
+    type: object
   response.Response:
     properties:
       code:
@@ -75,11 +168,138 @@ definitions:
 host: localhost:9527
 info:
   contact: {}
-  description: "\U0001F680 A production-ready Go RESTful API starter template with
-    best practices"
+  description: A RESTful API starter with Go, Gin, and GORM
   title: Go API Starter
   version: "1.0"
 paths:
+  /api/v1/oss/callback:
+    post:
+      consumes:
+      - application/json
+      description: Handle callback from OSS after successful upload
+      parameters:
+      - description: Callback request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CallbackRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.OSSFile'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: OSS upload callback
+      tags:
+      - OSS
+  /api/v1/oss/files:
+    get:
+      consumes:
+      - application/json
+      description: List uploaded files with pagination
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Page size
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: List files
+      tags:
+      - OSS
+  /api/v1/oss/files/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete file from OSS and database
+      parameters:
+      - description: File ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Delete file
+      tags:
+      - OSS
+  /api/v1/oss/token:
+    get:
+      consumes:
+      - application/json
+      description: Get upload token for client-side direct upload to OSS
+      parameters:
+      - description: File name
+        in: query
+        name: file_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/oss.UploadToken'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Get upload token
+      tags:
+      - OSS
   /api/v1/users:
     get:
       description: 'Get a paginated list of users. Supports sorting by: id, name,
@@ -250,4 +470,34 @@ paths:
       summary: Update a user
       tags:
       - users
+  /health:
+    get:
+      description: Get service health status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handler.HealthResponse'
+      summary: Health check
+      tags:
+      - health
+  /health/ready:
+    get:
+      description: Check if service is ready to accept requests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is ready
+          schema:
+            $ref: '#/definitions/handler.ReadinessResponse'
+        "503":
+          description: Service is not ready
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Readiness check
+      tags:
+      - health
 swagger: "2.0"

@@ -1,0 +1,59 @@
+### OSS API 测试
+
+@baseUrl = http://localhost:9527
+@fileName = example.jpg
+
+### 1. 获取上传凭证
+GET {{baseUrl}}/api/v1/oss/token?file_name={{fileName}}
+
+### 2. 上传回调（模拟 OSS 回调或前端调用）
+POST {{baseUrl}}/api/v1/oss/callback
+Content-Type: application/json
+
+{
+  "key": "uploads/2026/01/12/550e8400-e29b-41d4-a716-446655440000.jpg",
+  "file_name": "example.jpg",
+  "file_size": 102400,
+  "content_type": "image/jpeg"
+}
+
+### 3. 获取文件列表（第一页）
+GET {{baseUrl}}/api/v1/oss/files?page=1&page_size=20
+
+### 4. 获取文件列表（第二页）
+GET {{baseUrl}}/api/v1/oss/files?page=2&page_size=10
+
+### 5. 删除文件
+DELETE {{baseUrl}}/api/v1/oss/files/1
+
+### 完整上传流程示例（JavaScript）
+# 
+# // 1. 获取上传凭证
+# const tokenResponse = await fetch('http://localhost:9527/api/v1/oss/token?file_name=example.jpg');
+# const tokenData = await tokenResponse.json();
+# const token = tokenData.data;
+# 
+# // 2. 上传文件到 OSS
+# const formData = new FormData();
+# formData.append('key', token.key);
+# formData.append('policy', token.policy);
+# formData.append('OSSAccessKeyId', token.accessid);
+# formData.append('signature', token.signature);
+# formData.append('file', fileInput.files[0]);
+# 
+# await fetch(token.host, {
+#   method: 'POST',
+#   body: formData
+# });
+# 
+# // 3. 保存文件记录
+# await fetch('http://localhost:9527/api/v1/oss/callback', {
+#   method: 'POST',
+#   headers: { 'Content-Type': 'application/json' },
+#   body: JSON.stringify({
+#     key: token.key,
+#     file_name: 'example.jpg',
+#     file_size: fileInput.files[0].size,
+#     content_type: fileInput.files[0].type
+#   })
+# });

@@ -54,6 +54,10 @@ func Setup(db *gorm.DB) *gin.Engine {
 	userService := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userService)
 	
+	ossRepo := repository.NewOSSRepository(db)
+	ossService := service.NewOSSService(ossRepo, &cfg.OSS)
+	ossHandler := handler.NewOSSHandler(ossService)
+	
 	healthHandler := handler.NewHealthHandler(db, "1.0.0")
 
 	// Health check routes (no rate limiting)
@@ -70,6 +74,14 @@ func Setup(db *gorm.DB) *gin.Engine {
 			users.GET("/:id", userHandler.Get)
 			users.PUT("/:id", userHandler.Update)
 			users.DELETE("/:id", userHandler.Delete)
+		}
+
+		oss := api.Group("/oss")
+		{
+			oss.GET("/token", ossHandler.GetUploadToken)
+			oss.POST("/callback", ossHandler.Callback)
+			oss.GET("/files", ossHandler.ListFiles)
+			oss.DELETE("/files/:id", ossHandler.DeleteFile)
 		}
 	}
 

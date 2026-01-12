@@ -16,7 +16,7 @@ const ScalarHTML = `<!DOCTYPE html>
 </head>
 <body>
     <script id="api-reference" data-url="/swagger/doc.json"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script src="https://fastly.jsdelivr.net/npm/@scalar/api-reference"></script>
 </body>
 </html>`
 

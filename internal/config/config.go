@@ -15,6 +15,7 @@ type Config struct {
 	Server   ServerConfig   `mapstructure:"server"`
 	Database DatabaseConfig `mapstructure:"database"`
 	Log      LogConfig      `mapstructure:"log"`
+	OSS      OSSConfig      `mapstructure:"oss"`
 }
 
 type AppConfig struct {
@@ -46,6 +47,21 @@ type LogConfig struct {
 	FilePath string `mapstructure:"file_path"`
 }
 
+type OSSConfig struct {
+	Endpoint          string   `mapstructure:"endpoint"`
+	Bucket            string   `mapstructure:"bucket"`
+	Region            string   `mapstructure:"region"`
+	AccessKeyID       string   `mapstructure:"access_key_id"`
+	AccessKeySecret   string   `mapstructure:"access_key_secret"`
+	UploadDir         string   `mapstructure:"upload_dir"`
+	BasePath          string   `mapstructure:"base_path"`
+	Domain            string   `mapstructure:"domain"`
+	CallbackURL       string   `mapstructure:"callback_url"`
+	MaxFileSize       int64    `mapstructure:"max_file_size"`
+	AllowedExtensions []string `mapstructure:"allowed_extensions"`
+	TokenExpire       int64    `mapstructure:"token_expire"`
+}
+
 var GlobalConfig *Config
 
 // Load loads configuration from file and environment variables
@@ -66,12 +82,12 @@ func Load() *Config {
 		log.Printf("Config file not found, using defaults: %v", err)
 	}
 
+	// Bind specific environment variables BEFORE AutomaticEnv
+	bindEnvVariables()
+
 	// Environment variable support (highest priority, overrides config file)
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	// Bind specific environment variables
-	bindEnvVariables()
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
@@ -121,6 +137,14 @@ func bindEnvVariables() {
 	viper.BindEnv("database.password", "DB_PASSWORD")
 	viper.BindEnv("database.dbname", "DB_NAME")
 	viper.BindEnv("log.level", "LOG_LEVEL")
+	viper.BindEnv("oss.endpoint", "ALICLOUD_OSS_ENDPOINT")
+	viper.BindEnv("oss.bucket", "ALICLOUD_OSS_BUCKET")
+	viper.BindEnv("oss.region", "ALICLOUD_OSS_REGION")
+	viper.BindEnv("oss.access_key_id", "ALICLOUD_ACCESS_KEY_ID")
+	viper.BindEnv("oss.access_key_secret", "ALICLOUD_ACCESS_KEY_SECRET")
+	viper.BindEnv("oss.upload_dir", "ALICLOUD_OSS_UPLOAD_DIR")
+	viper.BindEnv("oss.domain", "OSS_DOMAIN")
+	viper.BindEnv("oss.callback_url", "OSS_CALLBACK_URL")
 }
 
 func setDefaults() {
@@ -140,6 +164,11 @@ func setDefaults() {
 	viper.SetDefault("log.level", "debug")
 	viper.SetDefault("log.format", "console")
 	viper.SetDefault("log.output", "stdout")
+	viper.SetDefault("oss.upload_dir", "go_oss")
+	viper.SetDefault("oss.base_path", "uploads")
+	viper.SetDefault("oss.max_file_size", 10485760) // 10MB
+	viper.SetDefault("oss.token_expire", 1800)      // 30 minutes
+	viper.SetDefault("oss.allowed_extensions", []string{".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx", ".xls", ".xlsx"})
 }
 
 // GetConfig returns the global config

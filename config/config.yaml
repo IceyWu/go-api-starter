@@ -28,3 +28,27 @@ log:
   format: console  # console, json
   output: stdout  # stdout, file
   file_path: ./logs/app.log
+
+# OSS Configuration
+oss:
+  endpoint: your-bucket.oss-accelerate.aliyuncs.com  # OSS endpoint
+  bucket: your-bucket  # OSS bucket name
+  region: oss-cn-hangzhou  # OSS region
+  access_key_id: ""  # Will be loaded from env
+  access_key_secret: ""  # Will be loaded from env
+  upload_dir: go_oss  # Upload directory in bucket
+  base_path: uploads  # Base path for uploaded files (will be combined with upload_dir)
+  domain: ""  # Custom domain (optional), e.g., https://cdn.example.com
+  callback_url: ""  # Callback URL after upload (optional)
+  max_file_size: 10485760  # Max file size in bytes (10MB)
+  token_expire: 1800  # Token expire time in seconds (30 minutes)
+  allowed_extensions:
+    - .jpg
+    - .jpeg
+    - .png
+    - .gif
+    - .pdf
+    - .doc
+    - .docx
+    - .xls
+    - .xlsx

@@ -1,41 +1,77 @@
 basePath: /
 definitions:
-  handler.CallbackRequest:
+  go-api-starter_internal_model.AssignRoleRequest:
     properties:
-      content_type:
-        type: string
-      file_name:
-        type: string
-      file_size:
+      role_id:
+        example: 1
         type: integer
-      key:
+    required:
+    - role_id
+    type: object
+  go-api-starter_internal_model.CreatePermissionRequest:
+    properties:
+      code:
+        example: USER_CREATE
+        maxLength: 50
+        minLength: 2
+        type: string
+      description:
+        example: 允许创建新用户
+        maxLength: 500
+        type: string
+      module:
+        example: user
+        maxLength: 100
+        type: string
+      name:
+        example: 创建用户
+        maxLength: 100
+        minLength: 2
+        type: string
+      space_id:
+        example: 1
+        type: integer
+    required:
+    - code
+    - name
+    - space_id
+    type: object
+  go-api-starter_internal_model.CreateRoleRequest:
+    properties:
+      description:
+        example: 系统管理员
+        maxLength: 500
+        type: string
+      name:
+        example: admin
+        maxLength: 100
+        minLength: 2
+        type: string
+      permission_codes:
+        example:
+        - USER_CREATE
+        - USER_READ
+        items:
+          type: string
+        type: array
+    required:
+    - name
+    type: object
+  go-api-starter_internal_model.CreateSpaceRequest:
+    properties:
+      description:
+        example: 用户管理权限空间
+        maxLength: 500
+        type: string
+      name:
+        example: user
+        maxLength: 100
+        minLength: 2
         type: string
     required:
-    - file_name
-    - file_size
-    - key
+    - name
     type: object
-  handler.HealthResponse:
-    properties:
-      status:
-        type: string
-      timestamp:
-        type: string
-      uptime:
-        type: string
-      version:
-        type: string
-    type: object
-  handler.ReadinessResponse:
-    properties:
-      checks:
-        additionalProperties:
-          type: string
-        type: object
-      status:
-        type: string
-    type: object
-  model.CreateUserRequest:
+  go-api-starter_internal_model.CreateUserRequest:
     properties:
       age:
         example: 25
@@ -54,7 +90,7 @@ definitions:
     - email
     - name
     type: object
-  model.OSSFile:
+  go-api-starter_internal_model.OSSFile:
     properties:
       content_type:
         description: MIME type
@@ -80,6 +116,10 @@ definitions:
         description: OSS file path
         example: uploads/2026/01/12/uuid.jpg
         type: string
+      md5:
+        description: File MD5 hash
+        example: 5d41402abc4b2a76b9719d911017c592
+        type: string
       status:
         description: 'Status: 1=active, 0=deleted'
         example: 1
@@ -95,7 +135,200 @@ definitions:
         example: 1
         type: integer
     type: object
-  model.UpdateUserRequest:
+  go-api-starter_internal_model.Permission:
+    properties:
+      code:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      module:
+        type: string
+      name:
+        type: string
+      position:
+        description: 0-63
+        type: integer
+      space:
+        $ref: '#/definitions/go-api-starter_internal_model.PermissionSpace'
+      space_id:
+        type: integer
+      updated_at:
+        type: string
+      value:
+        description: 2^position
+        type: integer
+    type: object
+  go-api-starter_internal_model.PermissionDetail:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      module:
+        type: string
+      name:
+        type: string
+      position:
+        type: integer
+      space_id:
+        type: integer
+      space_name:
+        type: string
+      value:
+        type: integer
+    type: object
+  go-api-starter_internal_model.PermissionSpace:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/go-api-starter_internal_model.Permission'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  go-api-starter_internal_model.Role:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      is_system:
+        type: boolean
+      name:
+        type: string
+      role_permissions:
+        items:
+          $ref: '#/definitions/go-api-starter_internal_model.RolePermission'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  go-api-starter_internal_model.RoleDetail:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      is_system:
+        type: boolean
+      name:
+        type: string
+      permission_codes:
+        items:
+          type: string
+        type: array
+      permissions:
+        items:
+          $ref: '#/definitions/go-api-starter_internal_model.PermissionDetail'
+        type: array
+    type: object
+  go-api-starter_internal_model.RolePermission:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      permission:
+        $ref: '#/definitions/go-api-starter_internal_model.Permission'
+      permission_id:
+        type: integer
+      role:
+        $ref: '#/definitions/go-api-starter_internal_model.Role'
+      role_id:
+        type: integer
+      space:
+        $ref: '#/definitions/go-api-starter_internal_model.PermissionSpace'
+      space_id:
+        type: integer
+      updated_at:
+        type: string
+      value:
+        description: 该空间下的位运算值
+        type: integer
+    type: object
+  go-api-starter_internal_model.RolePermissionsRequest:
+    properties:
+      permission_codes:
+        example:
+        - USER_CREATE
+        - USER_READ
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - permission_codes
+    type: object
+  go-api-starter_internal_model.SpaceWithCount:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      name:
+        type: string
+      permission_count:
+        type: integer
+    type: object
+  go-api-starter_internal_model.UpdatePermissionRequest:
+    properties:
+      description:
+        example: 允许创建新用户
+        maxLength: 500
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: 创建用户
+        maxLength: 100
+        minLength: 2
+        type: string
+    type: object
+  go-api-starter_internal_model.UpdateRoleRequest:
+    properties:
+      description:
+        example: 系统管理员
+        maxLength: 500
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: admin
+        maxLength: 100
+        minLength: 2
+        type: string
+    type: object
+  go-api-starter_internal_model.UpdateUserRequest:
     properties:
       age:
         example: 30
@@ -111,7 +344,7 @@ definitions:
         minLength: 2
         type: string
     type: object
-  model.User:
+  go-api-starter_internal_model.User:
     properties:
       age:
         type: integer
@@ -126,9 +359,10 @@ definitions:
       updated_at:
         type: string
     type: object
-  oss.UploadToken:
+  go-api-starter_pkg_oss.UploadToken:
     properties:
       accessid:
+        description: 返回给前端时使用小写，前端会转换为 OSSAccessKeyId
         type: string
       dir:
         type: string
@@ -143,7 +377,7 @@ definitions:
       signature:
         type: string
     type: object
-  response.Response:
+  go-api-starter_pkg_response.Response:
     properties:
       code:
         type: integer
@@ -151,7 +385,7 @@ definitions:
       message:
         type: string
     type: object
-  response.UserPageResult:
+  go-api-starter_pkg_response.UserPageResult:
     properties:
       list:
         items: {}
@@ -165,10 +399,55 @@ definitions:
       total_pages:
         type: integer
     type: object
+  internal_handler.CallbackRequest:
+    properties:
+      content_type:
+        type: string
+      file_name:
+        type: string
+      file_size:
+        type: integer
+      key:
+        type: string
+      md5:
+        type: string
+    required:
+    - file_name
+    - file_size
+    - key
+    - md5
+    type: object
+  internal_handler.HealthResponse:
+    properties:
+      status:
+        type: string
+      timestamp:
+        type: string
+      uptime:
+        type: string
+      version:
+        type: string
+    type: object
+  internal_handler.ReadinessResponse:
+    properties:
+      checks:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        type: string
+    type: object
 host: localhost:9527
 info:
-  contact: {}
-  description: A RESTful API starter with Go, Gin, and GORM
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: A RESTful API starter template with Go, Gin, GORM, and Swagger
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
   title: Go API Starter
   version: "1.0"
 paths:
@@ -183,7 +462,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.CallbackRequest'
+          $ref: '#/definitions/internal_handler.CallbackRequest'
       produces:
       - application/json
       responses:
@@ -191,19 +470,19 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.OSSFile'
+                  $ref: '#/definitions/go-api-starter_internal_model.OSSFile'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: OSS upload callback
       tags:
       - OSS
@@ -229,11 +508,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: List files
       tags:
       - OSS
@@ -254,15 +533,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: Delete file
       tags:
       - OSS
@@ -270,12 +549,16 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get upload token for client-side direct upload to OSS
+      description: Get upload token for client-side direct upload to OSS, or check
+        if file exists by MD5
       parameters:
-      - description: File name
+      - description: File MD5 hash (for checking if file exists)
+        in: query
+        name: md5
+        type: string
+      - description: File name (optional, for extension validation)
         in: query
         name: file_name
-        required: true
         type: string
       produces:
       - application/json
@@ -284,22 +567,534 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/oss.UploadToken'
+                  $ref: '#/definitions/go-api-starter_pkg_oss.UploadToken'
               type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: Get upload token
       tags:
       - OSS
+  /api/v1/permissions/me/permissions:
+    get:
+      description: 获取当前登录用户的所有权限代码
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      summary: 获取当前用户权限
+      tags:
+      - 用户权限
+  /api/v1/permissions/permissions:
+    get:
+      description: 获取所有权限详情
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/go-api-starter_internal_model.PermissionDetail'
+                  type: array
+              type: object
+      summary: 获取所有权限
+      tags:
+      - 权限管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的权限
+      parameters:
+      - description: 权限数据
+        in: body
+        name: permission
+        required: true
+        schema:
+          $ref: '#/definitions/go-api-starter_internal_model.CreatePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/go-api-starter_internal_model.Permission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 创建权限
+      tags:
+      - 权限管理
+  /api/v1/permissions/permissions/{id}:
+    delete:
+      description: 根据ID删除权限
+      parameters:
+      - description: 权限ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 删除权限
+      tags:
+      - 权限管理
+    get:
+      description: 根据ID获取权限详情
+      parameters:
+      - description: 权限ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/go-api-starter_internal_model.PermissionDetail'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 获取权限详情
+      tags:
+      - 权限管理
+    put:
+      consumes:
+      - application/json
+      description: 根据ID更新权限
+      parameters:
+      - description: 权限ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 权限数据
+        in: body
+        name: permission
+        required: true
+        schema:
+          $ref: '#/definitions/go-api-starter_internal_model.UpdatePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/go-api-starter_internal_model.Permission'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 更新权限
+      tags:
+      - 权限管理
+  /api/v1/permissions/roles:
+    get:
+      description: 获取所有角色列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/go-api-starter_internal_model.Role'
+                  type: array
+              type: object
+      summary: 获取所有角色
+      tags:
+      - 角色管理
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新角色，可选择性地分配权限
+      parameters:
+      - description: 角色数据
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/go-api-starter_internal_model.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/go-api-starter_internal_model.Role'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 创建角色
+      tags:
+      - 角色管理
+  /api/v1/permissions/roles/{id}:
+    delete:
+      description: 根据ID删除角色
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 删除角色
+      tags:
+      - 角色管理
+    get:
+      description: 根据ID获取角色详情及其权限
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/go-api-starter_internal_model.RoleDetail'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 获取角色详情
+      tags:
+      - 角色管理
+    put:
+      consumes:
+      - application/json
+      description: 根据ID更新角色
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 角色数据
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/go-api-starter_internal_model.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/go-api-starter_internal_model.Role'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 更新角色
+      tags:
+      - 角色管理
+  /api/v1/permissions/roles/{id}/permissions:
+    delete:
+      consumes:
+      - application/json
+      description: 从角色中移除一个或多个权限
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 权限代码列表
+        in: body
+        name: permissions
+        required: true
+        schema:
+          $ref: '#/definitions/go-api-starter_internal_model.RolePermissionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 移除角色权限
+      tags:
+      - 角色管理
+    get:
+      description: 获取角色的所有权限代码
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      summary: 获取角色权限
+      tags:
+      - 角色管理
+    post:
+      consumes:
+      - application/json
+      description: 为角色添加一个或多个权限
+      parameters:
+      - description: 角色ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 权限代码列表
+        in: body
+        name: permissions
+        required: true
+        schema:
+          $ref: '#/definitions/go-api-starter_internal_model.RolePermissionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 为角色添加权限
+      tags:
+      - 角色管理
+  /api/v1/permissions/spaces:
+    get:
+      description: 获取所有权限空间及其权限数量
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/go-api-starter_internal_model.SpaceWithCount'
+                  type: array
+              type: object
+      summary: 获取所有权限空间
+      tags:
+      - 权限空间
+    post:
+      consumes:
+      - application/json
+      description: 创建一个新的权限空间
+      parameters:
+      - description: 权限空间数据
+        in: body
+        name: space
+        required: true
+        schema:
+          $ref: '#/definitions/go-api-starter_internal_model.CreateSpaceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/go-api-starter_internal_model.PermissionSpace'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 创建权限空间
+      tags:
+      - 权限空间
+  /api/v1/permissions/users/{id}/permissions:
+    get:
+      description: 获取用户的所有权限代码
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  items:
+                    type: string
+                  type: array
+              type: object
+      summary: 获取用户权限
+      tags:
+      - 用户权限
+  /api/v1/permissions/users/{id}/roles:
+    get:
+      description: 获取用户的所有角色
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/go-api-starter_internal_model.Role'
+                  type: array
+              type: object
+      summary: 获取用户角色
+      tags:
+      - 用户权限
+    post:
+      consumes:
+      - application/json
+      description: 为用户分配一个角色
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 角色ID
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/go-api-starter_internal_model.AssignRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
+      summary: 为用户分配角色
+      tags:
+      - 用户权限
+  /api/v1/permissions/users/{id}/roles/{roleId}:
+    delete:
+      description: 从用户中移除一个角色
+      parameters:
+      - description: 用户ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 角色ID
+        in: path
+        name: roleId
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: 移除用户角色
+      tags:
+      - 用户权限
   /api/v1/users:
     get:
       description: 'Get a paginated list of users. Supports sorting by: id, name,
@@ -328,15 +1123,15 @@ paths:
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/response.UserPageResult'
+                  $ref: '#/definitions/go-api-starter_pkg_response.UserPageResult'
               type: object
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: List users with pagination
       tags:
       - users
@@ -350,7 +1145,7 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/model.CreateUserRequest'
+          $ref: '#/definitions/go-api-starter_internal_model.CreateUserRequest'
       produces:
       - application/json
       responses:
@@ -358,19 +1153,19 @@ paths:
           description: Created successfully
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.User'
+                  $ref: '#/definitions/go-api-starter_internal_model.User'
               type: object
         "400":
           description: Validation error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
         "500":
           description: Internal error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: Create a new user
       tags:
       - users
@@ -390,11 +1185,11 @@ paths:
         "400":
           description: Invalid ID
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
         "404":
           description: User not found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: Delete a user
       tags:
       - users
@@ -414,19 +1209,19 @@ paths:
           description: Success
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.User'
+                  $ref: '#/definitions/go-api-starter_internal_model.User'
               type: object
         "400":
           description: Invalid ID
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
         "404":
           description: User not found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: Get a user by ID
       tags:
       - users
@@ -446,7 +1241,7 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/model.UpdateUserRequest'
+          $ref: '#/definitions/go-api-starter_internal_model.UpdateUserRequest'
       produces:
       - application/json
       responses:
@@ -454,19 +1249,19 @@ paths:
           description: Updated successfully
           schema:
             allOf:
-            - $ref: '#/definitions/response.Response'
+            - $ref: '#/definitions/go-api-starter_pkg_response.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/model.User'
+                  $ref: '#/definitions/go-api-starter_internal_model.User'
               type: object
         "400":
           description: Validation error
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
         "404":
           description: User not found
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: Update a user
       tags:
       - users
@@ -479,7 +1274,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/handler.HealthResponse'
+            $ref: '#/definitions/internal_handler.HealthResponse'
       summary: Health check
       tags:
       - health
@@ -492,12 +1287,18 @@ paths:
         "200":
           description: Service is ready
           schema:
-            $ref: '#/definitions/handler.ReadinessResponse'
+            $ref: '#/definitions/internal_handler.ReadinessResponse'
         "503":
           description: Service is not ready
           schema:
-            $ref: '#/definitions/response.Response'
+            $ref: '#/definitions/go-api-starter_pkg_response.Response'
       summary: Readiness check
       tags:
       - health
+securityDefinitions:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

@@ -1,13 +1,19 @@
 package handler
 
 import (
+	"go-api-starter/internal/model"
 	"go-api-starter/internal/service"
+	"go-api-starter/pkg/oss"
 	"go-api-starter/pkg/response"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
+
+// Ensure packages are imported for swagger
+var _ = oss.UploadToken{}
+var _ = model.OSSFile{}
 
 type OSSHandler struct {
 	service *service.OSSService

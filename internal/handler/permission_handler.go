@@ -20,13 +20,17 @@ func NewPermissionHandler(svc *service.PermissionService) *PermissionHandler {
 	return &PermissionHandler{service: svc}
 }
 
+// ====================
+// 权限空间 (Permission Space)
+// ====================
+
 // CreateSpace godoc
-// @Summary Create a permission space
-// @Description Create a new permission space
-// @Tags permissions
+// @Summary 创建权限空间
+// @Description 创建一个新的权限空间
+// @Tags 权限空间
 // @Accept json
 // @Produce json
-// @Param space body model.CreateSpaceRequest true "Space data"
+// @Param space body model.CreateSpaceRequest true "权限空间数据"
 // @Success 201 {object} response.Response{data=model.PermissionSpace}
 // @Failure 400 {object} response.Response
 // @Failure 409 {object} response.Response
@@ -46,9 +50,9 @@ func (h *PermissionHandler) CreateSpace(c *gin.Context) {
 }
 
 // GetAllSpaces godoc
-// @Summary Get all permission spaces
-// @Description Get all permission spaces with permission count
-// @Tags permissions
+// @Summary 获取所有权限空间
+// @Description 获取所有权限空间及其权限数量
+// @Tags 权限空间
 // @Produce json
 // @Success 200 {object} response.Response{data=[]model.SpaceWithCount}
 // @Router /api/v1/permissions/spaces [get]
@@ -61,14 +65,17 @@ func (h *PermissionHandler) GetAllSpaces(c *gin.Context) {
 	response.Success(c, spaces)
 }
 
+// ====================
+// 权限管理 (Permission Management)
+// ====================
 
 // CreatePermission godoc
-// @Summary Create a permission
-// @Description Create a new permission
-// @Tags permissions
+// @Summary 创建权限
+// @Description 创建一个新的权限
+// @Tags 权限管理
 // @Accept json
 // @Produce json
-// @Param permission body model.CreatePermissionRequest true "Permission data"
+// @Param permission body model.CreatePermissionRequest true "权限数据"
 // @Success 201 {object} response.Response{data=model.Permission}
 // @Failure 400 {object} response.Response
 // @Router /api/v1/permissions/permissions [post]
@@ -87,9 +94,9 @@ func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 }
 
 // GetAllPermissions godoc
-// @Summary Get all permissions
-// @Description Get all permissions with details
-// @Tags permissions
+// @Summary 获取所有权限
+// @Description 获取所有权限详情
+// @Tags 权限管理
 // @Produce json
 // @Success 200 {object} response.Response{data=[]model.PermissionDetail}
 // @Router /api/v1/permissions/permissions [get]
@@ -103,11 +110,11 @@ func (h *PermissionHandler) GetAllPermissions(c *gin.Context) {
 }
 
 // GetPermission godoc
-// @Summary Get a permission
-// @Description Get a permission by ID
-// @Tags permissions
+// @Summary 获取权限详情
+// @Description 根据ID获取权限详情
+// @Tags 权限管理
 // @Produce json
-// @Param id path int true "Permission ID"
+// @Param id path int true "权限ID"
 // @Success 200 {object} response.Response{data=model.PermissionDetail}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/permissions/{id} [get]
@@ -126,13 +133,13 @@ func (h *PermissionHandler) GetPermission(c *gin.Context) {
 }
 
 // UpdatePermission godoc
-// @Summary Update a permission
-// @Description Update a permission by ID
-// @Tags permissions
+// @Summary 更新权限
+// @Description 根据ID更新权限
+// @Tags 权限管理
 // @Accept json
 // @Produce json
-// @Param id path int true "Permission ID"
-// @Param permission body model.UpdatePermissionRequest true "Permission data"
+// @Param id path int true "权限ID"
+// @Param permission body model.UpdatePermissionRequest true "权限数据"
 // @Success 200 {object} response.Response{data=model.Permission}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/permissions/{id} [put]
@@ -156,10 +163,10 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 }
 
 // DeletePermission godoc
-// @Summary Delete a permission
-// @Description Delete a permission by ID
-// @Tags permissions
-// @Param id path int true "Permission ID"
+// @Summary 删除权限
+// @Description 根据ID删除权限
+// @Tags 权限管理
+// @Param id path int true "权限ID"
 // @Success 204
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/permissions/{id} [delete]
@@ -176,14 +183,17 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 	response.NoContent(c)
 }
 
+// ====================
+// 角色管理 (Role Management)
+// ====================
 
 // CreateRole godoc
-// @Summary Create a role
-// @Description Create a new role with optional permissions
-// @Tags permissions
+// @Summary 创建角色
+// @Description 创建一个新角色，可选择性地分配权限
+// @Tags 角色管理
 // @Accept json
 // @Produce json
-// @Param role body model.CreateRoleRequest true "Role data"
+// @Param role body model.CreateRoleRequest true "角色数据"
 // @Success 201 {object} response.Response{data=model.Role}
 // @Failure 400 {object} response.Response
 // @Router /api/v1/permissions/roles [post]
@@ -202,9 +212,9 @@ func (h *PermissionHandler) CreateRole(c *gin.Context) {
 }
 
 // GetAllRoles godoc
-// @Summary Get all roles
-// @Description Get all roles
-// @Tags permissions
+// @Summary 获取所有角色
+// @Description 获取所有角色列表
+// @Tags 角色管理
 // @Produce json
 // @Success 200 {object} response.Response{data=[]model.Role}
 // @Router /api/v1/permissions/roles [get]
@@ -218,11 +228,11 @@ func (h *PermissionHandler) GetAllRoles(c *gin.Context) {
 }
 
 // GetRole godoc
-// @Summary Get a role
-// @Description Get a role by ID with permissions
-// @Tags permissions
+// @Summary 获取角色详情
+// @Description 根据ID获取角色详情及其权限
+// @Tags 角色管理
 // @Produce json
-// @Param id path int true "Role ID"
+// @Param id path int true "角色ID"
 // @Success 200 {object} response.Response{data=model.RoleDetail}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/roles/{id} [get]
@@ -241,13 +251,13 @@ func (h *PermissionHandler) GetRole(c *gin.Context) {
 }
 
 // UpdateRole godoc
-// @Summary Update a role
-// @Description Update a role by ID
-// @Tags permissions
+// @Summary 更新角色
+// @Description 根据ID更新角色
+// @Tags 角色管理
 // @Accept json
 // @Produce json
-// @Param id path int true "Role ID"
-// @Param role body model.UpdateRoleRequest true "Role data"
+// @Param id path int true "角色ID"
+// @Param role body model.UpdateRoleRequest true "角色数据"
 // @Success 200 {object} response.Response{data=model.Role}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/roles/{id} [put]
@@ -271,10 +281,10 @@ func (h *PermissionHandler) UpdateRole(c *gin.Context) {
 }
 
 // DeleteRole godoc
-// @Summary Delete a role
-// @Description Delete a role by ID
-// @Tags permissions
-// @Param id path int true "Role ID"
+// @Summary 删除角色
+// @Description 根据ID删除角色
+// @Tags 角色管理
+// @Param id path int true "角色ID"
 // @Success 204
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/roles/{id} [delete]
@@ -291,13 +301,12 @@ func (h *PermissionHandler) DeleteRole(c *gin.Context) {
 	response.NoContent(c)
 }
 
-
 // GetRolePermissions godoc
-// @Summary Get role permissions
-// @Description Get all permission codes for a role
-// @Tags permissions
+// @Summary 获取角色权限
+// @Description 获取角色的所有权限代码
+// @Tags 角色管理
 // @Produce json
-// @Param id path int true "Role ID"
+// @Param id path int true "角色ID"
 // @Success 200 {object} response.Response{data=[]string}
 // @Router /api/v1/permissions/roles/{id}/permissions [get]
 func (h *PermissionHandler) GetRolePermissions(c *gin.Context) {
@@ -315,13 +324,13 @@ func (h *PermissionHandler) GetRolePermissions(c *gin.Context) {
 }
 
 // AddRolePermissions godoc
-// @Summary Add permissions to role
-// @Description Add permissions to a role
-// @Tags permissions
+// @Summary 为角色添加权限
+// @Description 为角色添加一个或多个权限
+// @Tags 角色管理
 // @Accept json
 // @Produce json
-// @Param id path int true "Role ID"
-// @Param permissions body model.RolePermissionsRequest true "Permission codes"
+// @Param id path int true "角色ID"
+// @Param permissions body model.RolePermissionsRequest true "权限代码列表"
 // @Success 200 {object} response.Response
 // @Router /api/v1/permissions/roles/{id}/permissions [post]
 func (h *PermissionHandler) AddRolePermissions(c *gin.Context) {
@@ -343,13 +352,13 @@ func (h *PermissionHandler) AddRolePermissions(c *gin.Context) {
 }
 
 // RemoveRolePermissions godoc
-// @Summary Remove permissions from role
-// @Description Remove permissions from a role
-// @Tags permissions
+// @Summary 移除角色权限
+// @Description 从角色中移除一个或多个权限
+// @Tags 角色管理
 // @Accept json
 // @Produce json
-// @Param id path int true "Role ID"
-// @Param permissions body model.RolePermissionsRequest true "Permission codes"
+// @Param id path int true "角色ID"
+// @Param permissions body model.RolePermissionsRequest true "权限代码列表"
 // @Success 200 {object} response.Response
 // @Router /api/v1/permissions/roles/{id}/permissions [delete]
 func (h *PermissionHandler) RemoveRolePermissions(c *gin.Context) {
@@ -370,13 +379,16 @@ func (h *PermissionHandler) RemoveRolePermissions(c *gin.Context) {
 	response.Success(c, nil)
 }
 
+// ====================
+// 用户权限 (User Permissions)
+// ====================
 
 // GetUserRoles godoc
-// @Summary Get user roles
-// @Description Get all roles for a user
-// @Tags permissions
+// @Summary 获取用户角色
+// @Description 获取用户的所有角色
+// @Tags 用户权限
 // @Produce json
-// @Param id path int true "User ID"
+// @Param id path int true "用户ID"
 // @Success 200 {object} response.Response{data=[]model.Role}
 // @Router /api/v1/permissions/users/{id}/roles [get]
 func (h *PermissionHandler) GetUserRoles(c *gin.Context) {
@@ -394,13 +406,13 @@ func (h *PermissionHandler) GetUserRoles(c *gin.Context) {
 }
 
 // AssignUserRole godoc
-// @Summary Assign role to user
-// @Description Assign a role to a user
-// @Tags permissions
+// @Summary 为用户分配角色
+// @Description 为用户分配一个角色
+// @Tags 用户权限
 // @Accept json
 // @Produce json
-// @Param id path int true "User ID"
-// @Param role body model.AssignRoleRequest true "Role ID"
+// @Param id path int true "用户ID"
+// @Param role body model.AssignRoleRequest true "角色ID"
 // @Success 200 {object} response.Response
 // @Router /api/v1/permissions/users/{id}/roles [post]
 func (h *PermissionHandler) AssignUserRole(c *gin.Context) {
@@ -422,11 +434,11 @@ func (h *PermissionHandler) AssignUserRole(c *gin.Context) {
 }
 
 // RemoveUserRole godoc
-// @Summary Remove role from user
-// @Description Remove a role from a user
-// @Tags permissions
-// @Param id path int true "User ID"
-// @Param roleId path int true "Role ID"
+// @Summary 移除用户角色
+// @Description 从用户中移除一个角色
+// @Tags 用户权限
+// @Param id path int true "用户ID"
+// @Param roleId path int true "角色ID"
 // @Success 204
 // @Router /api/v1/permissions/users/{id}/roles/{roleId} [delete]
 func (h *PermissionHandler) RemoveUserRole(c *gin.Context) {
@@ -448,11 +460,11 @@ func (h *PermissionHandler) RemoveUserRole(c *gin.Context) {
 }
 
 // GetUserPermissions godoc
-// @Summary Get user permissions
-// @Description Get all permission codes for a user
-// @Tags permissions
+// @Summary 获取用户权限
+// @Description 获取用户的所有权限代码
+// @Tags 用户权限
 // @Produce json
-// @Param id path int true "User ID"
+// @Param id path int true "用户ID"
 // @Success 200 {object} response.Response{data=[]string}
 // @Router /api/v1/permissions/users/{id}/permissions [get]
 func (h *PermissionHandler) GetUserPermissions(c *gin.Context) {
@@ -470,9 +482,9 @@ func (h *PermissionHandler) GetUserPermissions(c *gin.Context) {
 }
 
 // GetMyPermissions godoc
-// @Summary Get current user permissions
-// @Description Get all permission codes for the current user
-// @Tags permissions
+// @Summary 获取当前用户权限
+// @Description 获取当前登录用户的所有权限代码
+// @Tags 用户权限
 // @Produce json
 // @Success 200 {object} response.Response{data=[]string}
 // @Router /api/v1/permissions/me/permissions [get]
@@ -494,7 +506,6 @@ func (h *PermissionHandler) GetMyPermissions(c *gin.Context) {
 	}
 	response.Success(c, codes)
 }
-
 
 func handlePermissionError(c *gin.Context, err error) {
 	switch err {

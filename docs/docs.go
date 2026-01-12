@@ -9,7 +9,16 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "http://www.swagger.io/support",
+            "email": "support@swagger.io"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -35,7 +44,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.CallbackRequest"
+                            "$ref": "#/definitions/internal_handler.CallbackRequest"
                         }
                     }
                 ],
@@ -45,13 +54,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.OSSFile"
+                                            "$ref": "#/definitions/go-api-starter_internal_model.OSSFile"
                                         }
                                     }
                                 }
@@ -61,13 +70,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     }
                 }
@@ -106,13 +115,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     }
                 }
@@ -144,19 +153,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     }
                 }
@@ -164,7 +173,7 @@ const docTemplate = `{
         },
         "/api/v1/oss/token": {
             "get": {
-                "description": "Get upload token for client-side direct upload to OSS",
+                "description": "Get upload token for client-side direct upload to OSS, or check if file exists by MD5",
                 "consumes": [
                     "application/json"
                 ],
@@ -178,10 +187,15 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "File name",
+                        "description": "File MD5 hash (for checking if file exists)",
+                        "name": "md5",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "File name (optional, for extension validation)",
                         "name": "file_name",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -190,13 +204,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/oss.UploadToken"
+                                            "$ref": "#/definitions/go-api-starter_pkg_oss.UploadToken"
                                         }
                                     }
                                 }
@@ -206,14 +220,851 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/me/permissions": {
+            "get": {
+                "description": "获取当前登录用户的所有权限代码",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户权限"
+                ],
+                "summary": "获取当前用户权限",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/permissions": {
+            "get": {
+                "description": "获取所有权限详情",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限管理"
+                ],
+                "summary": "获取所有权限",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/go-api-starter_internal_model.PermissionDetail"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建一个新的权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限管理"
+                ],
+                "summary": "创建权限",
+                "parameters": [
+                    {
+                        "description": "权限数据",
+                        "name": "permission",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_internal_model.CreatePermissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go-api-starter_internal_model.Permission"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/permissions/{id}": {
+            "get": {
+                "description": "根据ID获取权限详情",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限管理"
+                ],
+                "summary": "获取权限详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "权限ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go-api-starter_internal_model.PermissionDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "根据ID更新权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限管理"
+                ],
+                "summary": "更新权限",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "权限ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "权限数据",
+                        "name": "permission",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_internal_model.UpdatePermissionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go-api-starter_internal_model.Permission"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "根据ID删除权限",
+                "tags": [
+                    "权限管理"
+                ],
+                "summary": "删除权限",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "权限ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/roles": {
+            "get": {
+                "description": "获取所有角色列表",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "角色管理"
+                ],
+                "summary": "获取所有角色",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建一个新角色，可选择性地分配权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "角色管理"
+                ],
+                "summary": "创建角色",
+                "parameters": [
+                    {
+                        "description": "角色数据",
+                        "name": "role",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_internal_model.CreateRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/roles/{id}": {
+            "get": {
+                "description": "根据ID获取角色详情及其权限",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "角色管理"
+                ],
+                "summary": "获取角色详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go-api-starter_internal_model.RoleDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "根据ID更新角色",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "角色管理"
+                ],
+                "summary": "更新角色",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "角色数据",
+                        "name": "role",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_internal_model.UpdateRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "根据ID删除角色",
+                "tags": [
+                    "角色管理"
+                ],
+                "summary": "删除角色",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/roles/{id}/permissions": {
+            "get": {
+                "description": "获取角色的所有权限代码",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "角色管理"
+                ],
+                "summary": "获取角色权限",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "为角色添加一个或多个权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "角色管理"
+                ],
+                "summary": "为角色添加权限",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "权限代码列表",
+                        "name": "permissions",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_internal_model.RolePermissionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "从角色中移除一个或多个权限",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "角色管理"
+                ],
+                "summary": "移除角色权限",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "权限代码列表",
+                        "name": "permissions",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_internal_model.RolePermissionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/spaces": {
+            "get": {
+                "description": "获取所有权限空间及其权限数量",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限空间"
+                ],
+                "summary": "获取所有权限空间",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/go-api-starter_internal_model.SpaceWithCount"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "创建一个新的权限空间",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限空间"
+                ],
+                "summary": "创建权限空间",
+                "parameters": [
+                    {
+                        "description": "权限空间数据",
+                        "name": "space",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_internal_model.CreateSpaceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/go-api-starter_internal_model.PermissionSpace"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/users/{id}/permissions": {
+            "get": {
+                "description": "获取用户的所有权限代码",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户权限"
+                ],
+                "summary": "获取用户权限",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/users/{id}/roles": {
+            "get": {
+                "description": "获取用户的所有角色",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户权限"
+                ],
+                "summary": "获取用户角色",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "为用户分配一个角色",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户权限"
+                ],
+                "summary": "为用户分配角色",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "角色ID",
+                        "name": "role",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_internal_model.AssignRoleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/permissions/users/{id}/roles/{roleId}": {
+            "delete": {
+                "description": "从用户中移除一个角色",
+                "tags": [
+                    "用户权限"
+                ],
+                "summary": "移除用户角色",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "角色ID",
+                        "name": "roleId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     }
                 }
             }
@@ -257,13 +1108,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/response.UserPageResult"
+                                            "$ref": "#/definitions/go-api-starter_pkg_response.UserPageResult"
                                         }
                                     }
                                 }
@@ -273,7 +1124,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     }
                 }
@@ -297,7 +1148,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.CreateUserRequest"
+                            "$ref": "#/definitions/go-api-starter_internal_model.CreateUserRequest"
                         }
                     }
                 ],
@@ -307,13 +1158,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.User"
+                                            "$ref": "#/definitions/go-api-starter_internal_model.User"
                                         }
                                     }
                                 }
@@ -323,13 +1174,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Validation error",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     },
                     "500": {
                         "description": "Internal error",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     }
                 }
@@ -361,13 +1212,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.User"
+                                            "$ref": "#/definitions/go-api-starter_internal_model.User"
                                         }
                                     }
                                 }
@@ -377,13 +1228,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid ID",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     }
                 }
@@ -415,7 +1266,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/model.UpdateUserRequest"
+                            "$ref": "#/definitions/go-api-starter_internal_model.UpdateUserRequest"
                         }
                     }
                 ],
@@ -425,13 +1276,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/response.Response"
+                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.User"
+                                            "$ref": "#/definitions/go-api-starter_internal_model.User"
                                         }
                                     }
                                 }
@@ -441,13 +1292,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Validation error",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     }
                 }
@@ -475,13 +1326,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid ID",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     },
                     "404": {
                         "description": "User not found",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     }
                 }
@@ -501,7 +1352,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handler.HealthResponse"
+                            "$ref": "#/definitions/internal_handler.HealthResponse"
                         }
                     }
                 }
@@ -521,13 +1372,13 @@ const docTemplate = `{
                     "200": {
                         "description": "Service is ready",
                         "schema": {
-                            "$ref": "#/definitions/handler.ReadinessResponse"
+                            "$ref": "#/definitions/internal_handler.ReadinessResponse"
                         }
                     },
                     "503": {
                         "description": "Service is not ready",
                         "schema": {
-                            "$ref": "#/definitions/response.Response"
+                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
                         }
                     }
                 }
@@ -535,60 +1386,103 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "handler.CallbackRequest": {
+        "go-api-starter_internal_model.AssignRoleRequest": {
             "type": "object",
             "required": [
-                "file_name",
-                "file_size",
-                "key"
+                "role_id"
             ],
             "properties": {
-                "content_type": {
-                    "type": "string"
-                },
-                "file_name": {
-                    "type": "string"
-                },
-                "file_size": {
-                    "type": "integer"
-                },
-                "key": {
-                    "type": "string"
+                "role_id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
-        "handler.HealthResponse": {
+        "go-api-starter_internal_model.CreatePermissionRequest": {
             "type": "object",
+            "required": [
+                "code",
+                "name",
+                "space_id"
+            ],
             "properties": {
-                "status": {
-                    "type": "string"
+                "code": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 2,
+                    "example": "USER_CREATE"
                 },
-                "timestamp": {
-                    "type": "string"
+                "description": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "example": "允许创建新用户"
                 },
-                "uptime": {
-                    "type": "string"
+                "module": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "example": "user"
                 },
-                "version": {
-                    "type": "string"
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2,
+                    "example": "创建用户"
+                },
+                "space_id": {
+                    "type": "integer",
+                    "example": 1
                 }
             }
         },
-        "handler.ReadinessResponse": {
+        "go-api-starter_internal_model.CreateRoleRequest": {
             "type": "object",
+            "required": [
+                "name"
+            ],
             "properties": {
-                "checks": {
-                    "type": "object",
-                    "additionalProperties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "example": "系统管理员"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2,
+                    "example": "admin"
+                },
+                "permission_codes": {
+                    "type": "array",
+                    "items": {
                         "type": "string"
-                    }
-                },
-                "status": {
-                    "type": "string"
+                    },
+                    "example": [
+                        "USER_CREATE",
+                        "USER_READ"
+                    ]
                 }
             }
         },
-        "model.CreateUserRequest": {
+        "go-api-starter_internal_model.CreateSpaceRequest": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "example": "用户管理权限空间"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2,
+                    "example": "user"
+                }
+            }
+        },
+        "go-api-starter_internal_model.CreateUserRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -613,7 +1507,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.OSSFile": {
+        "go-api-starter_internal_model.OSSFile": {
             "type": "object",
             "properties": {
                 "content_type": {
@@ -647,6 +1541,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "uploads/2026/01/12/uuid.jpg"
                 },
+                "md5": {
+                    "description": "File MD5 hash",
+                    "type": "string",
+                    "example": "5d41402abc4b2a76b9719d911017c592"
+                },
                 "status": {
                     "description": "Status: 1=active, 0=deleted",
                     "type": "integer",
@@ -667,7 +1566,293 @@ const docTemplate = `{
                 }
             }
         },
-        "model.UpdateUserRequest": {
+        "go-api-starter_internal_model.Permission": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "module": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "description": "0-63",
+                    "type": "integer"
+                },
+                "space": {
+                    "$ref": "#/definitions/go-api-starter_internal_model.PermissionSpace"
+                },
+                "space_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "value": {
+                    "description": "2^position",
+                    "type": "integer"
+                }
+            }
+        },
+        "go-api-starter_internal_model.PermissionDetail": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "module": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "space_id": {
+                    "type": "integer"
+                },
+                "space_name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "integer"
+                }
+            }
+        },
+        "go-api-starter_internal_model.PermissionSpace": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/go-api-starter_internal_model.Permission"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "go-api-starter_internal_model.Role": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "is_system": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role_permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/go-api-starter_internal_model.RolePermission"
+                    }
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "go-api-starter_internal_model.RoleDetail": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "is_system": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permission_codes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/go-api-starter_internal_model.PermissionDetail"
+                    }
+                }
+            }
+        },
+        "go-api-starter_internal_model.RolePermission": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "permission": {
+                    "$ref": "#/definitions/go-api-starter_internal_model.Permission"
+                },
+                "permission_id": {
+                    "type": "integer"
+                },
+                "role": {
+                    "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                },
+                "role_id": {
+                    "type": "integer"
+                },
+                "space": {
+                    "$ref": "#/definitions/go-api-starter_internal_model.PermissionSpace"
+                },
+                "space_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "value": {
+                    "description": "该空间下的位运算值",
+                    "type": "integer"
+                }
+            }
+        },
+        "go-api-starter_internal_model.RolePermissionsRequest": {
+            "type": "object",
+            "required": [
+                "permission_codes"
+            ],
+            "properties": {
+                "permission_codes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "USER_CREATE",
+                        "USER_READ"
+                    ]
+                }
+            }
+        },
+        "go-api-starter_internal_model.SpaceWithCount": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permission_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "go-api-starter_internal_model.UpdatePermissionRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "example": "允许创建新用户"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2,
+                    "example": "创建用户"
+                }
+            }
+        },
+        "go-api-starter_internal_model.UpdateRoleRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "example": "系统管理员"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2,
+                    "example": "admin"
+                }
+            }
+        },
+        "go-api-starter_internal_model.UpdateUserRequest": {
             "type": "object",
             "properties": {
                 "age": {
@@ -688,7 +1873,7 @@ const docTemplate = `{
                 }
             }
         },
-        "model.User": {
+        "go-api-starter_internal_model.User": {
             "type": "object",
             "properties": {
                 "age": {
@@ -711,10 +1896,11 @@ const docTemplate = `{
                 }
             }
         },
-        "oss.UploadToken": {
+        "go-api-starter_pkg_oss.UploadToken": {
             "type": "object",
             "properties": {
                 "accessid": {
+                    "description": "返回给前端时使用小写，前端会转换为 OSSAccessKeyId",
                     "type": "string"
                 },
                 "dir": {
@@ -737,7 +1923,7 @@ const docTemplate = `{
                 }
             }
         },
-        "response.Response": {
+        "go-api-starter_pkg_response.Response": {
             "type": "object",
             "properties": {
                 "code": {
@@ -749,7 +1935,7 @@ const docTemplate = `{
                 }
             }
         },
-        "response.UserPageResult": {
+        "go-api-starter_pkg_response.UserPageResult": {
             "type": "object",
             "properties": {
                 "list": {
@@ -769,6 +1955,71 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "internal_handler.CallbackRequest": {
+            "type": "object",
+            "required": [
+                "file_name",
+                "file_size",
+                "key",
+                "md5"
+            ],
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "md5": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "uptime": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler.ReadinessResponse": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "Bearer": {
+            "description": "Type \"Bearer\" followed by a space and JWT token.",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`
@@ -780,7 +2031,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Go API Starter",
-	Description:      "A RESTful API starter with Go, Gin, and GORM",
+	Description:      "A RESTful API starter template with Go, Gin, GORM, and Swagger",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

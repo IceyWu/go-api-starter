@@ -1,11 +1,9 @@
 package handler
 
 import (
-	"errors"
 	"strconv"
 
 	"go-api-starter/internal/model"
-	"go-api-starter/internal/repository"
 	"go-api-starter/internal/service"
 	"go-api-starter/pkg/response"
 
@@ -34,15 +32,17 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 // @Failure 500 {object} response.Response "Internal error"
 // @Router /api/v1/users [post]
 func (h *UserHandler) Create(c *gin.Context) {
+	ctx := c.Request.Context()
+	
 	var req model.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "validation error: "+err.Error())
 		return
 	}
 
-	user, err := h.service.Create(&req)
+	user, err := h.service.Create(ctx, &req)
 	if err != nil {
-		response.InternalError(c, err.Error())
+		handleError(c, err)
 		return
 	}
 
@@ -61,15 +61,17 @@ func (h *UserHandler) Create(c *gin.Context) {
 // @Failure 500 {object} response.Response
 // @Router /api/v1/users [get]
 func (h *UserHandler) List(c *gin.Context) {
+	ctx := c.Request.Context()
+	
 	var pagination response.Pagination
 	if err := c.ShouldBindQuery(&pagination); err != nil {
 		response.BadRequest(c, "invalid pagination params")
 		return
 	}
 
-	users, total, err := h.service.List(pagination.GetOffset(), pagination.GetPageSize(), pagination.GetSort())
+	users, total, err := h.service.List(ctx, pagination.GetOffset(), pagination.GetPageSize(), pagination.GetSort())
 	if err != nil {
-		response.InternalError(c, err.Error())
+		handleError(c, err)
 		return
 	}
 	response.SuccessWithPage(c, users, total, &pagination)
@@ -86,19 +88,17 @@ func (h *UserHandler) List(c *gin.Context) {
 // @Failure 404 {object} response.Response "User not found"
 // @Router /api/v1/users/{id} [get]
 func (h *UserHandler) Get(c *gin.Context) {
+	ctx := c.Request.Context()
+	
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		response.BadRequest(c, "invalid user ID")
 		return
 	}
 
-	user, err := h.service.GetByID(uint(id))
+	user, err := h.service.GetByID(ctx, uint(id))
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			response.NotFound(c, "user not found")
-			return
-		}
-		response.InternalError(c, err.Error())
+		handleError(c, err)
 		return
 	}
 	response.Success(c, user)
@@ -117,6 +117,8 @@ func (h *UserHandler) Get(c *gin.Context) {
 // @Failure 404 {object} response.Response "User not found"
 // @Router /api/v1/users/{id} [put]
 func (h *UserHandler) Update(c *gin.Context) {
+	ctx := c.Request.Context()
+	
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		response.BadRequest(c, "invalid user ID")
@@ -129,13 +131,9 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.Update(uint(id), &req)
+	user, err := h.service.Update(ctx, uint(id), &req)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			response.NotFound(c, "user not found")
-			return
-		}
-		response.InternalError(c, err.Error())
+		handleError(c, err)
 		return
 	}
 	response.Success(c, user)
@@ -151,18 +149,16 @@ func (h *UserHandler) Update(c *gin.Context) {
 // @Failure 404 {object} response.Response "User not found"
 // @Router /api/v1/users/{id} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
+	ctx := c.Request.Context()
+	
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		response.BadRequest(c, "invalid user ID")
 		return
 	}
 
-	if err := h.service.Delete(uint(id)); err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			response.NotFound(c, "user not found")
-			return
-		}
-		response.InternalError(c, err.Error())
+	if err := h.service.Delete(ctx, uint(id)); err != nil {
+		handleError(c, err)
 		return
 	}
 	response.NoContent(c)

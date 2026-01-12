@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 
 	"go-api-starter/internal/model"
@@ -21,29 +22,29 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 }
 
 // Create creates a new user
-func (r *UserRepository) Create(user *model.User) error {
-	return r.db.Create(user).Error
+func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Create(user).Error
 }
 
 // FindAll returns all users with pagination and sorting
-func (r *UserRepository) FindAll(offset, limit int, sort string) ([]model.User, int64, error) {
+func (r *UserRepository) FindAll(ctx context.Context, offset, limit int, sort string) ([]model.User, int64, error) {
 	var users []model.User
 	var total int64
 
 	// Count total
-	if err := r.db.Model(&model.User{}).Count(&total).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&model.User{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// Get paginated and sorted data
-	err := r.db.Offset(offset).Limit(limit).Order(sort).Find(&users).Error
+	err := r.db.WithContext(ctx).Offset(offset).Limit(limit).Order(sort).Find(&users).Error
 	return users, total, err
 }
 
 // FindByID finds a user by ID
-func (r *UserRepository) FindByID(id uint) (*model.User, error) {
+func (r *UserRepository) FindByID(ctx context.Context, id uint) (*model.User, error) {
 	var user model.User
-	err := r.db.First(&user, id).Error
+	err := r.db.WithContext(ctx).First(&user, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrUserNotFound
 	}
@@ -51,13 +52,13 @@ func (r *UserRepository) FindByID(id uint) (*model.User, error) {
 }
 
 // Update updates a user
-func (r *UserRepository) Update(user *model.User) error {
-	return r.db.Save(user).Error
+func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
 }
 
 // Delete soft deletes a user by ID
-func (r *UserRepository) Delete(id uint) error {
-	result := r.db.Delete(&model.User{}, id)
+func (r *UserRepository) Delete(ctx context.Context, id uint) error {
+	result := r.db.WithContext(ctx).Delete(&model.User{}, id)
 	if result.RowsAffected == 0 {
 		return ErrUserNotFound
 	}

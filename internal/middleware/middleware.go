@@ -1,51 +1,61 @@
 package middleware
 
 import (
-	"log"
 	"time"
 
+	"go-api-starter/pkg/logger"
+	"go-api-starter/pkg/response"
+
+	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 )
 
-// Logger returns a logging middleware
+// RequestID returns a request ID middleware
+func RequestID() gin.HandlerFunc {
+	return requestid.New()
+}
+
+// Logger returns a logging middleware using zap
 func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
+		query := c.Request.URL.RawQuery
 		method := c.Request.Method
+		requestID := requestid.Get(c)
 
 		c.Next()
 
 		latency := time.Since(start)
 		status := c.Writer.Status()
+		clientIP := c.ClientIP()
+		errorMessage := c.Errors.ByType(gin.ErrorTypePrivate).String()
 
-		log.Printf("[%s] %s %d %v", method, path, status, latency)
-	}
-}
-
-// CORS returns a CORS middleware
-func CORS() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
+		if query != "" {
+			path = path + "?" + query
 		}
 
-		c.Next()
+		logger.Log.Infow("HTTP Request",
+			"request_id", requestID,
+			"method", method,
+			"path", path,
+			"status", status,
+			"latency", latency,
+			"client_ip", clientIP,
+			"error", errorMessage,
+		)
 	}
 }
 
 // Recovery returns a recovery middleware that handles panics
 func Recovery() gin.HandlerFunc {
 	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
-		log.Printf("Panic recovered: %v", recovered)
-		c.JSON(500, gin.H{
-			"code":    500,
-			"message": "internal server error",
-		})
+		requestID := requestid.Get(c)
+		logger.Log.Errorw("Panic recovered",
+			"request_id", requestID,
+			"error", recovered,
+			"path", c.Request.URL.Path,
+		)
+		response.InternalError(c, "internal server error")
 	})
 }

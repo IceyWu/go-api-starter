@@ -1,0 +1,65 @@
+### 测试 API 端点
+### 可以使用 VS Code 的 REST Client 插件或其他 HTTP 客户端
+
+@baseUrl = http://localhost:9527
+@apiUrl = {{baseUrl}}/api/v1
+
+### 健康检查
+GET {{baseUrl}}/health
+
+### 就绪检查
+GET {{baseUrl}}/health/ready
+
+### 1. 创建用户
+POST {{apiUrl}}/users
+Content-Type: application/json
+
+{
+  "name": "张三",
+  "email": "zhangsan@example.com",
+  "age": 25
+}
+
+### 2. 获取用户列表（带分页）
+GET {{apiUrl}}/users?page=1&page_size=10&sort=createdAt,desc
+
+### 3. 获取单个用户
+GET {{apiUrl}}/users/1
+
+### 4. 更新用户
+PUT {{apiUrl}}/users/1
+Content-Type: application/json
+
+{
+  "name": "张三（已更新）",
+  "age": 26
+}
+
+### 5. 删除用户
+DELETE {{apiUrl}}/users/1
+
+### 6. 查看 API 文档
+GET {{baseUrl}}/docs
+
+### 7. 查看 Swagger 文档
+GET {{baseUrl}}/swagger/index.html
+
+### 8. 测试限流（快速发送多个请求）
+GET {{apiUrl}}/users
+
+### 9. 测试错误处理（无效 ID）
+GET {{apiUrl}}/users/invalid
+
+### 10. 测试验证（缺少必填字段）
+POST {{apiUrl}}/users
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+
+### 11. 测试 404 错误
+GET {{apiUrl}}/users/99999
+
+### 12. 性能分析（开发环境）
+GET {{baseUrl}}/debug/pprof/

@@ -5,8 +5,8 @@ ifeq ($(OS),Windows_NT)
     SHELL := powershell.exe
     .SHELLFLAGS := -NoProfile -Command
     RM = Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-    LOAD_ENV_DEV = Get-Content .env.dev -ErrorAction SilentlyContinue | ForEach-Object { if($$_ -match '^([^#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } };
-    LOAD_ENV_PROD = Get-Content .env.prod -ErrorAction SilentlyContinue | ForEach-Object { if($$_ -match '^([^#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } };
+	LOAD_ENV_DEV = Get-Content .env.dev -ErrorAction SilentlyContinue | ForEach-Object { if($$_ -match '^([^\#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } };
+	LOAD_ENV_PROD = Get-Content .env.prod -ErrorAction SilentlyContinue | ForEach-Object { if($$_ -match '^([^\#][^=]*)=(.*)$$') { [Environment]::SetEnvironmentVariable($$matches[1], $$matches[2]) } };
 else
     RM = rm -rf
     LOAD_ENV_DEV = set -a && [ -f .env.dev ] && . ./.env.dev; set +a;

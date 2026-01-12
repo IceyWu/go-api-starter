@@ -21,7 +21,17 @@
 - 📦 **GORM** - 强大的 ORM 库
 - 📝 **Swagger/Scalar** - 美观的 API 文档界面
 - ⚙️ **Viper** - 灵活的配置管理
+- 🌍 **Godotenv** - 环境变量管理
 - 📊 **Zap** - 高性能结构化日志
+- 🔍 **Request ID** - 请求追踪支持
+- 🛡️ **CORS** - 跨域资源共享支持
+- ⏱️ **Rate Limiting** - API 限流保护
+- 🎯 **Graceful Shutdown** - 优雅关闭支持
+- 🔄 **Context Propagation** - 完整的上下文传递
+- ❌ **Enhanced Error Handling** - 统一的错误处理机制
+- 💊 **Health Checks** - 健康检查和就绪检查端点
+- 🗜️ **Gzip Compression** - 响应压缩支持
+- 📈 **Performance Monitoring** - pprof 性能分析
 - 🎯 **完整 CRUD 示例** - 开箱即用的用户管理模块
 - 🔧 **零外部依赖** - 使用 SQLite，无需安装数据库
 
@@ -33,8 +43,14 @@
 | ORM | [GORM](https://gorm.io/) |
 | 数据库 | SQLite / MySQL |
 | 配置管理 | [Viper](https://github.com/spf13/viper) |
+| 环境变量 | [Godotenv](https://github.com/joho/godotenv) |
 | 日志 | [Zap](https://github.com/uber-go/zap) |
 | API 文档 | [Swag](https://github.com/swaggo/swag) + [Scalar](https://github.com/scalar/scalar) |
+| CORS | [gin-contrib/cors](https://github.com/gin-contrib/cors) |
+| 请求追踪 | [gin-contrib/requestid](https://github.com/gin-contrib/requestid) |
+| 响应压缩 | [gin-contrib/gzip](https://github.com/gin-contrib/gzip) |
+| 性能分析 | [gin-contrib/pprof](https://github.com/gin-contrib/pprof) |
+| 限流 | [golang.org/x/time/rate](https://pkg.go.dev/golang.org/x/time/rate) |
 | 验证器 | [Validator](https://github.com/go-playground/validator) |
 
 ## 🚀 快速开始
@@ -52,6 +68,9 @@ cd go-api-starter
 
 # 安装依赖
 go mod tidy
+
+# 复制环境变量配置文件
+copy .env.example .env
 
 # 生成 Swagger 文档
 swag init -g cmd/server/main.go -o docs
@@ -125,11 +144,14 @@ go-api-starter/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| `GET` | `/health` | 健康检查 |
+| `GET` | `/health/ready` | 就绪检查 |
 | `POST` | `/api/v1/users` | 创建用户 |
 | `GET` | `/api/v1/users` | 获取用户列表 |
 | `GET` | `/api/v1/users/:id` | 获取单个用户 |
 | `PUT` | `/api/v1/users/:id` | 更新用户 |
 | `DELETE` | `/api/v1/users/:id` | 删除用户 |
+| `GET` | `/debug/pprof/` | 性能分析（开发环境） |
 
 ## ⚙️ 配置说明
 
@@ -164,18 +186,37 @@ log:
 
 ### 环境变量
 
+支持通过 `.env` 文件或系统环境变量配置：
+
+1. 复制 `.env.example` 为 `.env`
+2. 根据需要修改配置
+3. 设置 `APP_ENV` 来加载不同环境的配置：
+   - `development` 或 `dev` → 加载 `.env.dev`
+   - `production` 或 `prod` → 加载 `.env.prod`
+   - 未设置 → 加载 `.env`
+
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
+| `APP_ENV` | 应用环境 | development |
 | `SERVER_PORT` | 服务端口 | 9527 |
 | `SERVER_MODE` | 运行模式 | debug |
-| `DATABASE_DRIVER` | 数据库类型 | sqlite |
-| `DATABASE_PATH` | SQLite 路径 | ./data.db |
-| `DATABASE_HOST` | MySQL 主机 | localhost |
-| `DATABASE_PORT` | MySQL 端口 | 3306 |
-| `DATABASE_USERNAME` | MySQL 用户名 | root |
-| `DATABASE_PASSWORD` | MySQL 密码 | 123456 |
-| `DATABASE_DBNAME` | MySQL 数据库名 | go_api_starter |
+| `DB_DRIVER` | 数据库类型 | sqlite |
+| `DB_PATH` | SQLite 路径 | ./data.db |
+| `DB_HOST` | MySQL 主机 | localhost |
+| `DB_PORT` | MySQL 端口 | 3306 |
+| `DB_USER` | MySQL 用户名 | root |
+| `DB_PASSWORD` | MySQL 密码 | 123456 |
+| `DB_NAME` | MySQL 数据库名 | go_api_starter |
 | `LOG_LEVEL` | 日志级别 | debug |
+
+### 限流配置
+
+在 `internal/router/router.go` 中调整限流参数：
+
+```go
+// 100 请求/秒，突发 200
+rateLimiter := middleware.NewRateLimiter(rate.Limit(100), 200)
+```
 
 ## 📜 License
 

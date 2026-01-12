@@ -2,8 +2,10 @@ package config
 
 import (
 	"log"
+	"os"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -48,6 +50,9 @@ var GlobalConfig *Config
 
 // Load loads configuration from file and environment variables
 func Load() *Config {
+	// Load .env file based on APP_ENV
+	loadEnvFile()
+
 	// Load base config
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
@@ -75,6 +80,31 @@ func Load() *Config {
 
 	GlobalConfig = &cfg
 	return &cfg
+}
+
+// loadEnvFile loads .env file based on APP_ENV
+func loadEnvFile() {
+	env := os.Getenv("APP_ENV")
+	var envFile string
+
+	switch env {
+	case "production", "prod":
+		envFile = ".env.prod"
+	case "development", "dev":
+		envFile = ".env.dev"
+	default:
+		envFile = ".env"
+	}
+
+	// Try to load the specific env file
+	if err := godotenv.Load(envFile); err != nil {
+		// If specific file not found, try .env
+		if err := godotenv.Load(); err != nil {
+			log.Printf("No .env file found, using system environment variables")
+		}
+	} else {
+		log.Printf("Loaded environment from %s", envFile)
+	}
 }
 
 // bindEnvVariables binds specific environment variables to config keys

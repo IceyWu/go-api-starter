@@ -58,3 +58,24 @@ func NotFound(c *gin.Context, message string) {
 func InternalError(c *gin.Context, message string) {
 	Error(c, http.StatusInternalServerError, message)
 }
+
+
+// Unauthorized sends a 401 error response
+func Unauthorized(c *gin.Context, message string) {
+	Error(c, http.StatusUnauthorized, message)
+}
+
+// Forbidden sends a 403 error response
+func Forbidden(c *gin.Context, message string) {
+	Error(c, http.StatusForbidden, message)
+}
+
+// Conflict sends a 409 error response
+func Conflict(c *gin.Context, message string) {
+	Error(c, http.StatusConflict, message)
+}
+
+// UnprocessableEntity sends a 422 error response
+func UnprocessableEntity(c *gin.Context, message string) {
+	Error(c, http.StatusUnprocessableEntity, message)
+}

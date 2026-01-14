@@ -41,9 +41,9 @@ type ReadinessResponse struct {
 }
 
 // Health godoc
-// @Summary Health check
-// @Description Get service health status
-// @Tags health
+// @Summary 健康检查
+// @Description 获取服务健康状态
+// @Tags 健康检查
 // @Produce json
 // @Success 200 {object} HealthResponse
 // @Router /health [get]
@@ -57,12 +57,12 @@ func (h *HealthHandler) Health(c *gin.Context) {
 }
 
 // Ready godoc
-// @Summary Readiness check
-// @Description Check if service is ready to accept requests
-// @Tags health
+// @Summary 就绪检查
+// @Description 检查服务是否准备好接受请求
+// @Tags 健康检查
 // @Produce json
-// @Success 200 {object} ReadinessResponse "Service is ready"
-// @Failure 503 {object} response.Response "Service is not ready"
+// @Success 200 {object} ReadinessResponse "服务已就绪"
+// @Failure 503 {object} response.Response "服务未就绪"
 // @Router /health/ready [get]
 func (h *HealthHandler) Ready(c *gin.Context) {
 	checks := make(map[string]string)

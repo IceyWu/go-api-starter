@@ -60,6 +60,14 @@ func Setup(db *gorm.DB) *gin.Engine {
 	
 	healthHandler := handler.NewHealthHandler(db, "1.0.0")
 
+	// Auth handler
+	jwtSecret := cfg.App.JWTSecret
+	if jwtSecret == "" {
+		jwtSecret = "your-secret-key-change-in-production" // Default for development
+	}
+	authHandler := handler.NewAuthHandler(db, jwtSecret)
+	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
+
 	// Permission system
 	spaceRepo := repository.NewPermissionSpaceRepository(db)
 	permRepo := repository.NewPermissionRepository(db)
@@ -70,6 +78,10 @@ func Setup(db *gorm.DB) *gin.Engine {
 	permManager := service.NewBitPermissionManager(spaceRepo, permRepo, roleRepo, userRoleRepo, rolePermRepo, cacheRepo)
 	permService := service.NewPermissionService(permManager)
 	permHandler := handler.NewPermissionHandler(permService)
+	permMiddleware := middleware.NewPermissionMiddleware(permService)
+
+	// Test handler
+	testHandler := handler.NewTestHandler()
 
 	// Health check routes (no rate limiting)
 	r.GET("/health", healthHandler.Health)
@@ -78,7 +90,18 @@ func Setup(db *gorm.DB) *gin.Engine {
 	// API routes
 	api := r.Group("/api/v1")
 	{
+		// Auth routes (public)
+		auth := api.Group("/auth")
+		{
+			auth.POST("/register", authHandler.Register)
+			auth.POST("/login", authHandler.Login)
+			auth.GET("/me", authMiddleware.RequireAuth(), authHandler.GetCurrentUser)
+			auth.POST("/reset-password/:id", authMiddleware.RequireAuth(), authHandler.ResetPassword)
+		}
+
+		// Protected routes
 		users := api.Group("/users")
+		users.Use(authMiddleware.RequireAuth())
 		{
 			users.POST("", userHandler.Create)
 			users.GET("", userHandler.List)
@@ -88,6 +111,7 @@ func Setup(db *gorm.DB) *gin.Engine {
 		}
 
 		oss := api.Group("/oss")
+		oss.Use(authMiddleware.RequireAuth())
 		{
 			oss.GET("/token", ossHandler.GetUploadToken)
 			oss.POST("/callback", ossHandler.Callback)
@@ -97,6 +121,7 @@ func Setup(db *gorm.DB) *gin.Engine {
 
 		// Permission management routes
 		permissions := api.Group("/permissions")
+		permissions.Use(authMiddleware.RequireAuth())
 		{
 			// Permission spaces
 			permissions.POST("/spaces", permHandler.CreateSpace)
@@ -125,6 +150,15 @@ func Setup(db *gorm.DB) *gin.Engine {
 			permissions.DELETE("/users/:id/roles/:roleId", permHandler.RemoveUserRole)
 			permissions.GET("/users/:id/permissions", permHandler.GetUserPermissions)
 			permissions.GET("/me/permissions", permHandler.GetMyPermissions)
+		}
+
+		// Test routes for permission validation
+		test := api.Group("/test")
+		test.Use(authMiddleware.RequireAuth())
+		{
+			test.GET("/no-permission", testHandler.TestNoPermission)
+			test.GET("/user-create", permMiddleware.RequirePermission("user.create"), testHandler.TestUserCreate)
+			test.GET("/user-read", permMiddleware.RequirePermission("user.read"), testHandler.TestUserRead)
 		}
 	}
 

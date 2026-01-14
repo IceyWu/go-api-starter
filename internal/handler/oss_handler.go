@@ -24,13 +24,13 @@ func NewOSSHandler(service *service.OSSService) *OSSHandler {
 }
 
 // GetUploadToken godoc
-// @Summary Get upload token
-// @Description Get upload token for client-side direct upload to OSS, or check if file exists by MD5
-// @Tags OSS
+// @Summary 获取上传令牌
+// @Description 获取客户端直传 OSS 的上传令牌，或通过 MD5 检查文件是否已存在
+// @Tags OSS文件管理
 // @Accept json
 // @Produce json
-// @Param md5 query string false "File MD5 hash (for checking if file exists)"
-// @Param file_name query string false "File name (optional, for extension validation)"
+// @Param md5 query string false "文件 MD5 哈希值（用于检查文件是否存在）"
+// @Param file_name query string false "文件名（可选，用于扩展名验证）"
 // @Success 200 {object} response.Response{data=oss.UploadToken}
 // @Failure 400 {object} response.Response
 // @Failure 500 {object} response.Response
@@ -80,12 +80,12 @@ type CallbackRequest struct {
 }
 
 // Callback godoc
-// @Summary OSS upload callback
-// @Description Handle callback from OSS after successful upload
-// @Tags OSS
+// @Summary OSS 上传回调
+// @Description 处理 OSS 上传成功后的回调请求
+// @Tags OSS文件管理
 // @Accept json
 // @Produce json
-// @Param request body CallbackRequest true "Callback request"
+// @Param request body CallbackRequest true "回调请求数据"
 // @Success 200 {object} response.Response{data=model.OSSFile}
 // @Failure 400 {object} response.Response
 // @Failure 500 {object} response.Response
@@ -113,13 +113,13 @@ func (h *OSSHandler) Callback(c *gin.Context) {
 }
 
 // ListFiles godoc
-// @Summary List files
-// @Description List uploaded files with pagination
-// @Tags OSS
+// @Summary 获取文件列表
+// @Description 获取已上传文件的分页列表
+// @Tags OSS文件管理
 // @Accept json
 // @Produce json
-// @Param page query int false "Page number" default(1)
-// @Param page_size query int false "Page size" default(20)
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(20)
 // @Success 200 {object} response.Response
 // @Failure 500 {object} response.Response
 // @Router /api/v1/oss/files [get]
@@ -146,12 +146,12 @@ func (h *OSSHandler) ListFiles(c *gin.Context) {
 }
 
 // DeleteFile godoc
-// @Summary Delete file
-// @Description Delete file from OSS and database
-// @Tags OSS
+// @Summary 删除文件
+// @Description 从 OSS 和数据库中删除文件
+// @Tags OSS文件管理
 // @Accept json
 // @Produce json
-// @Param id path int true "File ID"
+// @Param id path int true "文件ID"
 // @Success 200 {object} response.Response
 // @Failure 400 {object} response.Response
 // @Failure 500 {object} response.Response

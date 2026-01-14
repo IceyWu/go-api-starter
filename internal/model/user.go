@@ -11,6 +11,7 @@ type User struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
 	Name      string         `json:"name" gorm:"size:100;not null"`
 	Email     string         `json:"email" gorm:"size:100;uniqueIndex"`
+	Password  string         `json:"-" gorm:"size:255;not null"` // Password hash, not exposed in JSON
 	Age       int            `json:"age" gorm:"default:0"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`

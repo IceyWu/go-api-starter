@@ -19,8 +19,9 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Name string `mapstructure:"name"`
-	Env  string `mapstructure:"env"`
+	Name      string `mapstructure:"name"`
+	Env       string `mapstructure:"env"`
+	JWTSecret string `mapstructure:"jwt_secret"`
 }
 
 type ServerConfig struct {
@@ -126,6 +127,7 @@ func loadEnvFile() {
 // bindEnvVariables binds specific environment variables to config keys
 func bindEnvVariables() {
 	viper.BindEnv("app.env", "APP_ENV")
+	viper.BindEnv("app.jwt_secret", "JWT_SECRET")
 	viper.BindEnv("server.host", "SERVER_HOST")
 	viper.BindEnv("server.port", "SERVER_PORT")
 	viper.BindEnv("server.mode", "SERVER_MODE")
@@ -150,6 +152,7 @@ func bindEnvVariables() {
 func setDefaults() {
 	viper.SetDefault("app.name", "go-api-starter")
 	viper.SetDefault("app.env", "development")
+	viper.SetDefault("app.jwt_secret", "your-secret-key-change-in-production")
 	viper.SetDefault("server.host", "localhost")
 	viper.SetDefault("server.port", "9527")
 	viper.SetDefault("server.mode", "debug")

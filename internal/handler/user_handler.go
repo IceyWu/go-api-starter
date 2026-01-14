@@ -21,15 +21,15 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 }
 
 // Create godoc
-// @Summary Create a new user
-// @Description Create a new user with name, email and age
-// @Tags users
+// @Summary 创建用户
+// @Description 创建一个新用户，需要提供姓名、邮箱和年龄
+// @Tags 用户管理
 // @Accept json
 // @Produce json
-// @Param user body model.CreateUserRequest true "User data: name(required,2-100), email(required), age(0-150)"
-// @Success 201 {object} response.Response{data=model.User} "Created successfully"
-// @Failure 400 {object} response.Response "Validation error"
-// @Failure 500 {object} response.Response "Internal error"
+// @Param user body model.CreateUserRequest true "用户数据：name(必填,2-100字符), email(必填), age(0-150)"
+// @Success 201 {object} response.Response{data=model.User} "创建成功"
+// @Failure 400 {object} response.Response "参数验证错误"
+// @Failure 500 {object} response.Response "服务器内部错误"
 // @Router /api/v1/users [post]
 func (h *UserHandler) Create(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -50,13 +50,13 @@ func (h *UserHandler) Create(c *gin.Context) {
 }
 
 // List godoc
-// @Summary List users with pagination
-// @Description Get a paginated list of users. Supports sorting by: id, name, email, age, createdAt, updatedAt
-// @Tags users
+// @Summary 获取用户列表
+// @Description 获取分页的用户列表，支持按以下字段排序：id, name, email, age, createdAt, updatedAt
+// @Tags 用户管理
 // @Produce json
-// @Param page query int false "Page number (default: 1)" Example(1)
-// @Param page_size query int false "Items per page, max 100 (default: 10)" Example(10)
-// @Param sort query string false "Sort: field,order. Example: createdAt,desc or name,asc (default: id,desc)" Example(createdAt,desc)
+// @Param page query int false "页码（默认：1）" Example(1)
+// @Param page_size query int false "每页数量，最大100（默认：10）" Example(10)
+// @Param sort query string false "排序：字段,顺序。示例：createdAt,desc 或 name,asc（默认：id,desc）" Example(createdAt,desc)
 // @Success 200 {object} response.Response{data=response.UserPageResult}
 // @Failure 500 {object} response.Response
 // @Router /api/v1/users [get]
@@ -78,14 +78,14 @@ func (h *UserHandler) List(c *gin.Context) {
 }
 
 // Get godoc
-// @Summary Get a user by ID
-// @Description Get a single user by their ID
-// @Tags users
+// @Summary 获取用户详情
+// @Description 根据用户ID获取单个用户的详细信息
+// @Tags 用户管理
 // @Produce json
-// @Param id path int true "User ID" Example(1)
-// @Success 200 {object} response.Response{data=model.User} "Success"
-// @Failure 400 {object} response.Response "Invalid ID"
-// @Failure 404 {object} response.Response "User not found"
+// @Param id path int true "用户ID" Example(1)
+// @Success 200 {object} response.Response{data=model.User} "获取成功"
+// @Failure 400 {object} response.Response "无效的用户ID"
+// @Failure 404 {object} response.Response "用户不存在"
 // @Router /api/v1/users/{id} [get]
 func (h *UserHandler) Get(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -105,16 +105,16 @@ func (h *UserHandler) Get(c *gin.Context) {
 }
 
 // Update godoc
-// @Summary Update a user
-// @Description Update an existing user by ID. All fields are optional.
-// @Tags users
+// @Summary 更新用户
+// @Description 根据ID更新现有用户，所有字段都是可选的
+// @Tags 用户管理
 // @Accept json
 // @Produce json
-// @Param id path int true "User ID" Example(1)
-// @Param user body model.UpdateUserRequest true "User data: name(2-100), email, age(0-150). All optional."
-// @Success 200 {object} response.Response{data=model.User} "Updated successfully"
-// @Failure 400 {object} response.Response "Validation error"
-// @Failure 404 {object} response.Response "User not found"
+// @Param id path int true "用户ID" Example(1)
+// @Param user body model.UpdateUserRequest true "用户数据：name(2-100字符), email, age(0-150)，所有字段可选"
+// @Success 200 {object} response.Response{data=model.User} "更新成功"
+// @Failure 400 {object} response.Response "参数验证错误"
+// @Failure 404 {object} response.Response "用户不存在"
 // @Router /api/v1/users/{id} [put]
 func (h *UserHandler) Update(c *gin.Context) {
 	ctx := c.Request.Context()
@@ -140,13 +140,13 @@ func (h *UserHandler) Update(c *gin.Context) {
 }
 
 // Delete godoc
-// @Summary Delete a user
-// @Description Delete a user by ID (soft delete)
-// @Tags users
-// @Param id path int true "User ID" Example(1)
-// @Success 204 "Deleted successfully"
-// @Failure 400 {object} response.Response "Invalid ID"
-// @Failure 404 {object} response.Response "User not found"
+// @Summary 删除用户
+// @Description 根据ID删除用户（软删除）
+// @Tags 用户管理
+// @Param id path int true "用户ID" Example(1)
+// @Success 204 "删除成功"
+// @Failure 400 {object} response.Response "无效的用户ID"
+// @Failure 404 {object} response.Response "用户不存在"
 // @Router /api/v1/users/{id} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
 	ctx := c.Request.Context()

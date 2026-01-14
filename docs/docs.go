@@ -9,24 +9,15 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
-        "contact": {
-            "name": "API Support",
-            "url": "http://www.swagger.io/support",
-            "email": "support@swagger.io"
-        },
-        "license": {
-            "name": "MIT",
-            "url": "https://opensource.org/licenses/MIT"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/api/v1/oss/callback": {
+        "/api/v1/auth/login": {
             "post": {
-                "description": "Handle callback from OSS after successful upload",
+                "description": "使用邮箱和密码登录",
                 "consumes": [
                     "application/json"
                 ],
@@ -34,17 +25,17 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OSS"
+                    "认证"
                 ],
-                "summary": "OSS upload callback",
+                "summary": "用户登录",
                 "parameters": [
                     {
-                        "description": "Callback request",
+                        "description": "登录请求数据",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.CallbackRequest"
+                            "$ref": "#/definitions/model.LoginRequest"
                         }
                     }
                 ],
@@ -54,13 +45,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.OSSFile"
+                                            "$ref": "#/definitions/model.LoginResponse"
                                         }
                                     }
                                 }
@@ -70,21 +61,64 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
-                    "500": {
-                        "description": "Internal Server Error",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
             }
         },
-        "/api/v1/oss/files": {
+        "/api/v1/auth/me": {
             "get": {
-                "description": "List uploaded files with pagination",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "获取当前已认证用户的详细信息",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "获取当前用户信息",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/register": {
+            "post": {
+                "description": "注册一个新的用户账号",
                 "consumes": [
                     "application/json"
                 ],
@@ -92,21 +126,195 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OSS"
+                    "认证"
                 ],
-                "summary": "List files",
+                "summary": "注册新用户",
+                "parameters": [
+                    {
+                        "description": "注册请求数据",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.User"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/reset-password/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "重置指定用户的密码（仅管理员）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "重置用户密码",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "重置密码请求数据",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.ResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oss/callback": {
+            "post": {
+                "description": "处理 OSS 上传成功后的回调请求",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OSS文件管理"
+                ],
+                "summary": "OSS 上传回调",
+                "parameters": [
+                    {
+                        "description": "回调请求数据",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CallbackRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.OSSFile"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oss/files": {
+            "get": {
+                "description": "获取已上传文件的分页列表",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OSS文件管理"
+                ],
+                "summary": "获取文件列表",
                 "parameters": [
                     {
                         "type": "integer",
                         "default": 1,
-                        "description": "Page number",
+                        "description": "页码",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
                         "default": 20,
-                        "description": "Page size",
+                        "description": "每页数量",
                         "name": "page_size",
                         "in": "query"
                     }
@@ -115,13 +323,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -129,7 +337,7 @@ const docTemplate = `{
         },
         "/api/v1/oss/files/{id}": {
             "delete": {
-                "description": "Delete file from OSS and database",
+                "description": "从 OSS 和数据库中删除文件",
                 "consumes": [
                     "application/json"
                 ],
@@ -137,13 +345,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OSS"
+                    "OSS文件管理"
                 ],
-                "summary": "Delete file",
+                "summary": "删除文件",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "File ID",
+                        "description": "文件ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -153,19 +361,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -173,7 +381,7 @@ const docTemplate = `{
         },
         "/api/v1/oss/token": {
             "get": {
-                "description": "Get upload token for client-side direct upload to OSS, or check if file exists by MD5",
+                "description": "获取客户端直传 OSS 的上传令牌，或通过 MD5 检查文件是否已存在",
                 "consumes": [
                     "application/json"
                 ],
@@ -181,19 +389,19 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OSS"
+                    "OSS文件管理"
                 ],
-                "summary": "Get upload token",
+                "summary": "获取上传令牌",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "File MD5 hash (for checking if file exists)",
+                        "description": "文件 MD5 哈希值（用于检查文件是否存在）",
                         "name": "md5",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "File name (optional, for extension validation)",
+                        "description": "文件名（可选，用于扩展名验证）",
                         "name": "file_name",
                         "in": "query"
                     }
@@ -204,13 +412,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_pkg_oss.UploadToken"
+                                            "$ref": "#/definitions/oss.UploadToken"
                                         }
                                     }
                                 }
@@ -220,13 +428,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -248,7 +456,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -283,7 +491,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -291,7 +499,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/go-api-starter_internal_model.PermissionDetail"
+                                                "$ref": "#/definitions/model.PermissionDetail"
                                             }
                                         }
                                     }
@@ -320,7 +528,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.CreatePermissionRequest"
+                            "$ref": "#/definitions/model.CreatePermissionRequest"
                         }
                     }
                 ],
@@ -330,13 +538,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.Permission"
+                                            "$ref": "#/definitions/model.Permission"
                                         }
                                     }
                                 }
@@ -346,7 +554,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -377,13 +585,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.PermissionDetail"
+                                            "$ref": "#/definitions/model.PermissionDetail"
                                         }
                                     }
                                 }
@@ -393,7 +601,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -424,7 +632,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.UpdatePermissionRequest"
+                            "$ref": "#/definitions/model.UpdatePermissionRequest"
                         }
                     }
                 ],
@@ -434,13 +642,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.Permission"
+                                            "$ref": "#/definitions/model.Permission"
                                         }
                                     }
                                 }
@@ -450,7 +658,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -477,7 +685,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -499,7 +707,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -507,7 +715,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                                                "$ref": "#/definitions/model.Role"
                                             }
                                         }
                                     }
@@ -536,7 +744,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.CreateRoleRequest"
+                            "$ref": "#/definitions/model.CreateRoleRequest"
                         }
                     }
                 ],
@@ -546,13 +754,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                                            "$ref": "#/definitions/model.Role"
                                         }
                                     }
                                 }
@@ -562,7 +770,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -593,13 +801,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.RoleDetail"
+                                            "$ref": "#/definitions/model.RoleDetail"
                                         }
                                     }
                                 }
@@ -609,7 +817,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -640,7 +848,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.UpdateRoleRequest"
+                            "$ref": "#/definitions/model.UpdateRoleRequest"
                         }
                     }
                 ],
@@ -650,13 +858,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                                            "$ref": "#/definitions/model.Role"
                                         }
                                     }
                                 }
@@ -666,7 +874,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -693,7 +901,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -724,7 +932,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -768,7 +976,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.RolePermissionsRequest"
+                            "$ref": "#/definitions/model.RolePermissionsRequest"
                         }
                     }
                 ],
@@ -776,7 +984,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -807,7 +1015,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.RolePermissionsRequest"
+                            "$ref": "#/definitions/model.RolePermissionsRequest"
                         }
                     }
                 ],
@@ -815,7 +1023,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -837,7 +1045,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -845,7 +1053,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/go-api-starter_internal_model.SpaceWithCount"
+                                                "$ref": "#/definitions/model.SpaceWithCount"
                                             }
                                         }
                                     }
@@ -874,7 +1082,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.CreateSpaceRequest"
+                            "$ref": "#/definitions/model.CreateSpaceRequest"
                         }
                     }
                 ],
@@ -884,13 +1092,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.PermissionSpace"
+                                            "$ref": "#/definitions/model.PermissionSpace"
                                         }
                                     }
                                 }
@@ -900,13 +1108,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -937,7 +1145,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -981,7 +1189,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
@@ -989,7 +1197,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                                                "$ref": "#/definitions/model.Role"
                                             }
                                         }
                                     }
@@ -1025,7 +1233,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.AssignRoleRequest"
+                            "$ref": "#/definitions/model.AssignRoleRequest"
                         }
                     }
                 ],
@@ -1033,7 +1241,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -1069,35 +1277,122 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/users": {
+        "/api/v1/test/no-permission": {
             "get": {
-                "description": "Get a paginated list of users. Supports sorting by: id, name, email, age, createdAt, updatedAt",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "测试不需要任何特定权限的端点，只需要登录",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "权限测试"
                 ],
-                "summary": "List users with pagination",
+                "summary": "测试无权限要求的端点",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/test/user-create": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "测试需要 user.create 权限的端点",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限测试"
+                ],
+                "summary": "测试 user.create 权限",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/test/user-read": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "测试需要 user.read 权限的端点",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限测试"
+                ],
+                "summary": "测试 user.read 权限",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users": {
+            "get": {
+                "description": "获取分页的用户列表，支持按以下字段排序：id, name, email, age, createdAt, updatedAt",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "获取用户列表",
                 "parameters": [
                     {
                         "type": "integer",
                         "example": 1,
-                        "description": "Page number (default: 1)",
+                        "description": "页码（默认：1）",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
                         "example": 10,
-                        "description": "Items per page, max 100 (default: 10)",
+                        "description": "每页数量，最大100（默认：10）",
                         "name": "page_size",
                         "in": "query"
                     },
                     {
                         "type": "string",
                         "example": "createdAt,desc",
-                        "description": "Sort: field,order. Example: createdAt,desc or name,asc (default: id,desc)",
+                        "description": "排序：字段,顺序。示例：createdAt,desc 或 name,asc（默认：id,desc）",
                         "name": "sort",
                         "in": "query"
                     }
@@ -1108,13 +1403,13 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_pkg_response.UserPageResult"
+                                            "$ref": "#/definitions/response.UserPageResult"
                                         }
                                     }
                                 }
@@ -1124,13 +1419,13 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
             },
             "post": {
-                "description": "Create a new user with name, email and age",
+                "description": "创建一个新用户，需要提供姓名、邮箱和年龄",
                 "consumes": [
                     "application/json"
                 ],
@@ -1138,33 +1433,33 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "用户管理"
                 ],
-                "summary": "Create a new user",
+                "summary": "创建用户",
                 "parameters": [
                     {
-                        "description": "User data: name(required,2-100), email(required), age(0-150)",
+                        "description": "用户数据：name(必填,2-100字符), email(必填), age(0-150)",
                         "name": "user",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.CreateUserRequest"
+                            "$ref": "#/definitions/model.CreateUserRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created successfully",
+                        "description": "创建成功",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.User"
+                                            "$ref": "#/definitions/model.User"
                                         }
                                     }
                                 }
@@ -1172,15 +1467,15 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Validation error",
+                        "description": "参数验证错误",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "500": {
-                        "description": "Internal error",
+                        "description": "服务器内部错误",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -1188,19 +1483,19 @@ const docTemplate = `{
         },
         "/api/v1/users/{id}": {
             "get": {
-                "description": "Get a single user by their ID",
+                "description": "根据用户ID获取单个用户的详细信息",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "用户管理"
                 ],
-                "summary": "Get a user by ID",
+                "summary": "获取用户详情",
                 "parameters": [
                     {
                         "type": "integer",
                         "example": 1,
-                        "description": "User ID",
+                        "description": "用户ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1208,17 +1503,17 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Success",
+                        "description": "获取成功",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.User"
+                                            "$ref": "#/definitions/model.User"
                                         }
                                     }
                                 }
@@ -1226,21 +1521,21 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid ID",
+                        "description": "无效的用户ID",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "404": {
-                        "description": "User not found",
+                        "description": "用户不存在",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
             },
             "put": {
-                "description": "Update an existing user by ID. All fields are optional.",
+                "description": "根据ID更新现有用户，所有字段都是可选的",
                 "consumes": [
                     "application/json"
                 ],
@@ -1248,41 +1543,41 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "用户管理"
                 ],
-                "summary": "Update a user",
+                "summary": "更新用户",
                 "parameters": [
                     {
                         "type": "integer",
                         "example": 1,
-                        "description": "User ID",
+                        "description": "用户ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "User data: name(2-100), email, age(0-150). All optional.",
+                        "description": "用户数据：name(2-100字符), email, age(0-150)，所有字段可选",
                         "name": "user",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_internal_model.UpdateUserRequest"
+                            "$ref": "#/definitions/model.UpdateUserRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Updated successfully",
+                        "description": "更新成功",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                                    "$ref": "#/definitions/response.Response"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/go-api-starter_internal_model.User"
+                                            "$ref": "#/definitions/model.User"
                                         }
                                     }
                                 }
@@ -1290,30 +1585,30 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Validation error",
+                        "description": "参数验证错误",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "404": {
-                        "description": "User not found",
+                        "description": "用户不存在",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
             },
             "delete": {
-                "description": "Delete a user by ID (soft delete)",
+                "description": "根据ID删除用户（软删除）",
                 "tags": [
-                    "users"
+                    "用户管理"
                 ],
-                "summary": "Delete a user",
+                "summary": "删除用户",
                 "parameters": [
                     {
                         "type": "integer",
                         "example": 1,
-                        "description": "User ID",
+                        "description": "用户ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1321,18 +1616,18 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "Deleted successfully"
+                        "description": "删除成功"
                     },
                     "400": {
-                        "description": "Invalid ID",
+                        "description": "无效的用户ID",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "404": {
-                        "description": "User not found",
+                        "description": "用户不存在",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -1340,19 +1635,19 @@ const docTemplate = `{
         },
         "/health": {
             "get": {
-                "description": "Get service health status",
+                "description": "获取服务健康状态",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "health"
+                    "健康检查"
                 ],
-                "summary": "Health check",
+                "summary": "健康检查",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.HealthResponse"
+                            "$ref": "#/definitions/handler.HealthResponse"
                         }
                     }
                 }
@@ -1360,25 +1655,25 @@ const docTemplate = `{
         },
         "/health/ready": {
             "get": {
-                "description": "Check if service is ready to accept requests",
+                "description": "检查服务是否准备好接受请求",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "health"
+                    "健康检查"
                 ],
-                "summary": "Readiness check",
+                "summary": "就绪检查",
                 "responses": {
                     "200": {
-                        "description": "Service is ready",
+                        "description": "服务已就绪",
                         "schema": {
-                            "$ref": "#/definitions/internal_handler.ReadinessResponse"
+                            "$ref": "#/definitions/handler.ReadinessResponse"
                         }
                     },
                     "503": {
-                        "description": "Service is not ready",
+                        "description": "服务未就绪",
                         "schema": {
-                            "$ref": "#/definitions/go-api-starter_pkg_response.Response"
+                            "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
@@ -1386,7 +1681,64 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "go-api-starter_internal_model.AssignRoleRequest": {
+        "handler.CallbackRequest": {
+            "type": "object",
+            "required": [
+                "file_name",
+                "file_size",
+                "key",
+                "md5"
+            ],
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "md5": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                },
+                "uptime": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.ReadinessResponse": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.AssignRoleRequest": {
             "type": "object",
             "required": [
                 "role_id"
@@ -1398,7 +1750,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.CreatePermissionRequest": {
+        "model.CreatePermissionRequest": {
             "type": "object",
             "required": [
                 "code",
@@ -1434,7 +1786,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.CreateRoleRequest": {
+        "model.CreateRoleRequest": {
             "type": "object",
             "required": [
                 "name"
@@ -1463,7 +1815,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.CreateSpaceRequest": {
+        "model.CreateSpaceRequest": {
             "type": "object",
             "required": [
                 "name"
@@ -1482,7 +1834,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.CreateUserRequest": {
+        "model.CreateUserRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -1507,7 +1859,37 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.OSSFile": {
+        "model.LoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "admin@example.com"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "password123"
+                }
+            }
+        },
+        "model.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                },
+                "user": {
+                    "$ref": "#/definitions/model.User"
+                }
+            }
+        },
+        "model.OSSFile": {
             "type": "object",
             "properties": {
                 "content_type": {
@@ -1566,7 +1948,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.Permission": {
+        "model.Permission": {
             "type": "object",
             "properties": {
                 "code": {
@@ -1595,7 +1977,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "space": {
-                    "$ref": "#/definitions/go-api-starter_internal_model.PermissionSpace"
+                    "$ref": "#/definitions/model.PermissionSpace"
                 },
                 "space_id": {
                     "type": "integer"
@@ -1609,7 +1991,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.PermissionDetail": {
+        "model.PermissionDetail": {
             "type": "object",
             "properties": {
                 "code": {
@@ -1644,7 +2026,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.PermissionSpace": {
+        "model.PermissionSpace": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -1665,7 +2047,7 @@ const docTemplate = `{
                 "permissions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/go-api-starter_internal_model.Permission"
+                        "$ref": "#/definitions/model.Permission"
                     }
                 },
                 "updated_at": {
@@ -1673,7 +2055,51 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.Role": {
+        "model.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "password"
+            ],
+            "properties": {
+                "age": {
+                    "type": "integer",
+                    "maximum": 150,
+                    "minimum": 0,
+                    "example": 25
+                },
+                "email": {
+                    "type": "string",
+                    "example": "admin@example.com"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2,
+                    "example": "Admin User"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "password123"
+                }
+            }
+        },
+        "model.ResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "newpassword123"
+                }
+            }
+        },
+        "model.Role": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -1697,7 +2123,7 @@ const docTemplate = `{
                 "role_permissions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/go-api-starter_internal_model.RolePermission"
+                        "$ref": "#/definitions/model.RolePermission"
                     }
                 },
                 "updated_at": {
@@ -1705,7 +2131,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.RoleDetail": {
+        "model.RoleDetail": {
             "type": "object",
             "properties": {
                 "description": {
@@ -1732,12 +2158,12 @@ const docTemplate = `{
                 "permissions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/go-api-starter_internal_model.PermissionDetail"
+                        "$ref": "#/definitions/model.PermissionDetail"
                     }
                 }
             }
         },
-        "go-api-starter_internal_model.RolePermission": {
+        "model.RolePermission": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -1747,19 +2173,19 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "permission": {
-                    "$ref": "#/definitions/go-api-starter_internal_model.Permission"
+                    "$ref": "#/definitions/model.Permission"
                 },
                 "permission_id": {
                     "type": "integer"
                 },
                 "role": {
-                    "$ref": "#/definitions/go-api-starter_internal_model.Role"
+                    "$ref": "#/definitions/model.Role"
                 },
                 "role_id": {
                     "type": "integer"
                 },
                 "space": {
-                    "$ref": "#/definitions/go-api-starter_internal_model.PermissionSpace"
+                    "$ref": "#/definitions/model.PermissionSpace"
                 },
                 "space_id": {
                     "type": "integer"
@@ -1773,7 +2199,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.RolePermissionsRequest": {
+        "model.RolePermissionsRequest": {
             "type": "object",
             "required": [
                 "permission_codes"
@@ -1792,7 +2218,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.SpaceWithCount": {
+        "model.SpaceWithCount": {
             "type": "object",
             "properties": {
                 "description": {
@@ -1812,7 +2238,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.UpdatePermissionRequest": {
+        "model.UpdatePermissionRequest": {
             "type": "object",
             "properties": {
                 "description": {
@@ -1832,7 +2258,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.UpdateRoleRequest": {
+        "model.UpdateRoleRequest": {
             "type": "object",
             "properties": {
                 "description": {
@@ -1852,7 +2278,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.UpdateUserRequest": {
+        "model.UpdateUserRequest": {
             "type": "object",
             "properties": {
                 "age": {
@@ -1873,7 +2299,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_internal_model.User": {
+        "model.User": {
             "type": "object",
             "properties": {
                 "age": {
@@ -1896,7 +2322,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_pkg_oss.UploadToken": {
+        "oss.UploadToken": {
             "type": "object",
             "properties": {
                 "accessid": {
@@ -1923,7 +2349,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_pkg_response.Response": {
+        "response.Response": {
             "type": "object",
             "properties": {
                 "code": {
@@ -1935,7 +2361,7 @@ const docTemplate = `{
                 }
             }
         },
-        "go-api-starter_pkg_response.UserPageResult": {
+        "response.UserPageResult": {
             "type": "object",
             "properties": {
                 "list": {
@@ -1955,71 +2381,6 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
-        },
-        "internal_handler.CallbackRequest": {
-            "type": "object",
-            "required": [
-                "file_name",
-                "file_size",
-                "key",
-                "md5"
-            ],
-            "properties": {
-                "content_type": {
-                    "type": "string"
-                },
-                "file_name": {
-                    "type": "string"
-                },
-                "file_size": {
-                    "type": "integer"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "md5": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.HealthResponse": {
-            "type": "object",
-            "properties": {
-                "status": {
-                    "type": "string"
-                },
-                "timestamp": {
-                    "type": "string"
-                },
-                "uptime": {
-                    "type": "string"
-                },
-                "version": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler.ReadinessResponse": {
-            "type": "object",
-            "properties": {
-                "checks": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        }
-    },
-    "securityDefinitions": {
-        "Bearer": {
-            "description": "Type \"Bearer\" followed by a space and JWT token.",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
         }
     }
 }`
@@ -2031,7 +2392,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Go API Starter",
-	Description:      "A RESTful API starter template with Go, Gin, GORM, and Swagger",
+	Description:      "A RESTful API starter with Go, Gin, and GORM",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

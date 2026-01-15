@@ -42,13 +42,4 @@ oss:
   callback_url: ""  # Callback URL after upload (optional)
   max_file_size: 10485760  # Max file size in bytes (10MB)
   token_expire: 1800  # Token expire time in seconds (30 minutes)
-  allowed_extensions:
-    - .jpg
-    - .jpeg
-    - .png
-    - .gif
-    - .pdf
-    - .doc
-    - .docx
-    - .xls
-    - .xlsx
+  allowed_extensions: []  # 空数组表示允许所有文件类型

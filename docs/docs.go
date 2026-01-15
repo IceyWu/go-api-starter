@@ -379,6 +379,301 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/oss/multipart/abort": {
+            "post": {
+                "description": "取消分片上传，清理已上传的分片",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OSS文件管理"
+                ],
+                "summary": "取消分片上传",
+                "parameters": [
+                    {
+                        "description": "取消请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.AbortMultipartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oss/multipart/complete": {
+            "post": {
+                "description": "完成分片上传，合并所有分片",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OSS文件管理"
+                ],
+                "summary": "完成分片上传",
+                "parameters": [
+                    {
+                        "description": "完成请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.CompleteMultipartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.OSSFile"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oss/multipart/db-parts": {
+            "get": {
+                "description": "从数据库获取已上传的分片列表，用于断点续传时获取完整的分片信息",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OSS文件管理"
+                ],
+                "summary": "从数据库获取已上传分片列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "上传ID",
+                        "name": "upload_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oss/multipart/init": {
+            "post": {
+                "description": "初始化分片上传，返回 uploadId 和 key。如果存在相同MD5的未完成上传，会返回已上传的分片列表用于断点续传",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OSS文件管理"
+                ],
+                "summary": "初始化分片上传",
+                "parameters": [
+                    {
+                        "description": "初始化请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.InitMultipartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oss/multipart/part": {
+            "post": {
+                "description": "保存已上传分片信息到数据库，用于断点续传",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OSS文件管理"
+                ],
+                "summary": "保存已上传分片信息",
+                "parameters": [
+                    {
+                        "description": "分片信息",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.SavePartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oss/multipart/parts": {
+            "get": {
+                "description": "获取已上传的分片列表，用于断点续传",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OSS文件管理"
+                ],
+                "summary": "获取已上传分片列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文件key",
+                        "name": "key",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "上传ID",
+                        "name": "upload_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/oss/multipart/urls": {
+            "post": {
+                "description": "获取分片上传的预签名URL",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OSS文件管理"
+                ],
+                "summary": "获取分片上传URL",
+                "parameters": [
+                    {
+                        "description": "请求参数",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.GetPartURLRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/oss/token": {
             "get": {
                 "description": "获取客户端直传 OSS 的上传令牌，或通过 MD5 检查文件是否已存在",
@@ -1681,6 +1976,21 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "handler.AbortMultipartRequest": {
+            "type": "object",
+            "required": [
+                "key",
+                "upload_id"
+            ],
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "upload_id": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.CallbackRequest": {
             "type": "object",
             "required": [
@@ -1707,6 +2017,65 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.CompleteMultipartRequest": {
+            "type": "object",
+            "required": [
+                "file_name",
+                "file_size",
+                "key",
+                "md5",
+                "parts",
+                "upload_id"
+            ],
+            "properties": {
+                "content_type": {
+                    "type": "string"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "md5": {
+                    "type": "string"
+                },
+                "parts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.CompletePart"
+                    }
+                },
+                "upload_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.GetPartURLRequest": {
+            "type": "object",
+            "required": [
+                "key",
+                "part_numbers",
+                "upload_id"
+            ],
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "part_numbers": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "upload_id": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.HealthResponse": {
             "type": "object",
             "properties": {
@@ -1724,6 +2093,28 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.InitMultipartRequest": {
+            "type": "object",
+            "required": [
+                "chunk_size",
+                "file_name",
+                "file_size"
+            ],
+            "properties": {
+                "chunk_size": {
+                    "type": "integer"
+                },
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "integer"
+                },
+                "md5": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.ReadinessResponse": {
             "type": "object",
             "properties": {
@@ -1734,6 +2125,29 @@ const docTemplate = `{
                     }
                 },
                 "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.SavePartRequest": {
+            "type": "object",
+            "required": [
+                "etag",
+                "part_number",
+                "size",
+                "upload_id"
+            ],
+            "properties": {
+                "etag": {
+                    "type": "string"
+                },
+                "part_number": {
+                    "type": "integer"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "upload_id": {
                     "type": "string"
                 }
             }
@@ -1919,9 +2333,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "key": {
-                    "description": "OSS file path",
+                    "description": "OSS file path (relative)",
                     "type": "string",
-                    "example": "uploads/2026/01/12/uuid.jpg"
+                    "example": "go_oss/uploads/2026-01-15/uuid.jpg"
                 },
                 "md5": {
                     "description": "File MD5 hash",
@@ -1937,9 +2351,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "url": {
-                    "description": "Access URL",
+                    "description": "Access URL (dynamically generated, not stored)",
                     "type": "string",
-                    "example": "https://bucket.oss-cn-hangzhou.aliyuncs.com/uploads/2026/01/12/uuid.jpg"
+                    "example": "https://cdn.example.com/go_oss/uploads/2026-01-15/uuid.jpg"
                 },
                 "user_id": {
                     "description": "Uploader user ID",
@@ -2378,6 +2792,17 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.CompletePart": {
+            "type": "object",
+            "properties": {
+                "etag": {
+                    "type": "string"
+                },
+                "part_number": {
                     "type": "integer"
                 }
             }

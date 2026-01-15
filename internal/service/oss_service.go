@@ -14,14 +14,16 @@ import (
 )
 
 type OSSService struct {
-	repo   *repository.OSSRepository
-	config *config.OSSConfig
+	repo          *repository.OSSRepository
+	multipartRepo *repository.MultipartRepository
+	config        *config.OSSConfig
 }
 
-func NewOSSService(repo *repository.OSSRepository, cfg *config.OSSConfig) *OSSService {
+func NewOSSService(repo *repository.OSSRepository, multipartRepo *repository.MultipartRepository, cfg *config.OSSConfig) *OSSService {
 	return &OSSService{
-		repo:   repo,
-		config: cfg,
+		repo:          repo,
+		multipartRepo: multipartRepo,
+		config:        cfg,
 	}
 }
 
@@ -214,4 +216,219 @@ func (s *OSSService) isAllowedExtension(ext string) bool {
 		}
 	}
 	return false
+}
+
+
+// ============ Multipart Upload (分片上传) ============
+
+// MultipartInitResult represents the result of initializing multipart upload
+type MultipartInitResult struct {
+	UploadID      string `json:"upload_id"`
+	Key           string `json:"key"`
+	Host          string `json:"host"`
+	TotalParts    int    `json:"total_parts"`
+	ChunkSize     int64  `json:"chunk_size"`
+	UploadedParts []int  `json:"uploaded_parts"` // Already uploaded part numbers for resuming
+}
+
+// InitMultipartUpload initializes a multipart upload or resumes an existing one
+func (s *OSSService) InitMultipartUpload(fileName string, md5 string, fileSize int64, chunkSize int64, userID uint) (*MultipartInitResult, error) {
+	var ext string
+	if fileName != "" {
+		ext = strings.ToLower(filepath.Ext(fileName))
+		if !s.isAllowedExtension(ext) {
+			return nil, fmt.Errorf("file extension %s is not allowed", ext)
+		}
+	}
+
+	// Calculate total parts
+	totalParts := int((fileSize + chunkSize - 1) / chunkSize)
+
+	// Check if there's an existing upload for this file (by MD5)
+	if md5 != "" && s.multipartRepo != nil {
+		existingUpload, err := s.multipartRepo.GetUploadByMD5(md5, userID)
+		if err == nil && existingUpload != nil {
+			// Found existing upload, get uploaded parts
+			uploadedParts, _ := s.multipartRepo.GetUploadedPartNumbers(existingUpload.UploadID)
+			return &MultipartInitResult{
+				UploadID:      existingUpload.UploadID,
+				Key:           existingUpload.Key,
+				Host:          fmt.Sprintf("https://%s", s.config.Endpoint),
+				TotalParts:    existingUpload.TotalParts,
+				ChunkSize:     existingUpload.ChunkSize,
+				UploadedParts: uploadedParts,
+			}, nil
+		}
+	}
+
+	// Generate unique key
+	key := s.generateFileKey(ext)
+
+	// Initialize multipart upload on OSS
+	result, err := oss.InitMultipartUpload(key)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save upload task to database
+	if s.multipartRepo != nil {
+		upload := &model.MultipartUpload{
+			UploadID:    result.UploadID,
+			Key:         result.Key,
+			MD5:         md5,
+			FileName:    fileName,
+			FileSize:    fileSize,
+			ContentType: "",
+			TotalParts:  totalParts,
+			ChunkSize:   chunkSize,
+			UserID:      userID,
+			Status:      1, // uploading
+		}
+		if err := s.multipartRepo.CreateUpload(upload); err != nil {
+			// Log error but don't fail - upload can still work without DB tracking
+			fmt.Printf("Warning: failed to save upload task to DB: %v\n", err)
+		}
+	}
+
+	return &MultipartInitResult{
+		UploadID:      result.UploadID,
+		Key:           result.Key,
+		Host:          result.Host,
+		TotalParts:    totalParts,
+		ChunkSize:     chunkSize,
+		UploadedParts: []int{},
+	}, nil
+}
+
+// PartUploadInfo represents info for uploading a part
+type PartUploadInfo struct {
+	PartNumber int    `json:"part_number"`
+	URL        string `json:"url"`
+}
+
+// GetPartUploadURL generates presigned URL for uploading a part
+func (s *OSSService) GetPartUploadURL(key, uploadID string, partNumber int) (*PartUploadInfo, error) {
+	result, err := oss.GeneratePartUploadURL(key, uploadID, partNumber, s.config.TokenExpire)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PartUploadInfo{
+		PartNumber: result.PartNumber,
+		URL:        result.URL,
+	}, nil
+}
+
+// GetPartUploadURLs generates presigned URLs for multiple parts
+func (s *OSSService) GetPartUploadURLs(key, uploadID string, partNumbers []int) ([]PartUploadInfo, error) {
+	var results []PartUploadInfo
+	for _, partNumber := range partNumbers {
+		result, err := oss.GeneratePartUploadURL(key, uploadID, partNumber, s.config.TokenExpire)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, PartUploadInfo{
+			PartNumber: result.PartNumber,
+			URL:        result.URL,
+		})
+	}
+	return results, nil
+}
+
+// CompletePart represents a completed part
+type CompletePart struct {
+	PartNumber int    `json:"part_number"`
+	ETag       string `json:"etag"`
+}
+
+// CompleteMultipartUpload completes a multipart upload and saves file record
+func (s *OSSService) CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, contentType string, parts []CompletePart, userID uint) (*model.OSSFile, error) {
+	// Convert to oss package type
+	var ossParts []oss.CompletePart
+	for _, p := range parts {
+		ossParts = append(ossParts, oss.CompletePart{
+			PartNumber: p.PartNumber,
+			ETag:       p.ETag,
+		})
+	}
+
+	// Complete multipart upload
+	if err := oss.CompleteMultipartUpload(key, uploadID, ossParts); err != nil {
+		return nil, err
+	}
+
+	// Clean up database records
+	if s.multipartRepo != nil {
+		s.multipartRepo.UpdateUploadStatus(uploadID, 2) // completed
+		s.multipartRepo.DeleteParts(uploadID)
+	}
+
+	// Save file record
+	return s.SaveFileRecord(key, md5, fileName, fileSize, contentType, userID)
+}
+
+// AbortMultipartUpload aborts a multipart upload
+func (s *OSSService) AbortMultipartUpload(key, uploadID string) error {
+	err := oss.AbortMultipartUpload(key, uploadID)
+	
+	// Clean up database records regardless of OSS result
+	if s.multipartRepo != nil {
+		s.multipartRepo.UpdateUploadStatus(uploadID, 0) // aborted
+		s.multipartRepo.DeleteParts(uploadID)
+	}
+	
+	return err
+}
+
+// ListUploadedParts lists uploaded parts for resumable upload
+func (s *OSSService) ListUploadedParts(key, uploadID string) ([]CompletePart, error) {
+	parts, err := oss.ListParts(key, uploadID)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []CompletePart
+	for _, p := range parts {
+		result = append(result, CompletePart{
+			PartNumber: p.PartNumber,
+			ETag:       p.ETag,
+		})
+	}
+	return result, nil
+}
+
+// SaveUploadedPart saves an uploaded part info to database for resumable upload
+func (s *OSSService) SaveUploadedPart(uploadID string, partNumber int, etag string, size int64) error {
+	if s.multipartRepo == nil {
+		return nil
+	}
+	
+	part := &model.UploadedPart{
+		UploadID:   uploadID,
+		PartNumber: partNumber,
+		ETag:       etag,
+		Size:       size,
+	}
+	return s.multipartRepo.SavePart(part)
+}
+
+// GetUploadedPartsFromDB gets uploaded parts from database
+func (s *OSSService) GetUploadedPartsFromDB(uploadID string) ([]CompletePart, error) {
+	if s.multipartRepo == nil {
+		return nil, nil
+	}
+	
+	parts, err := s.multipartRepo.GetUploadedParts(uploadID)
+	if err != nil {
+		return nil, err
+	}
+	
+	var result []CompletePart
+	for _, p := range parts {
+		result = append(result, CompletePart{
+			PartNumber: p.PartNumber,
+			ETag:       p.ETag,
+		})
+	}
+	return result, nil
 }

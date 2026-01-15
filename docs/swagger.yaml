@@ -1,5 +1,15 @@
 basePath: /
 definitions:
+  handler.AbortMultipartRequest:
+    properties:
+      key:
+        type: string
+      upload_id:
+        type: string
+    required:
+    - key
+    - upload_id
+    type: object
   handler.CallbackRequest:
     properties:
       content_type:
@@ -18,6 +28,47 @@ definitions:
     - key
     - md5
     type: object
+  handler.CompleteMultipartRequest:
+    properties:
+      content_type:
+        type: string
+      file_name:
+        type: string
+      file_size:
+        type: integer
+      key:
+        type: string
+      md5:
+        type: string
+      parts:
+        items:
+          $ref: '#/definitions/service.CompletePart'
+        type: array
+      upload_id:
+        type: string
+    required:
+    - file_name
+    - file_size
+    - key
+    - md5
+    - parts
+    - upload_id
+    type: object
+  handler.GetPartURLRequest:
+    properties:
+      key:
+        type: string
+      part_numbers:
+        items:
+          type: integer
+        type: array
+      upload_id:
+        type: string
+    required:
+    - key
+    - part_numbers
+    - upload_id
+    type: object
   handler.HealthResponse:
     properties:
       status:
@@ -29,6 +80,21 @@ definitions:
       version:
         type: string
     type: object
+  handler.InitMultipartRequest:
+    properties:
+      chunk_size:
+        type: integer
+      file_name:
+        type: string
+      file_size:
+        type: integer
+      md5:
+        type: string
+    required:
+    - chunk_size
+    - file_name
+    - file_size
+    type: object
   handler.ReadinessResponse:
     properties:
       checks:
@@ -37,6 +103,22 @@ definitions:
         type: object
       status:
         type: string
+    type: object
+  handler.SavePartRequest:
+    properties:
+      etag:
+        type: string
+      part_number:
+        type: integer
+      size:
+        type: integer
+      upload_id:
+        type: string
+    required:
+    - etag
+    - part_number
+    - size
+    - upload_id
     type: object
   model.AssignRoleRequest:
     properties:
@@ -172,8 +254,8 @@ definitions:
       id:
         type: integer
       key:
-        description: OSS file path
-        example: uploads/2026/01/12/uuid.jpg
+        description: OSS file path (relative)
+        example: go_oss/uploads/2026-01-15/uuid.jpg
         type: string
       md5:
         description: File MD5 hash
@@ -186,8 +268,8 @@ definitions:
       updated_at:
         type: string
       url:
-        description: Access URL
-        example: https://bucket.oss-cn-hangzhou.aliyuncs.com/uploads/2026/01/12/uuid.jpg
+        description: Access URL (dynamically generated, not stored)
+        example: https://cdn.example.com/go_oss/uploads/2026-01-15/uuid.jpg
         type: string
       user_id:
         description: Uploader user ID
@@ -491,6 +573,13 @@ definitions:
       total_pages:
         type: integer
     type: object
+  service.CompletePart:
+    properties:
+      etag:
+        type: string
+      part_number:
+        type: integer
+    type: object
 host: localhost:9527
 info:
   contact: {}
@@ -721,6 +810,196 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: 删除文件
+      tags:
+      - OSS文件管理
+  /api/v1/oss/multipart/abort:
+    post:
+      consumes:
+      - application/json
+      description: 取消分片上传，清理已上传的分片
+      parameters:
+      - description: 取消请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.AbortMultipartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 取消分片上传
+      tags:
+      - OSS文件管理
+  /api/v1/oss/multipart/complete:
+    post:
+      consumes:
+      - application/json
+      description: 完成分片上传，合并所有分片
+      parameters:
+      - description: 完成请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CompleteMultipartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.OSSFile'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 完成分片上传
+      tags:
+      - OSS文件管理
+  /api/v1/oss/multipart/db-parts:
+    get:
+      consumes:
+      - application/json
+      description: 从数据库获取已上传的分片列表，用于断点续传时获取完整的分片信息
+      parameters:
+      - description: 上传ID
+        in: query
+        name: upload_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 从数据库获取已上传分片列表
+      tags:
+      - OSS文件管理
+  /api/v1/oss/multipart/init:
+    post:
+      consumes:
+      - application/json
+      description: 初始化分片上传，返回 uploadId 和 key。如果存在相同MD5的未完成上传，会返回已上传的分片列表用于断点续传
+      parameters:
+      - description: 初始化请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.InitMultipartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 初始化分片上传
+      tags:
+      - OSS文件管理
+  /api/v1/oss/multipart/part:
+    post:
+      consumes:
+      - application/json
+      description: 保存已上传分片信息到数据库，用于断点续传
+      parameters:
+      - description: 分片信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SavePartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 保存已上传分片信息
+      tags:
+      - OSS文件管理
+  /api/v1/oss/multipart/parts:
+    get:
+      consumes:
+      - application/json
+      description: 获取已上传的分片列表，用于断点续传
+      parameters:
+      - description: 文件key
+        in: query
+        name: key
+        required: true
+        type: string
+      - description: 上传ID
+        in: query
+        name: upload_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取已上传分片列表
+      tags:
+      - OSS文件管理
+  /api/v1/oss/multipart/urls:
+    post:
+      consumes:
+      - application/json
+      description: 获取分片上传的预签名URL
+      parameters:
+      - description: 请求参数
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.GetPartURLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取分片上传URL
       tags:
       - OSS文件管理
   /api/v1/oss/token:

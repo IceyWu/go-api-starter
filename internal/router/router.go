@@ -55,7 +55,8 @@ func Setup(db *gorm.DB) *gin.Engine {
 	userHandler := handler.NewUserHandler(userService)
 	
 	ossRepo := repository.NewOSSRepository(db)
-	ossService := service.NewOSSService(ossRepo, &cfg.OSS)
+	multipartRepo := repository.NewMultipartRepository(db)
+	ossService := service.NewOSSService(ossRepo, multipartRepo, &cfg.OSS)
 	ossHandler := handler.NewOSSHandler(ossService)
 	
 	healthHandler := handler.NewHealthHandler(db, "1.0.0")
@@ -113,8 +114,20 @@ func Setup(db *gorm.DB) *gin.Engine {
 		oss := api.Group("/oss")
 		oss.Use(authMiddleware.RequireAuth())
 		{
+			// Simple upload
 			oss.GET("/token", ossHandler.GetUploadToken)
 			oss.POST("/callback", ossHandler.Callback)
+			
+			// Multipart upload (分片上传)
+			oss.POST("/multipart/init", ossHandler.InitMultipart)
+			oss.POST("/multipart/urls", ossHandler.GetPartUploadURLs)
+			oss.POST("/multipart/complete", ossHandler.CompleteMultipart)
+			oss.POST("/multipart/abort", ossHandler.AbortMultipart)
+			oss.GET("/multipart/parts", ossHandler.ListParts)
+			oss.POST("/multipart/part", ossHandler.SavePart)
+			oss.GET("/multipart/db-parts", ossHandler.GetUploadedPartsFromDB)
+			
+			// File management
 			oss.GET("/files", ossHandler.ListFiles)
 			oss.DELETE("/files/:id", ossHandler.DeleteFile)
 		}

@@ -13,12 +13,12 @@ else
     LOAD_ENV_PROD = set -a && [ -f .env.prod ] && . ./.env.prod; set +a;
 endif
 
-# Build the application
-build:
+# Build the application (auto-generate swagger docs first)
+build: swagger
 	go build -o bin/server ./cmd/server
 
-# Run development
-dev:
+# Run development (auto-generate swagger docs first)
+dev: swagger
 	$(LOAD_ENV_DEV) go run ./cmd/server
 
 # Run production

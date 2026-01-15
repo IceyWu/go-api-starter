@@ -83,14 +83,13 @@ func (s *OSSService) CheckFileExists(md5 string, userID uint) (*model.OSSFile, b
 	if err != nil {
 		return nil, false
 	}
+	// Fill URL dynamically
+	file.URL = s.buildFileURL(file.Key)
 	return file, true
 }
 
 // SaveFileRecord saves file record after successful upload
 func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, contentType string, userID uint) (*model.OSSFile, error) {
-	// Build file URL
-	url := s.buildFileURL(key)
-
 	file := &model.OSSFile{
 		Key:         key,
 		MD5:         md5,
@@ -98,7 +97,6 @@ func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, c
 		FileSize:    fileSize,
 		ContentType: contentType,
 		Extension:   strings.ToLower(filepath.Ext(fileName)),
-		URL:         url,
 		UserID:      userID,
 		Status:      1,
 	}
@@ -107,17 +105,32 @@ func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, c
 		return nil, fmt.Errorf("failed to save file record: %w", err)
 	}
 
+	// Fill URL dynamically before returning
+	file.URL = s.buildFileURL(file.Key)
+
 	return file, nil
 }
 
 // GetFileByKey gets file by key
 func (s *OSSService) GetFileByKey(key string) (*model.OSSFile, error) {
-	return s.repo.GetByKey(key)
+	file, err := s.repo.GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+	// Fill URL dynamically
+	file.URL = s.buildFileURL(file.Key)
+	return file, nil
 }
 
 // GetFileByID gets file by ID
 func (s *OSSService) GetFileByID(id uint) (*model.OSSFile, error) {
-	return s.repo.GetByID(id)
+	file, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	// Fill URL dynamically
+	file.URL = s.buildFileURL(file.Key)
+	return file, nil
 }
 
 // ListFiles lists files with pagination
@@ -128,7 +141,15 @@ func (s *OSSService) ListFiles(userID uint, page, pageSize int) ([]model.OSSFile
 	if pageSize < 1 || pageSize > 100 {
 		pageSize = 20
 	}
-	return s.repo.List(userID, page, pageSize)
+	files, total, err := s.repo.List(userID, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	// Fill URL dynamically for each file
+	for i := range files {
+		files[i].URL = s.buildFileURL(files[i].Key)
+	}
+	return files, total, nil
 }
 
 // DeleteFile deletes file record and OSS file
@@ -160,11 +181,11 @@ func (s *OSSService) DeleteFile(id uint) error {
 // generateFileKey generates a unique file key with date-based directory structure
 func (s *OSSService) generateFileKey(ext string) string {
 	now := time.Now()
-	dateDir := now.Format("2006/01/02")
+	dateDir := now.Format("2006-01-02")
 	fileName := uuid.New().String() + ext
 	
 	// Use forward slash for OSS paths (not filepath.Join which uses backslash on Windows)
-	// Example: go_oss/uploads/2026/01/12/uuid.jpg
+	// Example: go_oss/uploads/2026-01-15/uuid.jpg
 	if s.config.UploadDir != "" {
 		return fmt.Sprintf("%s/%s/%s/%s", s.config.UploadDir, s.config.BasePath, dateDir, fileName)
 	}

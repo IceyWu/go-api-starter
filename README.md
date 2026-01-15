@@ -33,7 +33,9 @@
 - 🗜️ **Gzip Compression** - 响应压缩支持
 - 📈 **Performance Monitoring** - pprof 性能分析
 - 🎯 **完整 CRUD 示例** - 开箱即用的用户管理模块
-- 🔧 **零外部依赖** - 使用 SQLite，无需安装数据库
+- 🔐 **权限管理系统** - 基于 RBAC 的权限控制
+- ☁️ **阿里云 OSS 集成** - 文件上传与管理
+- 🔧 **多数据库支持** - SQLite / MySQL
 
 ## 🛠️ 技术栈
 
@@ -46,6 +48,7 @@
 | 环境变量 | [Godotenv](https://github.com/joho/godotenv) |
 | 日志 | [Zap](https://github.com/uber-go/zap) |
 | API 文档 | [Swag](https://github.com/swaggo/swag) + [Scalar](https://github.com/scalar/scalar) |
+| 对象存储 | [阿里云 OSS](https://github.com/aliyun/aliyun-oss-go-sdk) |
 | CORS | [gin-contrib/cors](https://github.com/gin-contrib/cors) |
 | 请求追踪 | [gin-contrib/requestid](https://github.com/gin-contrib/requestid) |
 | 响应压缩 | [gin-contrib/gzip](https://github.com/gin-contrib/gzip) |
@@ -58,6 +61,7 @@
 ### 环境要求
 
 - Go 1.21+
+- MySQL 8.0+ (可选，默认使用 SQLite)
 
 ### 安装运行
 
@@ -72,31 +76,38 @@ go mod tidy
 # 复制环境变量配置文件
 copy .env.example .env
 
-# 生成 Swagger 文档
-swag init -g cmd/server/main.go -o docs
+# 开发模式运行 (使用 MySQL)
+make dev
 
-# 运行
+# 或直接运行 (使用 SQLite)
 go run ./cmd/server
+```
 
-# 或编译后运行
-go build -o server ./cmd/server
-./server
+### Makefile 命令
+
+```bash
+make dev      # 开发模式运行
+make build    # 编译项目
+make swagger  # 生成 Swagger 文档
+make clean    # 清理编译产物
 ```
 
 ### 启动成功
 
 ```
-╔════════════════════════════════════════════════════════════╗
-║  🚀 go-api-starter started successfully!                   ║
-╠════════════════════════════════════════════════════════════╣
-║  ➤ Environment:  development                               ║
-╠════════════════════════════════════════════════════════════╣
-║  ➤ Local:        http://localhost:9527                     ║
-║  ➤ Network:      http://192.168.x.x:9527                   ║
-╠════════════════════════════════════════════════════════════╣
-║  ➤ API Docs:     http://localhost:9527/docs                ║
-║  ➤ Swagger:      http://localhost:9527/swagger/index.html  ║
-╚════════════════════════════════════════════════════════════╝
++-----------------------------------------------------------+
+|  [*] go-api-starter started successfully!                 |
++-----------------------------------------------------------+
+|  > Environment:  development                              |
++-----------------------------------------------------------+
+|  > Local:        http://localhost:9527                    |
+|  > Network:      http://192.168.x.x:9527                  |
++-----------------------------------------------------------+
+|  > API Base:     http://localhost:9527/api/v1             |
+|  > API Docs:     http://localhost:9527/docs               |
+|  > Swagger:      http://localhost:9527/swagger/index.html |
+|  > OpenAPI:      http://localhost:9527/swagger/doc.json   |
++-----------------------------------------------------------+
 ```
 
 ## 📁 项目结构
@@ -118,13 +129,17 @@ go-api-starter/
 │   ├── router/                  # 路由配置
 │   └── service/                 # 业务逻辑层
 ├── pkg/
+│   ├── apperrors/               # 应用错误定义
 │   ├── banner/                  # 启动横幅
 │   ├── database/                # 数据库连接
 │   ├── errors/                  # 错误定义
 │   ├── logger/                  # 日志工具
+│   ├── oss/                     # OSS 客户端
 │   ├── response/                # 统一响应
 │   └── utils/                   # 工具函数
-├── .gitignore
+├── playground/
+│   └── shadcn-admin/            # 前端管理后台
+├── .env.example
 ├── go.mod
 ├── Makefile
 └── README.md
@@ -142,16 +157,45 @@ go-api-starter/
 
 ## 🔌 API 端点
 
+### 基础端点
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | 健康检查 |
 | `GET` | `/health/ready` | 就绪检查 |
+
+### 用户管理
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | `POST` | `/api/v1/users` | 创建用户 |
 | `GET` | `/api/v1/users` | 获取用户列表 |
 | `GET` | `/api/v1/users/:id` | 获取单个用户 |
 | `PUT` | `/api/v1/users/:id` | 更新用户 |
 | `DELETE` | `/api/v1/users/:id` | 删除用户 |
-| `GET` | `/debug/pprof/` | 性能分析（开发环境） |
+
+### 权限管理
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/permissions/spaces` | 获取权限空间列表 |
+| `POST` | `/api/v1/permissions/spaces` | 创建权限空间 |
+| `GET` | `/api/v1/permissions` | 获取权限列表 |
+| `POST` | `/api/v1/permissions` | 创建权限 |
+| `GET` | `/api/v1/permissions/roles` | 获取角色列表 |
+| `POST` | `/api/v1/permissions/roles` | 创建角色 |
+| `POST` | `/api/v1/permissions/roles/:id/permissions` | 为角色分配权限 |
+| `POST` | `/api/v1/permissions/users/:id/roles` | 为用户分配角色 |
+| `GET` | `/api/v1/permissions/me/permissions` | 获取当前用户权限 |
+
+### OSS 文件管理
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/oss/token` | 获取上传令牌 |
+| `POST` | `/api/v1/oss/callback` | 上传回调 |
+| `GET` | `/api/v1/oss/files` | 获取文件列表 |
+| `DELETE` | `/api/v1/oss/files/:id` | 删除文件 |
 
 ## ⚙️ 配置说明
 
@@ -182,18 +226,42 @@ database:
 log:
   level: debug
   format: console
+
+# OSS 配置
+oss:
+  endpoint: your-bucket.oss-accelerate.aliyuncs.com
+  bucket: your-bucket
+  access_key_id: ""      # 通过环境变量设置
+  access_key_secret: ""  # 通过环境变量设置
+  upload_dir: go_oss
+  base_path: uploads
+  domain: ""             # 自定义域名 (可选)
+  max_file_size: 10485760
+  token_expire: 1800
 ```
+
+### OSS 配置说明
+
+| 配置项 | 说明 | 示例 |
+|--------|------|------|
+| `endpoint` | OSS 访问域名 | `bucket.oss-cn-hangzhou.aliyuncs.com` |
+| `bucket` | 存储桶名称 | `my-bucket` |
+| `upload_dir` | 上传目录前缀 | `go_oss` |
+| `base_path` | 基础路径 | `uploads` |
+| `domain` | 自定义 CDN 域名 | `https://cdn.example.com` |
+| `max_file_size` | 最大文件大小 (字节) | `10485760` (10MB) |
+| `token_expire` | 令牌过期时间 (秒) | `1800` (30分钟) |
+
+**文件存储路径**: `{upload_dir}/{base_path}/{date}/{uuid}.{ext}`  
+**示例**: `go_oss/uploads/2026-01-15/abc123.jpg`
+
+**URL 生成规则**:
+- 设置 `domain` → `https://cdn.example.com/go_oss/uploads/2026-01-15/abc123.jpg`
+- 未设置 `domain` → `https://{endpoint}/go_oss/uploads/2026-01-15/abc123.jpg`
 
 ### 环境变量
 
 支持通过 `.env` 文件或系统环境变量配置：
-
-1. 复制 `.env.example` 为 `.env`
-2. 根据需要修改配置
-3. 设置 `APP_ENV` 来加载不同环境的配置：
-   - `development` 或 `dev` → 加载 `.env.dev`
-   - `production` 或 `prod` → 加载 `.env.prod`
-   - 未设置 → 加载 `.env`
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
@@ -201,22 +269,33 @@ log:
 | `SERVER_PORT` | 服务端口 | 9527 |
 | `SERVER_MODE` | 运行模式 | debug |
 | `DB_DRIVER` | 数据库类型 | sqlite |
-| `DB_PATH` | SQLite 路径 | ./data.db |
 | `DB_HOST` | MySQL 主机 | localhost |
 | `DB_PORT` | MySQL 端口 | 3306 |
 | `DB_USER` | MySQL 用户名 | root |
 | `DB_PASSWORD` | MySQL 密码 | 123456 |
 | `DB_NAME` | MySQL 数据库名 | go_api_starter |
+| `OSS_ACCESS_KEY_ID` | OSS AccessKey ID | - |
+| `OSS_ACCESS_KEY_SECRET` | OSS AccessKey Secret | - |
 | `LOG_LEVEL` | 日志级别 | debug |
 
-### 限流配置
+## 🖥️ 前端管理后台
 
-在 `internal/router/router.go` 中调整限流参数：
+项目包含一个基于 React + shadcn/ui 的管理后台：
 
-```go
-// 100 请求/秒，突发 200
-rateLimiter := middleware.NewRateLimiter(rate.Limit(100), 200)
+```bash
+cd playground/shadcn-admin
+pnpm install
+pnpm dev
 ```
+
+访问 http://localhost:5173
+
+功能包括：
+- 用户管理
+- 权限管理 (权限空间、权限、角色)
+- 文件管理 (OSS 上传、列表、删除)
+- 中英文国际化
+- 深色/浅色主题
 
 ## 📜 License
 

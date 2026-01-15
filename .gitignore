@@ -56,3 +56,5 @@ tmp/
 
 # Config (local overrides)
 config.local.yaml
+
+playground/

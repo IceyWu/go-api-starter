@@ -27,9 +27,9 @@ func isColorSupported() bool {
 	if os.Getenv("APP_ENV") == "production" {
 		return false
 	}
-	// Check if running in a terminal
+	// Windows: always enable colors for modern terminals
 	if runtime.GOOS == "windows" {
-		return os.Getenv("TERM") != "" || os.Getenv("WT_SESSION") != ""
+		return true
 	}
 	// Linux/Mac: check if stdout is a terminal
 	fi, _ := os.Stdout.Stat()
@@ -57,15 +57,7 @@ func bannerStyle() string {
 			return v
 		}
 	}
-
-	// Default: prefer unicode in modern terminals.
-	if runtime.GOOS == "windows" {
-		if os.Getenv("WT_SESSION") != "" {
-			return "unicode"
-		}
-		// Older consoles can render poorly; keep ASCII as a safer fallback.
-		return "ascii"
-	}
+	// Default: use unicode for better appearance
 	return "unicode"
 }
 
@@ -101,29 +93,29 @@ func PrintBanner(appName, env, port, localIP string) {
 	useColor := isColorSupported()
 	style := bannerStyle()
 
-	var bc, reset, green, yellow, magenta string
+	var bc, reset, green, yellow, cyan, magenta string
 	if useColor {
 		bc = Bold + Cyan
 		reset = Reset
-		green = Bold + Green
+		green = Green
 		yellow = Yellow
+		cyan = Cyan
 		magenta = Magenta
 	}
 
-	// Compose content lines (include left padding inside the box).
 	arrow := "➤"
 	if style == "ascii" {
 		arrow = ">"
 	}
 
-	lineTitle := "  " + green + "[*] " + appName + " started successfully!" + reset
-	lineEnv := "  " + yellow + arrow + " Environment:" + reset + "  " + env
-	lineLocal := "  " + green + arrow + " Local:" + reset + "        http://localhost:" + port
-	lineNetwork := "  " + green + arrow + " Network:" + reset + "      http://" + localIP + ":" + port
-	lineAPIBase := "  " + magenta + arrow + " API Base:" + reset + "     http://localhost:" + port + "/api/v1"
-	lineDocs := "  " + magenta + arrow + " API Docs:" + reset + "     http://localhost:" + port + "/docs"
-	lineSwagger := "  " + magenta + arrow + " Swagger:" + reset + "      http://localhost:" + port + "/swagger/index.html"
-	lineOpenAPI := "  " + magenta + arrow + " OpenAPI:" + reset + "      http://localhost:" + port + "/swagger/doc.json"
+	lineTitle := "  " + green + "✓ " + appName + " started successfully!" + reset
+	lineEnv := "  " + yellow + arrow + reset + " Environment:  " + cyan + env + reset
+	lineLocal := "  " + green + arrow + reset + " Local:        " + cyan + "http://localhost:" + port + reset
+	lineNetwork := "  " + green + arrow + reset + " Network:      " + cyan + "http://" + localIP + ":" + port + reset
+	lineAPIBase := "  " + magenta + arrow + reset + " API Base:     " + cyan + "http://localhost:" + port + "/api/v1" + reset
+	lineDocs := "  " + magenta + arrow + reset + " API Docs:     " + cyan + "http://localhost:" + port + "/docs" + reset
+	lineSwagger := "  " + magenta + arrow + reset + " Swagger:      " + cyan + "http://localhost:" + port + "/swagger/index.html" + reset
+	lineOpenAPI := "  " + magenta + arrow + reset + " OpenAPI:      " + cyan + "http://localhost:" + port + "/swagger/doc.json" + reset
 
 	sections := [][]string{
 		{lineTitle},
@@ -141,20 +133,19 @@ func PrintBanner(appName, env, port, localIP string) {
 			}
 		}
 	}
-	// Add one trailing space so the right border isn't tight.
 	innerWidth += 1
 
 	var box bannerBox
 	if style == "unicode" {
 		box = bannerBox{
-			topLeft:     "╔",
-			topRight:    "╗",
-			bottomLeft:  "╚",
-			bottomRight: "╝",
-			horizontal:  "═",
-			vertical:    "║",
-			sepLeft:     "╠",
-			sepRight:    "╣",
+			topLeft:     "╭",
+			topRight:    "╮",
+			bottomLeft:  "╰",
+			bottomRight: "╯",
+			horizontal:  "─",
+			vertical:    "│",
+			sepLeft:     "├",
+			sepRight:    "┤",
 		}
 	} else {
 		box = bannerBox{
@@ -180,5 +171,4 @@ func PrintBanner(appName, env, port, localIP string) {
 		}
 	}
 	fmt.Println(bc + box.bottom(innerWidth) + reset)
-	fmt.Println()
 }

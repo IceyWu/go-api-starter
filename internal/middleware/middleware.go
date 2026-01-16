@@ -20,30 +20,24 @@ func Logger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
-		query := c.Request.URL.RawQuery
 		method := c.Request.Method
-		requestID := GetRequestID(c)
 
 		c.Next()
 
 		latency := time.Since(start)
 		status := c.Writer.Status()
-		clientIP := c.ClientIP()
-		errorMessage := c.Errors.ByType(gin.ErrorTypePrivate).String()
 
-		if query != "" {
-			path = path + "?" + query
+		// Format: METHOD PATH STATUS LATENCY
+		statusColor := "\033[32m" // green
+		if status >= 400 {
+			statusColor = "\033[33m" // yellow
+		}
+		if status >= 500 {
+			statusColor = "\033[31m" // red
 		}
 
-		logger.Log.Infow("HTTP Request",
-			"request_id", requestID,
-			"method", method,
-			"path", path,
-			"status", status,
-			"latency", latency,
-			"client_ip", clientIP,
-			"error", errorMessage,
-		)
+		logger.Log.Infof("%s%-7s\033[0m %s %s%d\033[0m %v",
+			"\033[36m", method, path, statusColor, status, latency)
 	}
 }
 

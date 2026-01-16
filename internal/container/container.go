@@ -11,6 +11,7 @@ import (
 	"go-api-starter/internal/repository"
 	"go-api-starter/internal/service"
 	"go-api-starter/pkg/cache"
+	"go-api-starter/pkg/mail"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -59,6 +60,13 @@ type Container struct {
 	permHandler   *handler.PermissionHandler
 	ossHandler    *handler.OSSHandler
 	healthHandler *handler.HealthHandler
+	verifyHandler *handler.VerificationHandler
+
+	// Mail client
+	mailClient *mail.Client
+
+	// Verification service
+	verifyService *service.VerificationCodeService
 
 	// Mutex for thread-safe lazy initialization
 	mu sync.Mutex
@@ -321,8 +329,9 @@ func (c *Container) AuthHandler() *handler.AuthHandler {
 	if c.authHandler == nil {
 		c.mu.Unlock()
 		authService := c.AuthService()
+		verifyService := c.VerificationCodeService()
 		c.mu.Lock()
-		c.authHandler = handler.NewAuthHandler(authService)
+		c.authHandler = handler.NewAuthHandlerWithVerification(authService, verifyService)
 	}
 	return c.authHandler
 }
@@ -476,6 +485,56 @@ func (c *Container) RateLimiter() *middleware.RedisRateLimiter {
 		c.rateLimiter = middleware.NewRedisRateLimiter(cacheBackend, 100, time.Minute)
 	}
 	return c.rateLimiter
+}
+
+// ========== Mail Getters ==========
+
+// MailClient returns the mail client singleton
+func (c *Container) MailClient() *mail.Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.mailClient == nil && c.config.Mail.Enabled {
+		c.mailClient = mail.NewClient(&mail.Config{
+			Host:     c.config.Mail.Host,
+			Port:     c.config.Mail.Port,
+			User:     c.config.Mail.User,
+			Password: c.config.Mail.Password,
+			From:     c.config.Mail.From,
+			UseTLS:   c.config.Mail.UseTLS,
+			MockSend: c.config.Mail.MockSend,
+		})
+	}
+	return c.mailClient
+}
+
+// VerificationCodeService returns the verification code service singleton
+func (c *Container) VerificationCodeService() *service.VerificationCodeService {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.verifyService == nil {
+		c.mu.Unlock()
+		cacheBackend := c.CacheBackend()
+		mailClient := c.MailClient()
+		c.mu.Lock()
+		c.verifyService = service.NewVerificationCodeService(cacheBackend, mailClient, c.config.App.Name)
+	}
+	return c.verifyService
+}
+
+// VerificationHandler returns the verification handler singleton
+func (c *Container) VerificationHandler() *handler.VerificationHandler {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.verifyHandler == nil {
+		c.mu.Unlock()
+		verifyService := c.VerificationCodeService()
+		c.mu.Lock()
+		c.verifyHandler = handler.NewVerificationHandler(verifyService)
+	}
+	return c.verifyHandler
 }
 
 // Close closes all resources

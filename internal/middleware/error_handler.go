@@ -26,21 +26,11 @@ func ErrorHandler() gin.HandlerFunc {
 
 // handleError processes the error and sends appropriate HTTP response
 func handleError(c *gin.Context, err error) {
-	reqID := GetRequestID(c)
-
 	var appErr *apperrors.AppError
 	if errors.As(err, &appErr) {
-		// Log application error with details (if logger is initialized)
-		if logger.Log != nil {
-			logger.Log.Errorw("Application error",
-				"request_id", reqID,
-				"code", appErr.Code,
-				"message", appErr.Message,
-				"http_status", appErr.HTTPStatus,
-				"path", c.Request.URL.Path,
-				"method", c.Request.Method,
-				"error", appErr.Err,
-			)
+		// Log application error (simplified)
+		if logger.Log != nil && appErr.HTTPStatus >= 500 {
+			logger.Log.Errorf("%s %s - %s", c.Request.Method, c.Request.URL.Path, appErr.Message)
 		}
 
 		// Send structured error response
@@ -54,12 +44,7 @@ func handleError(c *gin.Context, err error) {
 
 	// Unknown error - log and return generic 500
 	if logger.Log != nil {
-		logger.Log.Errorw("Unexpected error",
-			"request_id", reqID,
-			"path", c.Request.URL.Path,
-			"method", c.Request.Method,
-			"error", err,
-		)
+		logger.Log.Errorf("%s %s - %v", c.Request.Method, c.Request.URL.Path, err)
 	}
 	response.InternalError(c, "internal server error")
 }

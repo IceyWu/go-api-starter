@@ -120,6 +120,37 @@ definitions:
     - size
     - upload_id
     type: object
+  handler.SendCodeRequest:
+    properties:
+      email:
+        type: string
+      purpose:
+        enum:
+        - register
+        - reset_password
+        - bind_email
+        type: string
+    required:
+    - email
+    - purpose
+    type: object
+  handler.VerifyCodeRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+      purpose:
+        enum:
+        - register
+        - reset_password
+        - bind_email
+        type: string
+    required:
+    - code
+    - email
+    - purpose
+    type: object
   model.AssignRoleRequest:
     properties:
       role_id:
@@ -193,11 +224,6 @@ definitions:
     type: object
   model.CreateUserRequest:
     properties:
-      age:
-        example: 25
-        maximum: 150
-        minimum: 0
-        type: integer
       email:
         example: john@example.com
         type: string
@@ -349,11 +375,9 @@ definitions:
     type: object
   model.RegisterRequest:
     properties:
-      age:
-        example: 25
-        maximum: 150
-        minimum: 0
-        type: integer
+      code:
+        example: "123456"
+        type: string
       email:
         example: admin@example.com
         type: string
@@ -367,6 +391,7 @@ definitions:
         minLength: 6
         type: string
     required:
+    - code
     - email
     - name
     - password
@@ -504,11 +529,6 @@ definitions:
     type: object
   model.UpdateUserRequest:
     properties:
-      age:
-        example: 30
-        maximum: 150
-        minimum: 0
-        type: integer
       email:
         example: john@example.com
         type: string
@@ -520,8 +540,6 @@ definitions:
     type: object
   model.User:
     properties:
-      age:
-        type: integer
       created_at:
         type: string
       email:
@@ -688,7 +706,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 注册一个新的用户账号
+      description: 注册一个新的用户账号（需要邮箱验证码）
       parameters:
       - description: 注册请求数据
         in: body
@@ -1644,7 +1662,7 @@ paths:
       - 权限测试
   /api/v1/users:
     get:
-      description: 获取分页的用户列表，支持按以下字段排序：id, name, email, age, createdAt, updatedAt
+      description: 获取分页的用户列表，支持按以下字段排序：id, name, email, createdAt, updatedAt
       parameters:
       - description: 页码（默认：1）
         example: 1
@@ -1683,9 +1701,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: 创建一个新用户，需要提供姓名、邮箱和年龄
+      description: 创建一个新用户，需要提供姓名和邮箱
       parameters:
-      - description: 用户数据：name(必填,2-100字符), email(必填), age(0-150)
+      - description: 用户数据：name(必填,2-100字符), email(必填)
         in: body
         name: user
         required: true
@@ -1781,7 +1799,7 @@ paths:
         name: id
         required: true
         type: integer
-      - description: 用户数据：name(2-100字符), email, age(0-150)，所有字段可选
+      - description: 用户数据：name(2-100字符), email，所有字段可选
         in: body
         name: user
         required: true
@@ -1810,6 +1828,62 @@ paths:
       summary: 更新用户
       tags:
       - 用户管理
+  /api/v1/verification/send:
+    post:
+      consumes:
+      - application/json
+      description: 发送邮箱验证码
+      parameters:
+      - description: 发送验证码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SendCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 发送验证码
+      tags:
+      - 验证码
+  /api/v1/verification/verify:
+    post:
+      consumes:
+      - application/json
+      description: 验证邮箱验证码
+      parameters:
+      - description: 验证验证码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.VerifyCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 验证验证码
+      tags:
+      - 验证码
   /health:
     get:
       description: 获取服务健康状态

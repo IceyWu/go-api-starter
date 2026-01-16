@@ -1,13 +1,38 @@
 package logger
 
 import (
+	"fmt"
 	"os"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 var Log *zap.SugaredLogger
+
+// customTimeEncoder formats time as "2006-01-16 15:04:05"
+func customTimeEncoder(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(t.Format("2006-01-02 15:04:05"))
+}
+
+// customLevelEncoder formats level with color and fixed width
+func customLevelEncoder(level zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	var levelStr string
+	switch level {
+	case zapcore.DebugLevel:
+		levelStr = "\033[36mDEBUG\033[0m"
+	case zapcore.InfoLevel:
+		levelStr = "\033[32mINFO \033[0m"
+	case zapcore.WarnLevel:
+		levelStr = "\033[33mWARN \033[0m"
+	case zapcore.ErrorLevel:
+		levelStr = "\033[31mERROR\033[0m"
+	default:
+		levelStr = fmt.Sprintf("%-5s", level.CapitalString())
+	}
+	enc.AppendString(levelStr)
+}
 
 // Init initializes the logger
 func Init(level, format, output, filePath string) {
@@ -29,18 +54,20 @@ func Init(level, format, output, filePath string) {
 		TimeKey:        "time",
 		LevelKey:       "level",
 		NameKey:        "logger",
-		CallerKey:      "caller",
+		CallerKey:      "",
 		MessageKey:     "msg",
 		StacktraceKey:  "stacktrace",
 		LineEnding:     zapcore.DefaultLineEnding,
-		EncodeLevel:    zapcore.LowercaseLevelEncoder,
-		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeLevel:    customLevelEncoder,
+		EncodeTime:     customTimeEncoder,
 		EncodeDuration: zapcore.SecondsDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
 	var encoder zapcore.Encoder
 	if format == "json" {
+		encoderConfig.EncodeLevel = zapcore.LowercaseLevelEncoder
+		encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 		encoder = zapcore.NewJSONEncoder(encoderConfig)
 	} else {
 		encoder = zapcore.NewConsoleEncoder(encoderConfig)
@@ -55,7 +82,7 @@ func Init(level, format, output, filePath string) {
 	}
 
 	core := zapcore.NewCore(encoder, writeSyncer, zapLevel)
-	logger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
+	logger := zap.New(core)
 	Log = logger.Sugar()
 }
 

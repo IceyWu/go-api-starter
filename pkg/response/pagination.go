@@ -49,7 +49,6 @@ var AllowedSortFields = map[string]string{
 	"updated_at": "updated_at",
 	"name":       "name",
 	"email":      "email",
-	"age":        "age",
 }
 
 func (p *Pagination) GetPage() int {

@@ -71,6 +71,7 @@ func Setup(db *gorm.DB) *gin.Engine {
 	permHandler := c.PermissionHandler()
 	ossHandler := c.OSSHandler()
 	healthHandler := c.HealthHandler()
+	verifyHandler := c.VerificationHandler()
 
 	// Get middleware dependencies
 	authMiddleware := middleware.NewAuthMiddlewareWithBlacklist(c.JWTSecret(), c.AuthService())
@@ -95,6 +96,13 @@ func Setup(db *gorm.DB) *gin.Engine {
 			auth.POST("/reset-password/:id", authMiddleware.RequireAuth(), authHandler.ResetPassword)
 			auth.POST("/logout", authMiddleware.RequireAuth(), authHandler.Logout)
 			auth.POST("/logout-all", authMiddleware.RequireAuth(), authHandler.LogoutAllDevices)
+		}
+
+		// Verification routes (public)
+		verification := api.Group("/verification")
+		{
+			verification.POST("/send", verifyHandler.SendCode)
+			verification.POST("/verify", verifyHandler.VerifyCode)
 		}
 
 		// Protected routes

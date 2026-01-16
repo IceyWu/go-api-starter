@@ -11,7 +11,7 @@ type RegisterRequest struct {
 	Name     string `json:"name" binding:"required,min=2,max=100" example:"Admin User"`
 	Email    string `json:"email" binding:"required,email" example:"admin@example.com"`
 	Password string `json:"password" binding:"required,min=6" example:"password123"`
-	Age      int    `json:"age" binding:"gte=0,lte=150" example:"25"`
+	Code     string `json:"code" binding:"required,len=6" example:"123456"`
 }
 
 // LoginResponse represents the login response

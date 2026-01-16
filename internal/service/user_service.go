@@ -66,9 +66,6 @@ func (s *UserService) Update(ctx context.Context, id uint, req *model.UpdateUser
 	if req.Email != "" {
 		user.Email = req.Email
 	}
-	if req.Age != nil {
-		user.Age = *req.Age
-	}
 
 	if err := s.repo.Update(ctx, user); err != nil {
 		return nil, apperrors.Wrap(err, "failed to update user")

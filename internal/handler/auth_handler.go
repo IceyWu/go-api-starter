@@ -12,7 +12,8 @@ import (
 )
 
 type AuthHandler struct {
-	authService service.AuthServiceInterface
+	authService   service.AuthServiceInterface
+	verifyService *service.VerificationCodeService
 }
 
 func NewAuthHandler(authService service.AuthServiceInterface) *AuthHandler {
@@ -21,9 +22,17 @@ func NewAuthHandler(authService service.AuthServiceInterface) *AuthHandler {
 	}
 }
 
+// NewAuthHandlerWithVerification creates a new AuthHandler with verification service
+func NewAuthHandlerWithVerification(authService service.AuthServiceInterface, verifyService *service.VerificationCodeService) *AuthHandler {
+	return &AuthHandler{
+		authService:   authService,
+		verifyService: verifyService,
+	}
+}
+
 // Register godoc
 // @Summary 注册新用户
-// @Description 注册一个新的用户账号
+// @Description 注册一个新的用户账号（需要邮箱验证码）
 // @Tags 认证
 // @Accept json
 // @Produce json
@@ -40,6 +49,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+
+	// Verify the code
+	if h.verifyService != nil {
+		valid, err := h.verifyService.VerifyCode(ctx, req.Email, "register", req.Code)
+		if err != nil || !valid {
+			c.Error(apperrors.BadRequest("验证码错误或已过期"))
+			return
+		}
+	}
+
 	user, err := h.authService.Register(ctx, &req)
 	if err != nil {
 		c.Error(err)

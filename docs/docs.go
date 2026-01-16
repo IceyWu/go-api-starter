@@ -180,7 +180,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/register": {
             "post": {
-                "description": "注册一个新的用户账号",
+                "description": "注册一个新的用户账号（需要邮箱验证码）",
                 "consumes": [
                     "application/json"
                 ],
@@ -1723,7 +1723,7 @@ const docTemplate = `{
         },
         "/api/v1/users": {
             "get": {
-                "description": "获取分页的用户列表，支持按以下字段排序：id, name, email, age, createdAt, updatedAt",
+                "description": "获取分页的用户列表，支持按以下字段排序：id, name, email, createdAt, updatedAt",
                 "produces": [
                     "application/json"
                 ],
@@ -1782,7 +1782,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "创建一个新用户，需要提供姓名、邮箱和年龄",
+                "description": "创建一个新用户，需要提供姓名和邮箱",
                 "consumes": [
                     "application/json"
                 ],
@@ -1795,7 +1795,7 @@ const docTemplate = `{
                 "summary": "创建用户",
                 "parameters": [
                     {
-                        "description": "用户数据：name(必填,2-100字符), email(必填), age(0-150)",
+                        "description": "用户数据：name(必填,2-100字符), email(必填)",
                         "name": "user",
                         "in": "body",
                         "required": true,
@@ -1913,7 +1913,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "用户数据：name(2-100字符), email, age(0-150)，所有字段可选",
+                        "description": "用户数据：name(2-100字符), email，所有字段可选",
                         "name": "user",
                         "in": "body",
                         "required": true,
@@ -1983,6 +1983,92 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/verification/send": {
+            "post": {
+                "description": "发送邮箱验证码",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "验证码"
+                ],
+                "summary": "发送验证码",
+                "parameters": [
+                    {
+                        "description": "发送验证码请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.SendCodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/verification/verify": {
+            "post": {
+                "description": "验证邮箱验证码",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "验证码"
+                ],
+                "summary": "验证验证码",
+                "parameters": [
+                    {
+                        "description": "验证验证码请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.VerifyCodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -2214,6 +2300,50 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.SendCodeRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "purpose"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "purpose": {
+                    "type": "string",
+                    "enum": [
+                        "register",
+                        "reset_password",
+                        "bind_email"
+                    ]
+                }
+            }
+        },
+        "handler.VerifyCodeRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "email",
+                "purpose"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "purpose": {
+                    "type": "string",
+                    "enum": [
+                        "register",
+                        "reset_password",
+                        "bind_email"
+                    ]
+                }
+            }
+        },
         "model.AssignRoleRequest": {
             "type": "object",
             "required": [
@@ -2317,12 +2447,6 @@ const docTemplate = `{
                 "name"
             ],
             "properties": {
-                "age": {
-                    "type": "integer",
-                    "maximum": 150,
-                    "minimum": 0,
-                    "example": 25
-                },
                 "email": {
                     "type": "string",
                     "example": "john@example.com"
@@ -2534,16 +2658,15 @@ const docTemplate = `{
         "model.RegisterRequest": {
             "type": "object",
             "required": [
+                "code",
                 "email",
                 "name",
                 "password"
             ],
             "properties": {
-                "age": {
-                    "type": "integer",
-                    "maximum": 150,
-                    "minimum": 0,
-                    "example": 25
+                "code": {
+                    "type": "string",
+                    "example": "123456"
                 },
                 "email": {
                     "type": "string",
@@ -2757,12 +2880,6 @@ const docTemplate = `{
         "model.UpdateUserRequest": {
             "type": "object",
             "properties": {
-                "age": {
-                    "type": "integer",
-                    "maximum": 150,
-                    "minimum": 0,
-                    "example": 30
-                },
                 "email": {
                     "type": "string",
                     "example": "john@example.com"
@@ -2778,9 +2895,6 @@ const docTemplate = `{
         "model.User": {
             "type": "object",
             "properties": {
-                "age": {
-                    "type": "integer"
-                },
                 "created_at": {
                     "type": "string"
                 },

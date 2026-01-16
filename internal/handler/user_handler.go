@@ -23,11 +23,11 @@ func NewUserHandler(svc service.UserServiceInterface) *UserHandler {
 
 // Create godoc
 // @Summary 创建用户
-// @Description 创建一个新用户，需要提供姓名、邮箱和年龄
+// @Description 创建一个新用户，需要提供姓名和邮箱
 // @Tags 用户管理
 // @Accept json
 // @Produce json
-// @Param user body model.CreateUserRequest true "用户数据：name(必填,2-100字符), email(必填), age(0-150)"
+// @Param user body model.CreateUserRequest true "用户数据：name(必填,2-100字符), email(必填)"
 // @Success 201 {object} response.Response{data=model.User} "创建成功"
 // @Failure 400 {object} response.Response "参数验证错误"
 // @Failure 500 {object} response.Response "服务器内部错误"
@@ -52,7 +52,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 
 // List godoc
 // @Summary 获取用户列表
-// @Description 获取分页的用户列表，支持按以下字段排序：id, name, email, age, createdAt, updatedAt
+// @Description 获取分页的用户列表，支持按以下字段排序：id, name, email, createdAt, updatedAt
 // @Tags 用户管理
 // @Produce json
 // @Param page query int false "页码（默认：1）" Example(1)
@@ -112,7 +112,7 @@ func (h *UserHandler) Get(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path int true "用户ID" Example(1)
-// @Param user body model.UpdateUserRequest true "用户数据：name(2-100字符), email, age(0-150)，所有字段可选"
+// @Param user body model.UpdateUserRequest true "用户数据：name(2-100字符), email，所有字段可选"
 // @Success 200 {object} response.Response{data=model.User} "更新成功"
 // @Failure 400 {object} response.Response "参数验证错误"
 // @Failure 404 {object} response.Response "用户不存在"

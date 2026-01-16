@@ -19,6 +19,19 @@ type Config struct {
 	Log      LogConfig      `mapstructure:"log"`
 	OSS      OSSConfig      `mapstructure:"oss"`
 	Redis    RedisConfig    `mapstructure:"redis"`
+	Mail     MailConfig     `mapstructure:"mail"`
+}
+
+// MailConfig holds mail server configuration
+type MailConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+	UseTLS   bool   `mapstructure:"use_tls"`
+	Enabled  bool   `mapstructure:"enabled"`
+	MockSend bool   `mapstructure:"mock_send"`
 }
 
 type AppConfig struct {
@@ -197,6 +210,15 @@ func bindEnvVariables() {
 	viper.BindEnv("redis.pool_size", "REDIS_POOL_SIZE")
 	viper.BindEnv("redis.cluster_mode", "REDIS_CLUSTER_MODE")
 	viper.BindEnv("redis.enable_fallback", "REDIS_ENABLE_FALLBACK")
+	// Mail environment variables
+	viper.BindEnv("mail.host", "MAIL_HOST")
+	viper.BindEnv("mail.port", "MAIL_PORT")
+	viper.BindEnv("mail.user", "MAIL_USER")
+	viper.BindEnv("mail.password", "MAIL_PASS")
+	viper.BindEnv("mail.from", "MAIL_FROM")
+	viper.BindEnv("mail.use_tls", "MAIL_USE_TLS")
+	viper.BindEnv("mail.enabled", "MAIL_ENABLED")
+	viper.BindEnv("mail.mock_send", "MAIL_MOCK_SEND")
 }
 
 func setDefaults() {
@@ -236,7 +258,16 @@ func setDefaults() {
 	viper.SetDefault("redis.write_timeout", 3*time.Second)
 	viper.SetDefault("redis.cluster_mode", false)
 	viper.SetDefault("redis.enable_fallback", true)
-	viper.SetDefault("redis.enabled", false)
+	viper.SetDefault("redis.enabled", true)
+	// Mail defaults
+	viper.SetDefault("mail.host", "smtp.qq.com")
+	viper.SetDefault("mail.port", 587)
+	viper.SetDefault("mail.user", "")
+	viper.SetDefault("mail.password", "")
+	viper.SetDefault("mail.from", "")
+	viper.SetDefault("mail.use_tls", true)
+	viper.SetDefault("mail.enabled", false)
+	viper.SetDefault("mail.mock_send", false)
 }
 
 // GetConfig returns the global config

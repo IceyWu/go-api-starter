@@ -1973,9 +1973,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/users/{id}": {
+        "/api/v1/users/{sec_uid}": {
             "get": {
-                "description": "根据用户ID获取单个用户的详细信息",
+                "description": "根据用户SecUID获取单个用户的详细信息",
                 "produces": [
                     "application/json"
                 ],
@@ -1985,10 +1985,9 @@ const docTemplate = `{
                 "summary": "获取用户详情",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "example": 1,
-                        "description": "用户ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "用户SecUID",
+                        "name": "sec_uid",
                         "in": "path",
                         "required": true
                     }
@@ -2013,7 +2012,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "无效的用户ID",
+                        "description": "无效的用户SecUID",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -2027,7 +2026,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "根据ID更新现有用户，所有字段都是可选的",
+                "description": "根据SecUID更新现有用户，所有字段都是可选的",
                 "consumes": [
                     "application/json"
                 ],
@@ -2040,10 +2039,9 @@ const docTemplate = `{
                 "summary": "更新用户",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "example": 1,
-                        "description": "用户ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "用户SecUID",
+                        "name": "sec_uid",
                         "in": "path",
                         "required": true
                     },
@@ -2091,17 +2089,16 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "根据ID删除用户（软删除）",
+                "description": "根据SecUID删除用户（软删除）",
                 "tags": [
                     "用户管理"
                 ],
                 "summary": "删除用户",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "example": 1,
-                        "description": "用户ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "用户SecUID",
+                        "name": "sec_uid",
                         "in": "path",
                         "required": true
                     }
@@ -2111,7 +2108,7 @@ const docTemplate = `{
                         "description": "删除成功"
                     },
                     "400": {
-                        "description": "无效的用户ID",
+                        "description": "无效的用户SecUID",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -3131,10 +3128,11 @@ const docTemplate = `{
                 "email": {
                     "type": "string"
                 },
-                "id": {
-                    "type": "integer"
-                },
                 "name": {
+                    "type": "string"
+                },
+                "sec_uid": {
+                    "description": "安全标识符，对外暴露",
                     "type": "string"
                 },
                 "updated_at": {

@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"strconv"
-
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/service"
 	"go-api-starter/pkg/apperrors"
@@ -80,24 +78,24 @@ func (h *UserHandler) List(c *gin.Context) {
 
 // Get godoc
 // @Summary 获取用户详情
-// @Description 根据用户ID获取单个用户的详细信息
+// @Description 根据用户SecUID获取单个用户的详细信息
 // @Tags 用户管理
 // @Produce json
-// @Param id path int true "用户ID" Example(1)
+// @Param sec_uid path string true "用户SecUID"
 // @Success 200 {object} response.Response{data=model.User} "获取成功"
-// @Failure 400 {object} response.Response "无效的用户ID"
+// @Failure 400 {object} response.Response "无效的用户SecUID"
 // @Failure 404 {object} response.Response "用户不存在"
-// @Router /api/v1/users/{id} [get]
+// @Router /api/v1/users/{sec_uid} [get]
 func (h *UserHandler) Get(c *gin.Context) {
 	ctx := c.Request.Context()
 	
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.Error(apperrors.BadRequest("invalid user ID"))
+	secUID := c.Param("sec_uid")
+	if secUID == "" {
+		c.Error(apperrors.BadRequest("invalid user SecUID"))
 		return
 	}
 
-	user, err := h.service.GetByID(ctx, uint(id))
+	user, err := h.service.GetBySecUID(ctx, secUID)
 	if err != nil {
 		c.Error(err)
 		return
@@ -107,22 +105,29 @@ func (h *UserHandler) Get(c *gin.Context) {
 
 // Update godoc
 // @Summary 更新用户
-// @Description 根据ID更新现有用户，所有字段都是可选的
+// @Description 根据SecUID更新现有用户，所有字段都是可选的
 // @Tags 用户管理
 // @Accept json
 // @Produce json
-// @Param id path int true "用户ID" Example(1)
+// @Param sec_uid path string true "用户SecUID"
 // @Param user body model.UpdateUserRequest true "用户数据：name(2-100字符), email，所有字段可选"
 // @Success 200 {object} response.Response{data=model.User} "更新成功"
 // @Failure 400 {object} response.Response "参数验证错误"
 // @Failure 404 {object} response.Response "用户不存在"
-// @Router /api/v1/users/{id} [put]
+// @Router /api/v1/users/{sec_uid} [put]
 func (h *UserHandler) Update(c *gin.Context) {
 	ctx := c.Request.Context()
 	
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	secUID := c.Param("sec_uid")
+	if secUID == "" {
+		c.Error(apperrors.BadRequest("invalid user SecUID"))
+		return
+	}
+
+	// 先通过 SecUID 获取用户
+	user, err := h.service.GetBySecUID(ctx, secUID)
 	if err != nil {
-		c.Error(apperrors.BadRequest("invalid user ID"))
+		c.Error(err)
 		return
 	}
 
@@ -132,33 +137,40 @@ func (h *UserHandler) Update(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.Update(ctx, uint(id), &req)
+	updatedUser, err := h.service.Update(ctx, user.ID, &req)
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	response.Success(c, user)
+	response.Success(c, updatedUser)
 }
 
 // Delete godoc
 // @Summary 删除用户
-// @Description 根据ID删除用户（软删除）
+// @Description 根据SecUID删除用户（软删除）
 // @Tags 用户管理
-// @Param id path int true "用户ID" Example(1)
+// @Param sec_uid path string true "用户SecUID"
 // @Success 204 "删除成功"
-// @Failure 400 {object} response.Response "无效的用户ID"
+// @Failure 400 {object} response.Response "无效的用户SecUID"
 // @Failure 404 {object} response.Response "用户不存在"
-// @Router /api/v1/users/{id} [delete]
+// @Router /api/v1/users/{sec_uid} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
 	ctx := c.Request.Context()
 	
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.Error(apperrors.BadRequest("invalid user ID"))
+	secUID := c.Param("sec_uid")
+	if secUID == "" {
+		c.Error(apperrors.BadRequest("invalid user SecUID"))
 		return
 	}
 
-	if err := h.service.Delete(ctx, uint(id)); err != nil {
+	// 先通过 SecUID 获取用户
+	user, err := h.service.GetBySecUID(ctx, secUID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	if err := h.service.Delete(ctx, user.ID); err != nil {
 		c.Error(err)
 		return
 	}

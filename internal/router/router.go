@@ -114,9 +114,9 @@ func Setup(db *gorm.DB) *gin.Engine {
 		{
 			users.POST("", userHandler.Create)
 			users.GET("", userHandler.List)
-			users.GET("/:id", userHandler.Get)
-			users.PUT("/:id", userHandler.Update)
-			users.DELETE("/:id", userHandler.Delete)
+			users.GET("/:sec_uid", userHandler.Get)
+			users.PUT("/:sec_uid", userHandler.Update)
+			users.DELETE("/:sec_uid", userHandler.Delete)
 		}
 
 		oss := api.Group("/oss")

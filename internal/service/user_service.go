@@ -49,6 +49,18 @@ func (s *UserService) GetByID(ctx context.Context, id uint) (*model.User, error)
 	return user, nil
 }
 
+// GetBySecUID returns a user by SecUID
+func (s *UserService) GetBySecUID(ctx context.Context, secUID string) (*model.User, error) {
+	user, err := s.repo.FindBySecUID(ctx, secUID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, apperrors.NotFound("user not found")
+		}
+		return nil, apperrors.Wrap(err, "failed to get user")
+	}
+	return user, nil
+}
+
 // Update updates a user
 func (s *UserService) Update(ctx context.Context, id uint, req *model.UpdateUserRequest) (*model.User, error) {
 	user, err := s.repo.FindByID(ctx, id)

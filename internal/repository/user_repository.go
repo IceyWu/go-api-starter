@@ -64,6 +64,16 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.
 	return &user, err
 }
 
+// FindBySecUID finds a user by SecUID
+func (r *UserRepository) FindBySecUID(ctx context.Context, secUID string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).Where("sec_uid = ?", secUID).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrUserNotFound
+	}
+	return &user, err
+}
+
 // Update updates a user
 func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Save(user).Error

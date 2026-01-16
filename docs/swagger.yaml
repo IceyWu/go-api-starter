@@ -612,9 +612,10 @@ definitions:
         type: string
       email:
         type: string
-      id:
-        type: integer
       name:
+        type: string
+      sec_uid:
+        description: 安全标识符，对外暴露
         type: string
       updated_at:
         type: string
@@ -1883,21 +1884,20 @@ paths:
       summary: 创建用户
       tags:
       - 用户管理
-  /api/v1/users/{id}:
+  /api/v1/users/{sec_uid}:
     delete:
-      description: 根据ID删除用户（软删除）
+      description: 根据SecUID删除用户（软删除）
       parameters:
-      - description: 用户ID
-        example: 1
+      - description: 用户SecUID
         in: path
-        name: id
+        name: sec_uid
         required: true
-        type: integer
+        type: string
       responses:
         "204":
           description: 删除成功
         "400":
-          description: 无效的用户ID
+          description: 无效的用户SecUID
           schema:
             $ref: '#/definitions/response.Response'
         "404":
@@ -1908,14 +1908,13 @@ paths:
       tags:
       - 用户管理
     get:
-      description: 根据用户ID获取单个用户的详细信息
+      description: 根据用户SecUID获取单个用户的详细信息
       parameters:
-      - description: 用户ID
-        example: 1
+      - description: 用户SecUID
         in: path
-        name: id
+        name: sec_uid
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -1929,7 +1928,7 @@ paths:
                   $ref: '#/definitions/model.User'
               type: object
         "400":
-          description: 无效的用户ID
+          description: 无效的用户SecUID
           schema:
             $ref: '#/definitions/response.Response'
         "404":
@@ -1942,14 +1941,13 @@ paths:
     put:
       consumes:
       - application/json
-      description: 根据ID更新现有用户，所有字段都是可选的
+      description: 根据SecUID更新现有用户，所有字段都是可选的
       parameters:
-      - description: 用户ID
-        example: 1
+      - description: 用户SecUID
         in: path
-        name: id
+        name: sec_uid
         required: true
-        type: integer
+        type: string
       - description: 用户数据：name(2-100字符), email，所有字段可选
         in: body
         name: user

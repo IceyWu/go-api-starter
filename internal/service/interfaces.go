@@ -44,6 +44,9 @@ type UserServiceInterface interface {
 	// GetByID retrieves a user by ID
 	GetByID(ctx context.Context, id uint) (*model.User, error)
 
+	// GetBySecUID retrieves a user by SecUID
+	GetBySecUID(ctx context.Context, secUID string) (*model.User, error)
+
 	// List returns users with pagination and sorting
 	List(ctx context.Context, offset, limit int, sort string) ([]model.User, int64, error)
 

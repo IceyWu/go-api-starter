@@ -72,10 +72,12 @@ func Setup(db *gorm.DB) *gin.Engine {
 	ossHandler := c.OSSHandler()
 	healthHandler := c.HealthHandler()
 	verifyHandler := c.VerificationHandler()
+	operationLogHandler := c.OperationLogHandler()
 
 	// Get middleware dependencies
 	authMiddleware := middleware.NewAuthMiddlewareWithBlacklist(c.JWTSecret(), c.AuthService())
 	permMiddleware := middleware.NewPermissionMiddleware(c.PermissionService())
+	operationLogMiddleware := c.OperationLogMiddleware()
 
 	// Test handler
 	testHandler := handler.NewTestHandler()
@@ -86,6 +88,7 @@ func Setup(db *gorm.DB) *gin.Engine {
 
 	// API routes
 	api := r.Group("/api/v1")
+	api.Use(operationLogMiddleware.Log()) // 操作日志中间件
 	{
 		// Auth routes (public)
 		auth := api.Group("/auth")
@@ -177,6 +180,14 @@ func Setup(db *gorm.DB) *gin.Engine {
 			test.GET("/no-permission", testHandler.TestNoPermission)
 			test.GET("/user-create", permMiddleware.RequirePermission("user.create"), testHandler.TestUserCreate)
 			test.GET("/user-read", permMiddleware.RequirePermission("user.read"), testHandler.TestUserRead)
+		}
+
+		// Operation log routes
+		operationLogs := api.Group("/operation-logs")
+		operationLogs.Use(authMiddleware.RequireAuth())
+		{
+			operationLogs.GET("", operationLogHandler.List)
+			operationLogs.GET("/:id", operationLogHandler.Get)
 		}
 	}
 

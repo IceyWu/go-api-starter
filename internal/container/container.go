@@ -55,18 +55,24 @@ type Container struct {
 	rateLimiter *middleware.RedisRateLimiter
 
 	// Handlers (lazy initialized)
-	authHandler   *handler.AuthHandler
-	userHandler   *handler.UserHandler
-	permHandler   *handler.PermissionHandler
-	ossHandler    *handler.OSSHandler
-	healthHandler *handler.HealthHandler
-	verifyHandler *handler.VerificationHandler
+	authHandler         *handler.AuthHandler
+	userHandler         *handler.UserHandler
+	permHandler         *handler.PermissionHandler
+	ossHandler          *handler.OSSHandler
+	healthHandler       *handler.HealthHandler
+	verifyHandler       *handler.VerificationHandler
+	operationLogHandler *handler.OperationLogHandler
 
 	// Mail client
 	mailClient *mail.Client
 
 	// Verification service
 	verifyService *service.VerificationCodeService
+
+	// Operation log components
+	operationLogRepo    repository.OperationLogRepositoryInterface
+	operationLogService service.OperationLogServiceInterface
+	operationLogMw      *middleware.OperationLogMiddleware
 
 	// Mutex for thread-safe lazy initialization
 	mu sync.Mutex
@@ -535,6 +541,62 @@ func (c *Container) VerificationHandler() *handler.VerificationHandler {
 		c.verifyHandler = handler.NewVerificationHandler(verifyService)
 	}
 	return c.verifyHandler
+}
+
+// ========== Operation Log Getters ==========
+
+// OperationLogRepository returns the operation log repository singleton
+func (c *Container) OperationLogRepository() repository.OperationLogRepositoryInterface {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.operationLogRepo == nil {
+		c.operationLogRepo = repository.NewOperationLogRepository(c.db)
+	}
+	return c.operationLogRepo
+}
+
+// OperationLogService returns the operation log service singleton
+func (c *Container) OperationLogService() service.OperationLogServiceInterface {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.operationLogService == nil {
+		c.mu.Unlock()
+		repo := c.OperationLogRepository()
+		c.mu.Lock()
+		c.operationLogService = service.NewOperationLogService(repo)
+	}
+	return c.operationLogService
+}
+
+// OperationLogMiddleware returns the operation log middleware singleton
+func (c *Container) OperationLogMiddleware() *middleware.OperationLogMiddleware {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.operationLogMw == nil {
+		c.mu.Unlock()
+		svc := c.OperationLogService()
+		userRepo := c.UserRepository()
+		c.mu.Lock()
+		c.operationLogMw = middleware.NewOperationLogMiddleware(svc, userRepo, nil)
+	}
+	return c.operationLogMw
+}
+
+// OperationLogHandler returns the operation log handler singleton
+func (c *Container) OperationLogHandler() *handler.OperationLogHandler {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.operationLogHandler == nil {
+		c.mu.Unlock()
+		svc := c.OperationLogService()
+		c.mu.Lock()
+		c.operationLogHandler = handler.NewOperationLogHandler(svc)
+	}
+	return c.operationLogHandler
 }
 
 // Close closes all resources

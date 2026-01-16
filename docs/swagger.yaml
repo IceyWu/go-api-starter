@@ -95,6 +95,21 @@ definitions:
     - file_name
     - file_size
     type: object
+  handler.OperationLogPageResult:
+    properties:
+      list:
+        items:
+          $ref: '#/definitions/model.OperationLog'
+        type: array
+      page:
+        type: integer
+      page_size:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
   handler.ReadinessResponse:
     properties:
       checks:
@@ -301,6 +316,59 @@ definitions:
         description: Uploader user ID
         example: 1
         type: integer
+    type: object
+  model.OperationLog:
+    properties:
+      action:
+        description: 操作类型
+        type: string
+      created_at:
+        description: 创建时间
+        type: string
+      error:
+        description: 错误信息
+        type: string
+      id:
+        type: integer
+      ip:
+        description: 客户端IP
+        type: string
+      latency:
+        description: 耗时(毫秒)
+        type: integer
+      method:
+        description: HTTP方法
+        type: string
+      module:
+        description: 模块名称
+        type: string
+      path:
+        description: 请求路径
+        type: string
+      req_body:
+        description: 请求体(脱敏)
+        type: string
+      request_id:
+        description: 请求ID
+        type: string
+      resp_body:
+        description: 响应体(截断)
+        type: string
+      status_code:
+        description: 响应状态码
+        type: integer
+      user_agent:
+        description: User-Agent
+        type: string
+      user_email:
+        description: 操作人邮箱
+        type: string
+      user_id:
+        description: 操作人ID，匿名操作为nil
+        type: integer
+      user_name:
+        description: 操作人名称
+        type: string
     type: object
   model.Permission:
     properties:
@@ -774,6 +842,89 @@ paths:
       summary: 重置用户密码
       tags:
       - 认证
+  /api/v1/operation-logs:
+    get:
+      description: 分页查询操作日志，支持按用户、模块、操作类型、时间范围过滤
+      parameters:
+      - description: 页码（默认：1）
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量（默认：10，最大：100）
+        in: query
+        name: page_size
+        type: integer
+      - description: 用户ID
+        in: query
+        name: user_id
+        type: integer
+      - description: 模块名称
+        in: query
+        name: module
+        type: string
+      - description: 操作类型
+        in: query
+        name: action
+        type: string
+      - description: 开始时间（格式：2006-01-02 15:04:05）
+        in: query
+        name: start_time
+        type: string
+      - description: 结束时间（格式：2006-01-02 15:04:05）
+        in: query
+        name: end_time
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.OperationLogPageResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取操作日志列表
+      tags:
+      - 操作日志
+  /api/v1/operation-logs/{id}:
+    get:
+      description: 根据ID获取操作日志详情
+      parameters:
+      - description: 日志ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.OperationLog'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 获取操作日志详情
+      tags:
+      - 操作日志
   /api/v1/oss/callback:
     post:
       consumes:

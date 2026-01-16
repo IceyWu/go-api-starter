@@ -294,6 +294,141 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/operation-logs": {
+            "get": {
+                "description": "分页查询操作日志，支持按用户、模块、操作类型、时间范围过滤",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "操作日志"
+                ],
+                "summary": "获取操作日志列表",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "页码（默认：1）",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "每页数量（默认：10，最大：100）",
+                        "name": "page_size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "用户ID",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "模块名称",
+                        "name": "module",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "操作类型",
+                        "name": "action",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "开始时间（格式：2006-01-02 15:04:05）",
+                        "name": "start_time",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "结束时间（格式：2006-01-02 15:04:05）",
+                        "name": "end_time",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handler.OperationLogPageResult"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/operation-logs/{id}": {
+            "get": {
+                "description": "根据ID获取操作日志详情",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "操作日志"
+                ],
+                "summary": "获取操作日志详情",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "日志ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.OperationLog"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/oss/callback": {
             "post": {
                 "description": "处理 OSS 上传成功后的回调请求",
@@ -2263,6 +2398,29 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.OperationLogPageResult": {
+            "type": "object",
+            "properties": {
+                "list": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.OperationLog"
+                    }
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
         "handler.ReadinessResponse": {
             "type": "object",
             "properties": {
@@ -2545,6 +2703,78 @@ const docTemplate = `{
                     "description": "Uploader user ID",
                     "type": "integer",
                     "example": 1
+                }
+            }
+        },
+        "model.OperationLog": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "操作类型",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "创建时间",
+                    "type": "string"
+                },
+                "error": {
+                    "description": "错误信息",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ip": {
+                    "description": "客户端IP",
+                    "type": "string"
+                },
+                "latency": {
+                    "description": "耗时(毫秒)",
+                    "type": "integer"
+                },
+                "method": {
+                    "description": "HTTP方法",
+                    "type": "string"
+                },
+                "module": {
+                    "description": "模块名称",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "请求路径",
+                    "type": "string"
+                },
+                "req_body": {
+                    "description": "请求体(脱敏)",
+                    "type": "string"
+                },
+                "request_id": {
+                    "description": "请求ID",
+                    "type": "string"
+                },
+                "resp_body": {
+                    "description": "响应体(截断)",
+                    "type": "string"
+                },
+                "status_code": {
+                    "description": "响应状态码",
+                    "type": "integer"
+                },
+                "user_agent": {
+                    "description": "User-Agent",
+                    "type": "string"
+                },
+                "user_email": {
+                    "description": "操作人邮箱",
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "操作人ID，匿名操作为nil",
+                    "type": "integer"
+                },
+                "user_name": {
+                    "description": "操作人名称",
+                    "type": "string"
                 }
             }
         },

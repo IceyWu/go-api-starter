@@ -605,6 +605,12 @@ definitions:
         maxLength: 100
         minLength: 2
         type: string
+      username:
+        description: 用户账号
+        example: john_doe
+        maxLength: 50
+        minLength: 4
+        type: string
     type: object
   model.User:
     properties:
@@ -618,6 +624,9 @@ definitions:
         description: 安全标识符，对外暴露
         type: string
       updated_at:
+        type: string
+      username:
+        description: 用户账号，唯一
         type: string
     type: object
   oss.UploadToken:
@@ -1948,7 +1957,7 @@ paths:
         name: sec_uid
         required: true
         type: string
-      - description: 用户数据：name(2-100字符), email，所有字段可选
+      - description: 用户数据：username(4-50字符,字母数字), name(2-100字符), email，所有字段可选
         in: body
         name: user
         required: true
@@ -1972,6 +1981,10 @@ paths:
             $ref: '#/definitions/response.Response'
         "404":
           description: 用户不存在
+          schema:
+            $ref: '#/definitions/response.Response'
+        "409":
+          description: 用户账号已被占用
           schema:
             $ref: '#/definitions/response.Response'
       summary: 更新用户

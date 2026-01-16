@@ -72,6 +72,14 @@ func (s *UserService) Update(ctx context.Context, id uint, req *model.UpdateUser
 	}
 
 	// Update fields if provided
+	if req.Username != "" && req.Username != user.Username {
+		// 检查用户名是否已被占用
+		existing, err := s.repo.FindByUsername(ctx, req.Username)
+		if err == nil && existing != nil && existing.ID != user.ID {
+			return nil, apperrors.Conflict("用户账号已被占用")
+		}
+		user.Username = req.Username
+	}
 	if req.Name != "" {
 		user.Name = req.Name
 	}

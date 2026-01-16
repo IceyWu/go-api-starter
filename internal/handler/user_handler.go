@@ -110,10 +110,11 @@ func (h *UserHandler) Get(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param sec_uid path string true "用户SecUID"
-// @Param user body model.UpdateUserRequest true "用户数据：name(2-100字符), email，所有字段可选"
+// @Param user body model.UpdateUserRequest true "用户数据：username(4-50字符,字母数字), name(2-100字符), email，所有字段可选"
 // @Success 200 {object} response.Response{data=model.User} "更新成功"
 // @Failure 400 {object} response.Response "参数验证错误"
 // @Failure 404 {object} response.Response "用户不存在"
+// @Failure 409 {object} response.Response "用户账号已被占用"
 // @Router /api/v1/users/{sec_uid} [put]
 func (h *UserHandler) Update(c *gin.Context) {
 	ctx := c.Request.Context()

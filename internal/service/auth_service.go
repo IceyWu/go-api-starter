@@ -45,7 +45,7 @@ func NewAuthServiceWithBlacklist(userRepo repository.UserRepositoryInterface, jw
 func (s *AuthService) Register(ctx context.Context, req *model.RegisterRequest) (*model.User, error) {
 	// Check if email already exists
 	existingUser, err := s.userRepo.FindByEmail(ctx, req.Email)
-	if err != nil {
+	if err != nil && err != repository.ErrUserNotFound {
 		return nil, apperrors.Internal(err, "查询用户失败")
 	}
 	if existingUser != nil {
@@ -77,10 +77,10 @@ func (s *AuthService) Login(ctx context.Context, req *model.LoginRequest) (*mode
 	// Find user by email
 	user, err := s.userRepo.FindByEmail(ctx, req.Email)
 	if err != nil {
+		if err == repository.ErrUserNotFound {
+			return nil, apperrors.Unauthorized("邮箱或密码错误")
+		}
 		return nil, apperrors.Internal(err, "查询用户失败")
-	}
-	if user == nil {
-		return nil, apperrors.Unauthorized("邮箱或密码错误")
 	}
 
 	// Verify password
@@ -104,10 +104,10 @@ func (s *AuthService) Login(ctx context.Context, req *model.LoginRequest) (*mode
 func (s *AuthService) GetCurrentUser(ctx context.Context, userID uint) (*model.User, error) {
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
+		if err == repository.ErrUserNotFound {
+			return nil, apperrors.NotFound("用户不存在")
+		}
 		return nil, apperrors.Internal(err, "查询用户失败")
-	}
-	if user == nil {
-		return nil, apperrors.NotFound("用户不存在")
 	}
 	return user, nil
 }
@@ -117,10 +117,10 @@ func (s *AuthService) ResetPassword(ctx context.Context, userID uint, req *model
 	// Find user
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
+		if err == repository.ErrUserNotFound {
+			return apperrors.NotFound("用户不存在")
+		}
 		return apperrors.Internal(err, "查询用户失败")
-	}
-	if user == nil {
-		return apperrors.NotFound("用户不存在")
 	}
 
 	// Hash new password

@@ -2046,7 +2046,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "用户数据：name(2-100字符), email，所有字段可选",
+                        "description": "用户数据：username(4-50字符,字母数字), name(2-100字符), email，所有字段可选",
                         "name": "user",
                         "in": "body",
                         "required": true,
@@ -2082,6 +2082,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "用户不存在",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "用户账号已被占用",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -3116,6 +3122,13 @@ const docTemplate = `{
                     "maxLength": 100,
                     "minLength": 2,
                     "example": "John Doe"
+                },
+                "username": {
+                    "description": "用户账号",
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 4,
+                    "example": "john_doe"
                 }
             }
         },
@@ -3136,6 +3149,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "description": "用户账号，唯一",
                     "type": "string"
                 }
             }

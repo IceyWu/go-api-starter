@@ -35,10 +35,11 @@ type MailConfig struct {
 }
 
 type AppConfig struct {
-	Name      string `mapstructure:"name"`
-	Env       string `mapstructure:"env"`
-	JWTSecret string `mapstructure:"jwt_secret"`
-	Port      int    `mapstructure:"port"`
+	Name           string `mapstructure:"name"`
+	Env            string `mapstructure:"env"`
+	JWTSecret      string `mapstructure:"jwt_secret"`
+	Port           int    `mapstructure:"port"`
+	UsernamePrefix string `mapstructure:"username_prefix"` // 用户账号前缀，默认 "go"
 }
 
 type ServerConfig struct {
@@ -182,6 +183,7 @@ func loadEnvFile() {
 func bindEnvVariables() {
 	viper.BindEnv("app.env", "APP_ENV")
 	viper.BindEnv("app.jwt_secret", "JWT_SECRET")
+	viper.BindEnv("app.username_prefix", "APP_USERNAME_PREFIX")
 	viper.BindEnv("server.host", "SERVER_HOST")
 	viper.BindEnv("server.port", "SERVER_PORT")
 	viper.BindEnv("server.mode", "SERVER_MODE")
@@ -226,6 +228,7 @@ func setDefaults() {
 	viper.SetDefault("app.env", "development")
 	viper.SetDefault("app.jwt_secret", "your-secret-key-change-in-production")
 	viper.SetDefault("app.port", 9527)
+	viper.SetDefault("app.username_prefix", "go")
 	viper.SetDefault("server.host", "localhost")
 	viper.SetDefault("server.port", "9527")
 	viper.SetDefault("server.mode", "debug")

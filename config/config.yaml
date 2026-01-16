@@ -29,6 +29,23 @@ log:
   output: stdout  # stdout, file
   file_path: ./logs/app.log
 
+# Redis Configuration
+redis:
+  enabled: false  # Enable Redis caching
+  host: localhost
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 10
+  min_idle_conns: 5
+  max_retries: 3
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+  cluster_mode: false  # Enable Redis cluster mode
+  cluster_addrs: []  # Cluster addresses, e.g., ["localhost:7000", "localhost:7001"]
+  enable_fallback: true  # Fallback to memory cache when Redis unavailable
+
 # OSS Configuration
 oss:
   endpoint: your-bucket.oss-accelerate.aliyuncs.com  # OSS endpoint

@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"time"
 
+	"go-api-starter/pkg/cache"
 	"go-api-starter/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -12,9 +14,10 @@ import (
 
 // HealthHandler handles health check requests
 type HealthHandler struct {
-	db        *gorm.DB
-	startTime time.Time
-	version   string
+	db           *gorm.DB
+	startTime    time.Time
+	version      string
+	cacheChecker *cache.HealthChecker
 }
 
 // NewHealthHandler creates a new HealthHandler
@@ -23,6 +26,20 @@ func NewHealthHandler(db *gorm.DB, version string) *HealthHandler {
 		db:        db,
 		startTime: time.Now(),
 		version:   version,
+	}
+}
+
+// NewHealthHandlerWithCache creates a new HealthHandler with cache health checking
+func NewHealthHandlerWithCache(db *gorm.DB, version string, cacheBackend cache.CacheBackend) *HealthHandler {
+	var checker *cache.HealthChecker
+	if cacheBackend != nil {
+		checker = cache.NewHealthChecker(cacheBackend)
+	}
+	return &HealthHandler{
+		db:           db,
+		startTime:    time.Now(),
+		version:      version,
+		cacheChecker: checker,
 	}
 }
 
@@ -66,24 +83,39 @@ func (h *HealthHandler) Health(c *gin.Context) {
 // @Router /health/ready [get]
 func (h *HealthHandler) Ready(c *gin.Context) {
 	checks := make(map[string]string)
+	allHealthy := true
 	
 	// Check database connection
 	sqlDB, err := h.db.DB()
 	if err != nil {
 		checks["database"] = "unhealthy: " + err.Error()
-		c.JSON(http.StatusServiceUnavailable, response.Response{
-			Code:    http.StatusServiceUnavailable,
-			Message: "service not ready",
-			Data: ReadinessResponse{
-				Status: "not_ready",
-				Checks: checks,
-			},
-		})
-		return
-	}
-	
-	if err := sqlDB.Ping(); err != nil {
+		allHealthy = false
+	} else if err := sqlDB.Ping(); err != nil {
 		checks["database"] = "unhealthy: " + err.Error()
+		allHealthy = false
+	} else {
+		checks["database"] = "healthy"
+	}
+	
+	// Check Redis/cache connection
+	if h.cacheChecker != nil {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+		
+		result := h.cacheChecker.Check(ctx)
+		switch result.Status {
+		case cache.HealthStatusHealthy:
+			checks["redis"] = "healthy"
+		case cache.HealthStatusDegraded:
+			checks["redis"] = "degraded: " + result.Message
+			// Degraded is still considered ready
+		case cache.HealthStatusUnhealthy:
+			checks["redis"] = "unhealthy: " + result.Message
+			// Redis unhealthy doesn't make service not ready if fallback is enabled
+		}
+	}
+	
+	if !allHealthy {
 		c.JSON(http.StatusServiceUnavailable, response.Response{
 			Code:    http.StatusServiceUnavailable,
 			Message: "service not ready",
@@ -94,8 +126,6 @@ func (h *HealthHandler) Ready(c *gin.Context) {
 		})
 		return
 	}
-	
-	checks["database"] = "healthy"
 	
 	response.Success(c, ReadinessResponse{
 		Status: "ready",

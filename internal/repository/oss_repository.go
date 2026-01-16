@@ -6,6 +6,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// Compile-time interface check
+var _ OSSRepositoryInterface = (*OSSRepository)(nil)
+
 type OSSRepository struct {
 	db *gorm.DB
 }

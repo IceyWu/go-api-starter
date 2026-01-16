@@ -5,6 +5,7 @@ import (
 
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/service"
+	"go-api-starter/pkg/apperrors"
 	"go-api-starter/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -12,11 +13,11 @@ import (
 
 // UserHandler handles user HTTP requests
 type UserHandler struct {
-	service *service.UserService
+	service service.UserServiceInterface
 }
 
 // NewUserHandler creates a new UserHandler
-func NewUserHandler(svc *service.UserService) *UserHandler {
+func NewUserHandler(svc service.UserServiceInterface) *UserHandler {
 	return &UserHandler{service: svc}
 }
 
@@ -36,13 +37,13 @@ func (h *UserHandler) Create(c *gin.Context) {
 	
 	var req model.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "validation error: "+err.Error())
+		c.Error(apperrors.BadRequest("validation error: " + err.Error()))
 		return
 	}
 
 	user, err := h.service.Create(ctx, &req)
 	if err != nil {
-		handleError(c, err)
+		c.Error(err)
 		return
 	}
 
@@ -65,13 +66,13 @@ func (h *UserHandler) List(c *gin.Context) {
 	
 	var pagination response.Pagination
 	if err := c.ShouldBindQuery(&pagination); err != nil {
-		response.BadRequest(c, "invalid pagination params")
+		c.Error(apperrors.BadRequest("invalid pagination params"))
 		return
 	}
 
 	users, total, err := h.service.List(ctx, pagination.GetOffset(), pagination.GetPageSize(), pagination.GetSort())
 	if err != nil {
-		handleError(c, err)
+		c.Error(err)
 		return
 	}
 	response.SuccessWithPage(c, users, total, &pagination)
@@ -92,13 +93,13 @@ func (h *UserHandler) Get(c *gin.Context) {
 	
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		response.BadRequest(c, "invalid user ID")
+		c.Error(apperrors.BadRequest("invalid user ID"))
 		return
 	}
 
 	user, err := h.service.GetByID(ctx, uint(id))
 	if err != nil {
-		handleError(c, err)
+		c.Error(err)
 		return
 	}
 	response.Success(c, user)
@@ -121,19 +122,19 @@ func (h *UserHandler) Update(c *gin.Context) {
 	
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		response.BadRequest(c, "invalid user ID")
+		c.Error(apperrors.BadRequest("invalid user ID"))
 		return
 	}
 
 	var req model.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "validation error: "+err.Error())
+		c.Error(apperrors.BadRequest("validation error: " + err.Error()))
 		return
 	}
 
 	user, err := h.service.Update(ctx, uint(id), &req)
 	if err != nil {
-		handleError(c, err)
+		c.Error(err)
 		return
 	}
 	response.Success(c, user)
@@ -153,12 +154,12 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		response.BadRequest(c, "invalid user ID")
+		c.Error(apperrors.BadRequest("invalid user ID"))
 		return
 	}
 
 	if err := h.service.Delete(ctx, uint(id)); err != nil {
-		handleError(c, err)
+		c.Error(err)
 		return
 	}
 	response.NoContent(c)

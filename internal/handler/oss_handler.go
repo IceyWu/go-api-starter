@@ -3,9 +3,9 @@ package handler
 import (
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/service"
+	"go-api-starter/pkg/apperrors"
 	"go-api-starter/pkg/oss"
 	"go-api-starter/pkg/response"
-	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -16,10 +16,10 @@ var _ = oss.UploadToken{}
 var _ = model.OSSFile{}
 
 type OSSHandler struct {
-	service *service.OSSService
+	service service.OSSServiceInterface
 }
 
-func NewOSSHandler(service *service.OSSService) *OSSHandler {
+func NewOSSHandler(service service.OSSServiceInterface) *OSSHandler {
 	return &OSSHandler{service: service}
 }
 
@@ -60,7 +60,7 @@ func (h *OSSHandler) GetUploadToken(c *gin.Context) {
 	// File doesn't exist, generate token
 	token, err := h.service.GetUploadToken(fileName, userID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -93,7 +93,7 @@ type CallbackRequest struct {
 func (h *OSSHandler) Callback(c *gin.Context) {
 	var req CallbackRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
 		return
 	}
 
@@ -105,7 +105,7 @@ func (h *OSSHandler) Callback(c *gin.Context) {
 
 	file, err := h.service.SaveFileRecord(req.Key, req.MD5, req.FileName, req.FileSize, req.ContentType, userID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (h *OSSHandler) Callback(c *gin.Context) {
 func (h *OSSHandler) ListFiles(c *gin.Context) {
 	var pagination response.Pagination
 	if err := c.ShouldBindQuery(&pagination); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid pagination parameters")
+		c.Error(apperrors.BadRequest("invalid pagination parameters"))
 		return
 	}
 
@@ -138,7 +138,7 @@ func (h *OSSHandler) ListFiles(c *gin.Context) {
 
 	files, total, err := h.service.ListFiles(userID, pagination.GetPage(), pagination.GetPageSize())
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -159,12 +159,12 @@ func (h *OSSHandler) ListFiles(c *gin.Context) {
 func (h *OSSHandler) DeleteFile(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid file id")
+		c.Error(apperrors.BadRequest("invalid file id"))
 		return
 	}
 
 	if err := h.service.DeleteFile(uint(id)); err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -195,7 +195,7 @@ type InitMultipartRequest struct {
 func (h *OSSHandler) InitMultipart(c *gin.Context) {
 	var req InitMultipartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
 		return
 	}
 
@@ -218,7 +218,7 @@ func (h *OSSHandler) InitMultipart(c *gin.Context) {
 
 	result, err := h.service.InitMultipartUpload(req.FileName, req.MD5, req.FileSize, req.ChunkSize, userID)
 	if err != nil {
-		response.Error(c, http.StatusBadRequest, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -253,13 +253,13 @@ type GetPartURLRequest struct {
 func (h *OSSHandler) GetPartUploadURLs(c *gin.Context) {
 	var req GetPartURLRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
 		return
 	}
 
 	urls, err := h.service.GetPartUploadURLs(req.Key, req.UploadID, req.PartNumbers)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -292,7 +292,7 @@ type CompleteMultipartRequest struct {
 func (h *OSSHandler) CompleteMultipart(c *gin.Context) {
 	var req CompleteMultipartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
 		return
 	}
 
@@ -306,7 +306,7 @@ func (h *OSSHandler) CompleteMultipart(c *gin.Context) {
 		req.FileSize, req.ContentType, req.Parts, userID,
 	)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -332,12 +332,12 @@ type AbortMultipartRequest struct {
 func (h *OSSHandler) AbortMultipart(c *gin.Context) {
 	var req AbortMultipartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
 		return
 	}
 
 	if err := h.service.AbortMultipartUpload(req.Key, req.UploadID); err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -364,13 +364,13 @@ type ListPartsRequest struct {
 func (h *OSSHandler) ListParts(c *gin.Context) {
 	var req ListPartsRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
 		return
 	}
 
 	parts, err := h.service.ListUploadedParts(req.Key, req.UploadID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -400,12 +400,12 @@ type SavePartRequest struct {
 func (h *OSSHandler) SavePart(c *gin.Context) {
 	var req SavePartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, "invalid request: "+err.Error())
+		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
 		return
 	}
 
 	if err := h.service.SaveUploadedPart(req.UploadID, req.PartNumber, req.ETag, req.Size); err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		c.Error(err)
 		return
 	}
 
@@ -425,13 +425,13 @@ func (h *OSSHandler) SavePart(c *gin.Context) {
 func (h *OSSHandler) GetUploadedPartsFromDB(c *gin.Context) {
 	uploadID := c.Query("upload_id")
 	if uploadID == "" {
-		response.Error(c, http.StatusBadRequest, "upload_id is required")
+		c.Error(apperrors.BadRequest("upload_id is required"))
 		return
 	}
 
 	parts, err := h.service.GetUploadedPartsFromDB(uploadID)
 	if err != nil {
-		response.Error(c, http.StatusInternalServerError, err.Error())
+		c.Error(err)
 		return
 	}
 

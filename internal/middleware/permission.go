@@ -8,10 +8,10 @@ import (
 )
 
 type PermissionMiddleware struct {
-	permService *service.PermissionService
+	permService service.PermissionServiceInterface
 }
 
-func NewPermissionMiddleware(permService *service.PermissionService) *PermissionMiddleware {
+func NewPermissionMiddleware(permService service.PermissionServiceInterface) *PermissionMiddleware {
 	return &PermissionMiddleware{
 		permService: permService,
 	}

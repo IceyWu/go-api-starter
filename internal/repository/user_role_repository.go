@@ -14,6 +14,9 @@ var (
 	ErrUserRoleAlreadyExists = errors.New("user already has this role")
 )
 
+// Compile-time interface check
+var _ UserRoleRepositoryInterface = (*UserRoleRepository)(nil)
+
 // UserRoleRepository handles user role data operations
 type UserRoleRepository struct {
 	db *gorm.DB

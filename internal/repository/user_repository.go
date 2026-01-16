@@ -11,6 +11,9 @@ import (
 
 var ErrUserNotFound = errors.New("user not found")
 
+// Compile-time interface check
+var _ UserRepositoryInterface = (*UserRepository)(nil)
+
 // UserRepository handles user data operations
 type UserRepository struct {
 	db *gorm.DB
@@ -45,6 +48,16 @@ func (r *UserRepository) FindAll(ctx context.Context, offset, limit int, sort st
 func (r *UserRepository) FindByID(ctx context.Context, id uint) (*model.User, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).First(&user, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrUserNotFound
+	}
+	return &user, err
+}
+
+// FindByEmail finds a user by email
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrUserNotFound
 	}

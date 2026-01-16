@@ -6,6 +6,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// Compile-time interface check
+var _ MultipartRepositoryInterface = (*MultipartRepository)(nil)
+
 type MultipartRepository struct {
 	db *gorm.DB
 }
@@ -22,19 +25,19 @@ func (r *MultipartRepository) CreateUpload(upload *model.MultipartUpload) error 
 // GetUploadByMD5 gets an ongoing upload by MD5 and user
 func (r *MultipartRepository) GetUploadByMD5(md5 string, userID uint) (*model.MultipartUpload, error) {
 	var upload model.MultipartUpload
-	err := r.db.Where("md5 = ? AND user_id = ? AND status = 1", md5, userID).First(&upload).Error
+	err := r.db.Where("md5 = ? AND user_id = ? AND status = ?", md5, userID, model.MultipartStatusInitiated).First(&upload).Error
 	return &upload, err
 }
 
 // GetUploadByID gets upload by upload_id
 func (r *MultipartRepository) GetUploadByID(uploadID string) (*model.MultipartUpload, error) {
 	var upload model.MultipartUpload
-	err := r.db.Where("upload_id = ? AND status = 1", uploadID).First(&upload).Error
+	err := r.db.Where("upload_id = ? AND status = ?", uploadID, model.MultipartStatusInitiated).First(&upload).Error
 	return &upload, err
 }
 
 // UpdateUploadStatus updates upload status
-func (r *MultipartRepository) UpdateUploadStatus(uploadID string, status int) error {
+func (r *MultipartRepository) UpdateUploadStatus(uploadID string, status model.MultipartUploadStatus) error {
 	return r.db.Model(&model.MultipartUpload{}).Where("upload_id = ?", uploadID).Update("status", status).Error
 }
 

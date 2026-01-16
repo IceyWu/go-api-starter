@@ -14,6 +14,9 @@ var (
 	ErrPermissionSpaceNameExists = errors.New("permission space name already exists")
 )
 
+// Compile-time interface check
+var _ PermissionSpaceRepositoryInterface = (*PermissionSpaceRepository)(nil)
+
 // PermissionSpaceRepository handles permission space data operations
 type PermissionSpaceRepository struct {
 	db *gorm.DB

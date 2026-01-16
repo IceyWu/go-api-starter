@@ -14,6 +14,9 @@ var (
 	ErrRoleNameExists = errors.New("role name already exists")
 )
 
+// Compile-time interface check
+var _ RoleRepositoryInterface = (*RoleRepository)(nil)
+
 // RoleRepository handles role data operations
 type RoleRepository struct {
 	db *gorm.DB

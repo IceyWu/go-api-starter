@@ -14,6 +14,9 @@ var (
 	ErrPermissionCodeExists = errors.New("permission code already exists")
 )
 
+// Compile-time interface check
+var _ PermissionRepositoryInterface = (*PermissionRepository)(nil)
+
 // PermissionRepository handles permission data operations
 type PermissionRepository struct {
 	db *gorm.DB

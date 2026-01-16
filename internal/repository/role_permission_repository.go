@@ -11,6 +11,9 @@ import (
 
 var ErrRolePermissionNotFound = errors.New("role permission not found")
 
+// Compile-time interface check
+var _ RolePermissionRepositoryInterface = (*RolePermissionRepository)(nil)
+
 // RolePermissionRepository handles role permission data operations
 type RolePermissionRepository struct {
 	db *gorm.DB

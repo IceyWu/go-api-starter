@@ -84,10 +84,19 @@ type UserPermissionCache struct {
 	UserID    uint      `json:"user_id" gorm:"not null;uniqueIndex:uk_user_space"`
 	SpaceID   uint      `json:"space_id" gorm:"not null;uniqueIndex:uk_user_space;index"`
 	Value     uint64    `json:"value" gorm:"not null"` // 该空间下用户的权限位运算值
+	ExpiresAt time.Time `json:"expires_at" gorm:"index"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
 	Space *PermissionSpace `json:"space,omitempty" gorm:"foreignKey:SpaceID"`
+}
+
+// IsExpired checks if the cache entry has expired
+func (c *UserPermissionCache) IsExpired() bool {
+	if c.ExpiresAt.IsZero() {
+		return false
+	}
+	return time.Now().After(c.ExpiresAt)
 }
 
 // TableName returns the table name for PermissionSpace

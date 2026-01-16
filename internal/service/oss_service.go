@@ -5,6 +5,7 @@ import (
 	"go-api-starter/internal/config"
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/repository"
+	"go-api-starter/pkg/apperrors"
 	"go-api-starter/pkg/oss"
 	"path/filepath"
 	"strings"
@@ -14,12 +15,12 @@ import (
 )
 
 type OSSService struct {
-	repo          *repository.OSSRepository
-	multipartRepo *repository.MultipartRepository
+	repo          repository.OSSRepositoryInterface
+	multipartRepo repository.MultipartRepositoryInterface
 	config        *config.OSSConfig
 }
 
-func NewOSSService(repo *repository.OSSRepository, multipartRepo *repository.MultipartRepository, cfg *config.OSSConfig) *OSSService {
+func NewOSSService(repo repository.OSSRepositoryInterface, multipartRepo repository.MultipartRepositoryInterface, cfg *config.OSSConfig) *OSSService {
 	return &OSSService{
 		repo:          repo,
 		multipartRepo: multipartRepo,
@@ -35,7 +36,7 @@ func (s *OSSService) GetUploadToken(fileName string, userID uint) (*oss.UploadTo
 		// Validate file extension if fileName is provided
 		ext = strings.ToLower(filepath.Ext(fileName))
 		if !s.isAllowedExtension(ext) {
-			return nil, fmt.Errorf("file extension %s is not allowed", ext)
+			return nil, apperrors.FileExtensionNotAllowed(ext)
 		}
 	} else {
 		// Use default extension if no fileName provided
@@ -73,7 +74,7 @@ func (s *OSSService) GetUploadToken(fileName string, userID uint) (*oss.UploadTo
 		s.config.TokenExpire,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate upload token: %w", err)
+		return nil, apperrors.OSSInitError(err)
 	}
 
 	return token, nil
@@ -104,7 +105,7 @@ func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, c
 	}
 
 	if err := s.repo.Create(file); err != nil {
-		return nil, fmt.Errorf("failed to save file record: %w", err)
+		return nil, apperrors.Internal(err, "failed to save file record")
 	}
 
 	// Fill URL dynamically before returning
@@ -158,23 +159,23 @@ func (s *OSSService) ListFiles(userID uint, page, pageSize int) ([]model.OSSFile
 func (s *OSSService) DeleteFile(id uint) error {
 	file, err := s.repo.GetByID(id)
 	if err != nil {
-		return fmt.Errorf("file not found: %w", err)
+		return apperrors.FileNotFound(id)
 	}
 
 	// Delete from OSS first
 	bucket := oss.GetBucket()
 	if bucket == nil {
-		return fmt.Errorf("OSS bucket not initialized")
+		return apperrors.ErrOSSNotInitialized
 	}
 
 	// Delete the file from OSS
 	if err := bucket.DeleteObject(file.Key); err != nil {
-		return fmt.Errorf("failed to delete OSS file %s: %w", file.Key, err)
+		return apperrors.OSSDeleteError(err, file.Key)
 	}
 
 	// Delete record from database
 	if err := s.repo.Delete(id); err != nil {
-		return fmt.Errorf("failed to delete file record: %w", err)
+		return apperrors.Internal(err, "failed to delete file record")
 	}
 
 	return nil
@@ -237,7 +238,7 @@ func (s *OSSService) InitMultipartUpload(fileName string, md5 string, fileSize i
 	if fileName != "" {
 		ext = strings.ToLower(filepath.Ext(fileName))
 		if !s.isAllowedExtension(ext) {
-			return nil, fmt.Errorf("file extension %s is not allowed", ext)
+			return nil, apperrors.FileExtensionNotAllowed(ext)
 		}
 	}
 
@@ -267,7 +268,7 @@ func (s *OSSService) InitMultipartUpload(fileName string, md5 string, fileSize i
 	// Initialize multipart upload on OSS
 	result, err := oss.InitMultipartUpload(key)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.MultipartInitError(err)
 	}
 
 	// Save upload task to database
@@ -282,7 +283,7 @@ func (s *OSSService) InitMultipartUpload(fileName string, md5 string, fileSize i
 			TotalParts:  totalParts,
 			ChunkSize:   chunkSize,
 			UserID:      userID,
-			Status:      1, // uploading
+			Status:      model.MultipartStatusInitiated,
 		}
 		if err := s.multipartRepo.CreateUpload(upload); err != nil {
 			// Log error but don't fail - upload can still work without DB tracking
@@ -310,7 +311,7 @@ type PartUploadInfo struct {
 func (s *OSSService) GetPartUploadURL(key, uploadID string, partNumber int) (*PartUploadInfo, error) {
 	result, err := oss.GeneratePartUploadURL(key, uploadID, partNumber, s.config.TokenExpire)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.OSSUploadError(err, fmt.Sprintf("part %d", partNumber))
 	}
 
 	return &PartUploadInfo{
@@ -325,7 +326,7 @@ func (s *OSSService) GetPartUploadURLs(key, uploadID string, partNumbers []int) 
 	for _, partNumber := range partNumbers {
 		result, err := oss.GeneratePartUploadURL(key, uploadID, partNumber, s.config.TokenExpire)
 		if err != nil {
-			return nil, err
+			return nil, apperrors.OSSUploadError(err, fmt.Sprintf("part %d", partNumber))
 		}
 		results = append(results, PartUploadInfo{
 			PartNumber: result.PartNumber,
@@ -354,12 +355,12 @@ func (s *OSSService) CompleteMultipartUpload(key, uploadID, md5, fileName string
 
 	// Complete multipart upload
 	if err := oss.CompleteMultipartUpload(key, uploadID, ossParts); err != nil {
-		return nil, err
+		return nil, apperrors.MultipartCompleteError(err)
 	}
 
 	// Clean up database records
 	if s.multipartRepo != nil {
-		s.multipartRepo.UpdateUploadStatus(uploadID, 2) // completed
+		s.multipartRepo.UpdateUploadStatus(uploadID, model.MultipartStatusCompleted)
 		s.multipartRepo.DeleteParts(uploadID)
 	}
 
@@ -373,18 +374,21 @@ func (s *OSSService) AbortMultipartUpload(key, uploadID string) error {
 	
 	// Clean up database records regardless of OSS result
 	if s.multipartRepo != nil {
-		s.multipartRepo.UpdateUploadStatus(uploadID, 0) // aborted
+		s.multipartRepo.UpdateUploadStatus(uploadID, model.MultipartStatusAborted)
 		s.multipartRepo.DeleteParts(uploadID)
 	}
 	
-	return err
+	if err != nil {
+		return apperrors.MultipartAbortError(err)
+	}
+	return nil
 }
 
 // ListUploadedParts lists uploaded parts for resumable upload
 func (s *OSSService) ListUploadedParts(key, uploadID string) ([]CompletePart, error) {
 	parts, err := oss.ListParts(key, uploadID)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.OSSListError(err)
 	}
 
 	var result []CompletePart

@@ -6,13 +6,13 @@ import (
 	"go-api-starter/pkg/logger"
 	"go-api-starter/pkg/response"
 
-	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
 )
 
 // RequestID returns a request ID middleware
+// It reads X-Request-ID from header if present, otherwise generates a new UUID
 func RequestID() gin.HandlerFunc {
-	return requestid.New()
+	return RequestIDWithConfig(DefaultRequestIDConfig())
 }
 
 // Logger returns a logging middleware using zap
@@ -22,7 +22,7 @@ func Logger() gin.HandlerFunc {
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
 		method := c.Request.Method
-		requestID := requestid.Get(c)
+		requestID := GetRequestID(c)
 
 		c.Next()
 
@@ -50,7 +50,7 @@ func Logger() gin.HandlerFunc {
 // Recovery returns a recovery middleware that handles panics
 func Recovery() gin.HandlerFunc {
 	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
-		requestID := requestid.Get(c)
+		requestID := GetRequestID(c)
 		logger.Log.Errorw("Panic recovered",
 			"request_id", requestID,
 			"error", recovered,

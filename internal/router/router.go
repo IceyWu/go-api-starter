@@ -1,12 +1,13 @@
 package router
 
 import (
+	"time"
+
 	"go-api-starter/docs"
 	"go-api-starter/internal/config"
+	"go-api-starter/internal/container"
 	"go-api-starter/internal/handler"
 	"go-api-starter/internal/middleware"
-	"go-api-starter/internal/repository"
-	"go-api-starter/internal/service"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/gzip"
@@ -22,10 +23,17 @@ import (
 func Setup(db *gorm.DB) *gin.Engine {
 	r := gin.New()
 
+	// Get config
+	cfg := config.GetConfig()
+
+	// Create DI container
+	c := container.NewContainer(db, cfg)
+
 	// Core middleware
 	r.Use(middleware.Recovery())
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger())
+	r.Use(middleware.ErrorHandler()) // Unified error handling
 
 	// Gzip compression middleware
 	r.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithExcludedExtensions([]string{".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip"})))
@@ -35,51 +43,38 @@ func Setup(db *gorm.DB) *gin.Engine {
 	corsConfig.AllowOrigins = []string{"*"}
 	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Authorization", "X-Request-ID"}
-	corsConfig.ExposeHeaders = []string{"X-Request-ID"}
+	corsConfig.ExposeHeaders = []string{"X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"}
 	r.Use(cors.New(corsConfig))
 
-	// Rate limiting - 100 requests per second with burst of 200
-	// Adjust these values based on your needs
-	rateLimiter := middleware.NewRateLimiter(rate.Limit(100), 200)
-	r.Use(rateLimiter.RateLimit())
+	// Rate limiting - use Redis-backed rate limiter if Redis is enabled
+	if cfg.Redis.Enabled {
+		// Use Redis-backed distributed rate limiter
+		redisRateLimiter := middleware.NewMultiLevelRateLimiter(c.CacheBackend()).
+			SetGlobalLimit(100, time.Minute).           // 100 requests per minute globally
+			SetUserLimit(60, time.Minute).              // 60 requests per minute per user
+			SetEndpointLimit("/api/v1/auth/login", 10, time.Minute) // 10 login attempts per minute
+		r.Use(redisRateLimiter.RateLimit())
+	} else {
+		// Fallback to memory-based rate limiter
+		rateLimiter := middleware.NewRateLimiter(rate.Limit(100), 200)
+		r.Use(rateLimiter.RateLimit())
+	}
 
 	// Enable pprof in development environment
-	cfg := config.GetConfig()
 	if cfg != nil && cfg.App.Env == "development" {
 		pprof.Register(r)
 	}
 
-	// Initialize handlers
-	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
-	userHandler := handler.NewUserHandler(userService)
-	
-	ossRepo := repository.NewOSSRepository(db)
-	multipartRepo := repository.NewMultipartRepository(db)
-	ossService := service.NewOSSService(ossRepo, multipartRepo, &cfg.OSS)
-	ossHandler := handler.NewOSSHandler(ossService)
-	
-	healthHandler := handler.NewHealthHandler(db, "1.0.0")
+	// Get handlers from container
+	authHandler := c.AuthHandler()
+	userHandler := c.UserHandler()
+	permHandler := c.PermissionHandler()
+	ossHandler := c.OSSHandler()
+	healthHandler := c.HealthHandler()
 
-	// Auth handler
-	jwtSecret := cfg.App.JWTSecret
-	if jwtSecret == "" {
-		jwtSecret = "your-secret-key-change-in-production" // Default for development
-	}
-	authHandler := handler.NewAuthHandler(db, jwtSecret)
-	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
-
-	// Permission system
-	spaceRepo := repository.NewPermissionSpaceRepository(db)
-	permRepo := repository.NewPermissionRepository(db)
-	roleRepo := repository.NewRoleRepository(db)
-	userRoleRepo := repository.NewUserRoleRepository(db)
-	rolePermRepo := repository.NewRolePermissionRepository(db)
-	cacheRepo := repository.NewUserPermissionCacheRepository(db)
-	permManager := service.NewBitPermissionManager(spaceRepo, permRepo, roleRepo, userRoleRepo, rolePermRepo, cacheRepo)
-	permService := service.NewPermissionService(permManager)
-	permHandler := handler.NewPermissionHandler(permService)
-	permMiddleware := middleware.NewPermissionMiddleware(permService)
+	// Get middleware dependencies
+	authMiddleware := middleware.NewAuthMiddlewareWithBlacklist(c.JWTSecret(), c.AuthService())
+	permMiddleware := middleware.NewPermissionMiddleware(c.PermissionService())
 
 	// Test handler
 	testHandler := handler.NewTestHandler()
@@ -98,6 +93,8 @@ func Setup(db *gorm.DB) *gin.Engine {
 			auth.POST("/login", authHandler.Login)
 			auth.GET("/me", authMiddleware.RequireAuth(), authHandler.GetCurrentUser)
 			auth.POST("/reset-password/:id", authMiddleware.RequireAuth(), authHandler.ResetPassword)
+			auth.POST("/logout", authMiddleware.RequireAuth(), authHandler.Logout)
+			auth.POST("/logout-all", authMiddleware.RequireAuth(), authHandler.LogoutAllDevices)
 		}
 
 		// Protected routes

@@ -1,9 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
@@ -16,12 +18,14 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:"database"`
 	Log      LogConfig      `mapstructure:"log"`
 	OSS      OSSConfig      `mapstructure:"oss"`
+	Redis    RedisConfig    `mapstructure:"redis"`
 }
 
 type AppConfig struct {
 	Name      string `mapstructure:"name"`
 	Env       string `mapstructure:"env"`
 	JWTSecret string `mapstructure:"jwt_secret"`
+	Port      int    `mapstructure:"port"`
 }
 
 type ServerConfig struct {
@@ -51,6 +55,7 @@ type LogConfig struct {
 type OSSConfig struct {
 	Endpoint          string   `mapstructure:"endpoint"`
 	Bucket            string   `mapstructure:"bucket"`
+	BucketName        string   `mapstructure:"bucket_name"`
 	Region            string   `mapstructure:"region"`
 	AccessKeyID       string   `mapstructure:"access_key_id"`
 	AccessKeySecret   string   `mapstructure:"access_key_secret"`
@@ -61,6 +66,29 @@ type OSSConfig struct {
 	MaxFileSize       int64    `mapstructure:"max_file_size"`
 	AllowedExtensions []string `mapstructure:"allowed_extensions"`
 	TokenExpire       int64    `mapstructure:"token_expire"`
+}
+
+// RedisConfig holds Redis connection configuration
+type RedisConfig struct {
+	Host           string        `mapstructure:"host"`
+	Port           int           `mapstructure:"port"`
+	Password       string        `mapstructure:"password"`
+	DB             int           `mapstructure:"db"`
+	PoolSize       int           `mapstructure:"pool_size"`
+	MinIdleConns   int           `mapstructure:"min_idle_conns"`
+	MaxRetries     int           `mapstructure:"max_retries"`
+	DialTimeout    time.Duration `mapstructure:"dial_timeout"`
+	ReadTimeout    time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout   time.Duration `mapstructure:"write_timeout"`
+	ClusterMode    bool          `mapstructure:"cluster_mode"`
+	ClusterAddrs   []string      `mapstructure:"cluster_addrs"`
+	EnableFallback bool          `mapstructure:"enable_fallback"`
+	Enabled        bool          `mapstructure:"enabled"`
+}
+
+// Addr returns the Redis address in host:port format
+func (r *RedisConfig) Addr() string {
+	return fmt.Sprintf("%s:%d", r.Host, r.Port)
 }
 
 var GlobalConfig *Config
@@ -93,6 +121,19 @@ func Load() *Config {
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		log.Fatalf("Failed to unmarshal config: %v", err)
+	}
+
+	// Log configuration source
+	log.Printf("Configuration loaded from: %s", viper.ConfigFileUsed())
+	log.Printf("Environment: %s", cfg.App.Env)
+
+	// Validate configuration in production
+	if cfg.App.Env == "production" || cfg.App.Env == "prod" {
+		errors := cfg.Validate()
+		if errors.HasErrors() {
+			log.Fatalf("Configuration validation failed: %s", errors.Error())
+		}
+		log.Printf("Configuration validation passed")
 	}
 
 	GlobalConfig = &cfg
@@ -147,12 +188,22 @@ func bindEnvVariables() {
 	viper.BindEnv("oss.upload_dir", "ALICLOUD_OSS_UPLOAD_DIR")
 	viper.BindEnv("oss.domain", "OSS_DOMAIN")
 	viper.BindEnv("oss.callback_url", "OSS_CALLBACK_URL")
+	// Redis environment variables
+	viper.BindEnv("redis.host", "REDIS_HOST")
+	viper.BindEnv("redis.port", "REDIS_PORT")
+	viper.BindEnv("redis.password", "REDIS_PASSWORD")
+	viper.BindEnv("redis.db", "REDIS_DB")
+	viper.BindEnv("redis.enabled", "REDIS_ENABLED")
+	viper.BindEnv("redis.pool_size", "REDIS_POOL_SIZE")
+	viper.BindEnv("redis.cluster_mode", "REDIS_CLUSTER_MODE")
+	viper.BindEnv("redis.enable_fallback", "REDIS_ENABLE_FALLBACK")
 }
 
 func setDefaults() {
 	viper.SetDefault("app.name", "go-api-starter")
 	viper.SetDefault("app.env", "development")
 	viper.SetDefault("app.jwt_secret", "your-secret-key-change-in-production")
+	viper.SetDefault("app.port", 9527)
 	viper.SetDefault("server.host", "localhost")
 	viper.SetDefault("server.port", "9527")
 	viper.SetDefault("server.mode", "debug")
@@ -172,6 +223,20 @@ func setDefaults() {
 	viper.SetDefault("oss.max_file_size", 10485760) // 10MB
 	viper.SetDefault("oss.token_expire", 1800)      // 30 minutes
 	viper.SetDefault("oss.allowed_extensions", []string{".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx", ".xls", ".xlsx"})
+	// Redis defaults
+	viper.SetDefault("redis.host", "localhost")
+	viper.SetDefault("redis.port", 6379)
+	viper.SetDefault("redis.password", "")
+	viper.SetDefault("redis.db", 0)
+	viper.SetDefault("redis.pool_size", 10)
+	viper.SetDefault("redis.min_idle_conns", 5)
+	viper.SetDefault("redis.max_retries", 3)
+	viper.SetDefault("redis.dial_timeout", 5*time.Second)
+	viper.SetDefault("redis.read_timeout", 3*time.Second)
+	viper.SetDefault("redis.write_timeout", 3*time.Second)
+	viper.SetDefault("redis.cluster_mode", false)
+	viper.SetDefault("redis.enable_fallback", true)
+	viper.SetDefault("redis.enabled", false)
 }
 
 // GetConfig returns the global config

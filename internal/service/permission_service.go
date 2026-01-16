@@ -9,11 +9,22 @@ import (
 // PermissionService wraps BitPermissionManager with additional business logic
 type PermissionService struct {
 	manager *BitPermissionManager
+	checker *PermissionChecker
+	cache   *PermissionCache
 }
 
 // NewPermissionService creates a new PermissionService
 func NewPermissionService(manager *BitPermissionManager) *PermissionService {
 	return &PermissionService{manager: manager}
+}
+
+// NewPermissionServiceWithComponents creates a new PermissionService with checker and cache
+func NewPermissionServiceWithComponents(manager *BitPermissionManager, checker *PermissionChecker, cache *PermissionCache) *PermissionService {
+	return &PermissionService{
+		manager: manager,
+		checker: checker,
+		cache:   cache,
+	}
 }
 
 // CreateSpace creates a new permission space
@@ -109,16 +120,47 @@ func (s *PermissionService) RemoveUserRole(ctx context.Context, userID, roleID u
 
 // GetUserPermissions returns all permission codes for a user
 func (s *PermissionService) GetUserPermissions(ctx context.Context, userID uint) ([]string, error) {
+	if s.checker != nil {
+		return s.checker.GetUserPermissions(ctx, userID)
+	}
 	return s.manager.GetUserPermissions(ctx, userID)
 }
 
 // HasPermission checks if a user has a permission
 func (s *PermissionService) HasPermission(ctx context.Context, userID uint, code string) (bool, error) {
+	if s.checker != nil {
+		return s.checker.HasPermission(ctx, userID, code)
+	}
 	return s.manager.HasPermission(ctx, userID, code)
 }
 
 // CheckUserPermission checks if a user has a specific permission
 func (s *PermissionService) CheckUserPermission(userID uint, permissionCode string) (bool, error) {
 	ctx := context.Background()
-	return s.manager.HasPermission(ctx, userID, permissionCode)
+	return s.HasPermission(ctx, userID, permissionCode)
+}
+
+// InvalidateUserCache invalidates cache for a specific user
+func (s *PermissionService) InvalidateUserCache(ctx context.Context, userID uint) error {
+	if s.cache != nil {
+		return s.cache.InvalidateUser(ctx, userID)
+	}
+	return s.manager.ClearUserPermissionCache(ctx, userID)
+}
+
+// InvalidateRoleCache invalidates cache for all users with a specific role
+func (s *PermissionService) InvalidateRoleCache(ctx context.Context, roleID uint) error {
+	if s.checker != nil {
+		return s.checker.InvalidateRoleCache(ctx, roleID)
+	}
+	return s.manager.clearCacheForRole(ctx, roleID)
+}
+
+// GetCacheStats returns cache statistics
+func (s *PermissionService) GetCacheStats() *CacheStats {
+	if s.cache != nil {
+		stats := s.cache.GetStats()
+		return &stats
+	}
+	return nil
 }

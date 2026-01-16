@@ -9,6 +9,9 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// Compile-time interface check
+var _ UserPermissionCacheRepositoryInterface = (*UserPermissionCacheRepository)(nil)
+
 // UserPermissionCacheRepository handles user permission cache data operations
 type UserPermissionCacheRepository struct {
 	db *gorm.DB

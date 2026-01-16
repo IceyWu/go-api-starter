@@ -25,7 +25,7 @@
 - 📊 **Zap** - 高性能结构化日志
 - 🔍 **Request ID** - 请求追踪支持
 - 🛡️ **CORS** - 跨域资源共享支持
-- ⏱️ **Rate Limiting** - API 限流保护
+- ⏱️ **Rate Limiting** - API 限流保护（支持 Redis 分布式限流）
 - 🎯 **Graceful Shutdown** - 优雅关闭支持
 - 🔄 **Context Propagation** - 完整的上下文传递
 - ❌ **Enhanced Error Handling** - 统一的错误处理机制
@@ -36,6 +36,8 @@
 - 🔐 **权限管理系统** - 基于 RBAC 的权限控制
 - ☁️ **阿里云 OSS 集成** - 文件上传与管理
 - 🔧 **多数据库支持** - SQLite / MySQL
+- 🔴 **Redis 缓存支持** - 分布式缓存、Token 黑名单、分布式限流
+- 🔒 **Token 黑名单** - 支持登出和批量失效 Token
 
 ## 🛠️ 技术栈
 
@@ -54,6 +56,7 @@
 | 响应压缩 | [gin-contrib/gzip](https://github.com/gin-contrib/gzip) |
 | 性能分析 | [gin-contrib/pprof](https://github.com/gin-contrib/pprof) |
 | 限流 | [golang.org/x/time/rate](https://pkg.go.dev/golang.org/x/time/rate) |
+| 缓存 | [go-redis](https://github.com/redis/go-redis) |
 | 验证器 | [Validator](https://github.com/go-playground/validator) |
 
 ## 🚀 快速开始
@@ -164,6 +167,14 @@ go-api-starter/
 | `GET` | `/health` | 健康检查 |
 | `GET` | `/health/ready` | 就绪检查 |
 
+### 认证管理
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/auth/login` | 用户登录 |
+| `POST` | `/api/v1/auth/logout` | 用户登出 (需要 Redis) |
+| `POST` | `/api/v1/auth/logout-all` | 登出所有设备 (需要 Redis) |
+
 ### 用户管理
 
 | Method | Endpoint | Description |
@@ -259,6 +270,26 @@ oss:
 - 设置 `domain` → `https://cdn.example.com/go_oss/uploads/2026-01-15/abc123.jpg`
 - 未设置 `domain` → `https://{endpoint}/go_oss/uploads/2026-01-15/abc123.jpg`
 
+### Redis 配置说明
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `enabled` | 是否启用 Redis | `false` |
+| `host` | Redis 主机地址 | `localhost` |
+| `port` | Redis 端口 | `6379` |
+| `password` | Redis 密码 | 空 |
+| `db` | Redis 数据库索引 | `0` |
+| `pool_size` | 连接池大小 | `10` |
+| `cluster_mode` | 是否启用集群模式 | `false` |
+| `enable_fallback` | 连接失败时降级到内存缓存 | `true` |
+
+**Redis 功能**:
+- Token 黑名单 (支持登出功能)
+- 分布式限流 (滑动窗口算法)
+- 权限缓存 (减少数据库查询)
+
+**注意**: 当 `enabled: false` 时，系统自动使用内存缓存作为后端，登出功能不可用。
+
 ### 环境变量
 
 支持通过 `.env` 文件或系统环境变量配置：
@@ -277,6 +308,14 @@ oss:
 | `OSS_ACCESS_KEY_ID` | OSS AccessKey ID | - |
 | `OSS_ACCESS_KEY_SECRET` | OSS AccessKey Secret | - |
 | `LOG_LEVEL` | 日志级别 | debug |
+| `REDIS_ENABLED` | 是否启用 Redis | false |
+| `REDIS_HOST` | Redis 主机 | localhost |
+| `REDIS_PORT` | Redis 端口 | 6379 |
+| `REDIS_PASSWORD` | Redis 密码 | - |
+| `REDIS_DB` | Redis 数据库索引 | 0 |
+| `REDIS_POOL_SIZE` | 连接池大小 | 10 |
+| `REDIS_CLUSTER_MODE` | 集群模式 | false |
+| `REDIS_ENABLE_FALLBACK` | 降级到内存缓存 | true |
 
 ## 🖥️ 前端管理后台
 

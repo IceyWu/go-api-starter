@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -97,7 +98,7 @@ func (c *Config) Validate() ValidationErrors {
 					Message: "OSS access key secret must be configured when OSS is enabled in production",
 				})
 			}
-			if c.OSS.BucketName == "" {
+			if c.OSS.BucketName == "" && c.OSS.Bucket == "" {
 				errors = append(errors, ValidationError{
 					Field:   "oss.bucket_name",
 					Message: "OSS bucket name must be configured when OSS is enabled in production",
@@ -107,10 +108,10 @@ func (c *Config) Validate() ValidationErrors {
 	}
 
 	// General validation (all environments)
-	if c.App.Port <= 0 || c.App.Port > 65535 {
+	if port, convErr := strconv.Atoi(c.Server.Port); convErr != nil || port <= 0 || port > 65535 {
 		errors = append(errors, ValidationError{
-			Field:   "app.port",
-			Message: "Port must be between 1 and 65535",
+			Field:   "server.port",
+			Message: "Port must be a number between 1 and 65535",
 		})
 	}
 

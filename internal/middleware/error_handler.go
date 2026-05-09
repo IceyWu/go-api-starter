@@ -3,6 +3,7 @@ package middleware
 import (
 	"errors"
 
+	"go-api-starter/internal/config"
 	"go-api-starter/pkg/apperrors"
 	"go-api-starter/pkg/logger"
 	"go-api-starter/pkg/response"
@@ -28,17 +29,21 @@ func ErrorHandler() gin.HandlerFunc {
 func handleError(c *gin.Context, err error) {
 	var appErr *apperrors.AppError
 	if errors.As(err, &appErr) {
-		// Log application error (simplified)
 		if logger.Log != nil && appErr.HTTPStatus >= 500 {
 			logger.Log.Errorf("%s %s - %s", c.Request.Method, c.Request.URL.Path, appErr.Message)
 		}
 
-		// Send structured error response
-		c.JSON(appErr.HTTPStatus, response.Response{
-			Code:    appErr.HTTPStatus,
-			Message: appErr.Message,
-			Data:    appErr.Details,
-		})
+		resp := response.ErrorResponse{
+			Code:      appErr.HTTPStatus,
+			ErrorCode: appErr.Code,
+			Message:   appErr.Message,
+			Details:   appErr.Details,
+		}
+		// Only expose internal error details in non-production environments
+		if !isProduction() {
+			resp.Error = appErr.Error()
+		}
+		c.JSON(appErr.HTTPStatus, resp)
 		return
 	}
 
@@ -46,5 +51,20 @@ func handleError(c *gin.Context, err error) {
 	if logger.Log != nil {
 		logger.Log.Errorf("%s %s - %v", c.Request.Method, c.Request.URL.Path, err)
 	}
-	response.InternalError(c, "internal server error")
+	resp := response.ErrorResponse{
+		Code:    500,
+		Message: "internal server error",
+	}
+	if !isProduction() {
+		resp.Error = err.Error()
+	}
+	c.JSON(500, resp)
+}
+
+func isProduction() bool {
+	cfg := config.GetConfig()
+	if cfg == nil {
+		return false
+	}
+	return cfg.App.Env == "production" || cfg.App.Env == "prod"
 }

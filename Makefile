@@ -17,13 +17,13 @@ endif
 build: swagger
 	go build -o bin/server ./cmd/server
 
-# Run development (auto-generate swagger docs first)
+# Run development (build to fixed path first to avoid Windows firewall popup every time)
 dev: swagger
-	$(LOAD_ENV_DEV) go run ./cmd/server
+	$(LOAD_ENV_DEV) go build -o bin/server.exe ./cmd/server; ./bin/server.exe
 
 # Run production
 prod:
-	$(LOAD_ENV_PROD) go run ./cmd/server
+	$(LOAD_ENV_PROD) go build -o bin/server.exe ./cmd/server; ./bin/server.exe
 
 # Run tests
 test:
@@ -31,10 +31,10 @@ test:
 
 # Clean build artifacts
 clean:
-	$(RM) bin/
-	$(RM) *.db
-	$(RM) server.exe
-	$(RM) server
+	-$(RM) bin/
+	-$(RM) *.db
+	-$(RM) server.exe
+	-$(RM) server
 
 # Generate swagger docs
 swagger:

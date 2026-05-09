@@ -3,15 +3,17 @@ package apperrors
 import (
 	"fmt"
 	"net/http"
+
+	"go-api-starter/pkg/i18n"
 )
 
 // AppError represents an application error with HTTP status code
 type AppError struct {
-	Code       string      `json:"code"`        // Error code for client
-	Message    string      `json:"message"`     // User-friendly error message
-	HTTPStatus int         `json:"-"`           // HTTP status code
-	Err        error       `json:"-"`           // Original error
-	Details    interface{} `json:"details,omitempty"` // Additional error details
+	Code       string `json:"code"`              // Error code for client
+	Message    string `json:"message"`           // User-friendly error message
+	HTTPStatus int    `json:"-"`                 // HTTP status code
+	Err        error  `json:"-"`                 // Original error
+	Details    any    `json:"details,omitempty"` // Additional error details
 }
 
 // Error implements the error interface
@@ -80,7 +82,7 @@ func BadRequest(message string) *AppError {
 }
 
 // BadRequestWithDetails creates a 400 error with details
-func BadRequestWithDetails(message string, details interface{}) *AppError {
+func BadRequestWithDetails(message string, details any) *AppError {
 	return &AppError{
 		Code:       "BAD_REQUEST",
 		Message:    message,
@@ -127,11 +129,83 @@ func Internal(err error, message string) *AppError {
 }
 
 // ValidationError creates a validation error with field details
-func ValidationError(message string, details interface{}) *AppError {
+func ValidationError(message string, details any) *AppError {
 	return &AppError{
 		Code:       "VALIDATION_ERROR",
 		Message:    message,
 		HTTPStatus: http.StatusBadRequest,
 		Details:    details,
+	}
+}
+
+// ─── Code-based constructors (i18n-ready) ───
+// These use error code constants from pkg/i18n.
+// The message is resolved via i18n.T() so it respects the current language.
+
+// BadRequestCode creates a 400 error from an error code
+func BadRequestCode(code string) *AppError {
+	return &AppError{
+		Code:       code,
+		Message:    i18n.T(code),
+		HTTPStatus: http.StatusBadRequest,
+	}
+}
+
+// NotFoundCode creates a 404 error from an error code
+func NotFoundCode(code string) *AppError {
+	return &AppError{
+		Code:       code,
+		Message:    i18n.T(code),
+		HTTPStatus: http.StatusNotFound,
+	}
+}
+
+// UnauthorizedCode creates a 401 error from an error code
+func UnauthorizedCode(code string) *AppError {
+	return &AppError{
+		Code:       code,
+		Message:    i18n.T(code),
+		HTTPStatus: http.StatusUnauthorized,
+	}
+}
+
+// ForbiddenCode creates a 403 error from an error code
+func ForbiddenCode(code string) *AppError {
+	return &AppError{
+		Code:       code,
+		Message:    i18n.T(code),
+		HTTPStatus: http.StatusForbidden,
+	}
+}
+
+// ConflictCode creates a 409 error from an error code
+func ConflictCode(code string) *AppError {
+	return &AppError{
+		Code:       code,
+		Message:    i18n.T(code),
+		HTTPStatus: http.StatusConflict,
+	}
+}
+
+// WrapCode wraps an error with an error code
+func WrapCode(err error, code string) *AppError {
+	if err == nil {
+		return nil
+	}
+	return &AppError{
+		Code:       code,
+		Message:    i18n.T(code),
+		HTTPStatus: http.StatusInternalServerError,
+		Err:        err,
+	}
+}
+
+// InternalCode creates a 500 error from an error code, wrapping the original error
+func InternalCode(err error, code string) *AppError {
+	return &AppError{
+		Code:       code,
+		Message:    i18n.T(code),
+		HTTPStatus: http.StatusInternalServerError,
+		Err:        err,
 	}
 }

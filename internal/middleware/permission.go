@@ -3,22 +3,32 @@ package middleware
 import (
 	"go-api-starter/internal/service"
 	"go-api-starter/pkg/response"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
 type PermissionMiddleware struct {
-	permService service.PermissionServiceInterface
+	permService    service.PermissionServiceInterface
+	collectedCodes map[string]struct{}
+	mu             sync.Mutex
 }
 
 func NewPermissionMiddleware(permService service.PermissionServiceInterface) *PermissionMiddleware {
 	return &PermissionMiddleware{
-		permService: permService,
+		permService:    permService,
+		collectedCodes: make(map[string]struct{}),
 	}
 }
 
-// RequirePermission checks if the user has the required permission
+// RequirePermission checks if the user has the required permission.
+// It also collects the permission code for auto-seeding.
 func (m *PermissionMiddleware) RequirePermission(permissionCode string) gin.HandlerFunc {
+	// 路由注册阶段自动收集 code
+	m.mu.Lock()
+	m.collectedCodes[permissionCode] = struct{}{}
+	m.mu.Unlock()
+
 	return func(c *gin.Context) {
 		userIDVal, exists := c.Get("userID")
 		if !exists {
@@ -34,7 +44,6 @@ func (m *PermissionMiddleware) RequirePermission(permissionCode string) gin.Hand
 			return
 		}
 
-		// Check if user has the permission
 		hasPermission, err := m.permService.CheckUserPermission(userID, permissionCode)
 		if err != nil {
 			response.InternalError(c, "权限检查失败")
@@ -50,4 +59,15 @@ func (m *PermissionMiddleware) RequirePermission(permissionCode string) gin.Hand
 
 		c.Next()
 	}
+}
+
+// CollectedCodes returns all permission codes that were registered via RequirePermission.
+func (m *PermissionMiddleware) CollectedCodes() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	codes := make([]string, 0, len(m.collectedCodes))
+	for code := range m.collectedCodes {
+		codes = append(codes, code)
+	}
+	return codes
 }

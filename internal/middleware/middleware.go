@@ -50,6 +50,10 @@ func Recovery() gin.HandlerFunc {
 			"error", recovered,
 			"path", c.Request.URL.Path,
 		)
-		response.InternalError(c, "internal server error")
+		c.JSON(500, response.ErrorResponse{
+			Code:    500,
+			Message: "internal server error",
+			Error:   "panic recovered",
+		})
 	})
 }

@@ -6,6 +6,7 @@ import (
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/service"
 	"go-api-starter/pkg/apperrors"
+	"go-api-starter/pkg/i18n"
 	"go-api-starter/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -13,12 +14,13 @@ import (
 
 // PermissionHandler handles permission HTTP requests
 type PermissionHandler struct {
-	service service.PermissionServiceInterface
+	service     service.PermissionServiceInterface
+	userService service.UserServiceInterface
 }
 
 // NewPermissionHandler creates a new PermissionHandler
-func NewPermissionHandler(svc service.PermissionServiceInterface) *PermissionHandler {
-	return &PermissionHandler{service: svc}
+func NewPermissionHandler(svc service.PermissionServiceInterface, userSvc service.UserServiceInterface) *PermissionHandler {
+	return &PermissionHandler{service: svc, userService: userSvc}
 }
 
 // ====================
@@ -39,7 +41,7 @@ func NewPermissionHandler(svc service.PermissionServiceInterface) *PermissionHan
 func (h *PermissionHandler) CreateSpace(c *gin.Context) {
 	var req model.CreateSpaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("参数验证失败: " + err.Error()))
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
 		return
 	}
 	space, err := h.service.CreateSpace(c.Request.Context(), &req)
@@ -83,7 +85,7 @@ func (h *PermissionHandler) GetAllSpaces(c *gin.Context) {
 func (h *PermissionHandler) CreatePermission(c *gin.Context) {
 	var req model.CreatePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("参数验证失败: " + err.Error()))
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
 		return
 	}
 	perm, err := h.service.CreatePermission(c.Request.Context(), &req)
@@ -122,7 +124,7 @@ func (h *PermissionHandler) GetAllPermissions(c *gin.Context) {
 func (h *PermissionHandler) GetPermission(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.Error(apperrors.BadRequest("无效的权限ID"))
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidPermissionID))
 		return
 	}
 	perm, err := h.service.GetPermissionByID(c.Request.Context(), uint(id))
@@ -147,12 +149,12 @@ func (h *PermissionHandler) GetPermission(c *gin.Context) {
 func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.Error(apperrors.BadRequest("无效的权限ID"))
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidPermissionID))
 		return
 	}
 	var req model.UpdatePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("参数验证失败: " + err.Error()))
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
 		return
 	}
 	perm, err := h.service.UpdatePermission(c.Request.Context(), uint(id), &req)
@@ -174,7 +176,7 @@ func (h *PermissionHandler) UpdatePermission(c *gin.Context) {
 func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.Error(apperrors.BadRequest("无效的权限ID"))
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidPermissionID))
 		return
 	}
 	if err := h.service.DeletePermission(c.Request.Context(), uint(id)); err != nil {
@@ -201,7 +203,7 @@ func (h *PermissionHandler) DeletePermission(c *gin.Context) {
 func (h *PermissionHandler) CreateRole(c *gin.Context) {
 	var req model.CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("参数验证失败: " + err.Error()))
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
 		return
 	}
 	role, err := h.service.CreateRole(c.Request.Context(), &req)
@@ -240,7 +242,7 @@ func (h *PermissionHandler) GetAllRoles(c *gin.Context) {
 func (h *PermissionHandler) GetRole(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.Error(apperrors.BadRequest("无效的角色ID"))
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
 		return
 	}
 	role, err := h.service.GetRoleByID(c.Request.Context(), uint(id))
@@ -265,12 +267,12 @@ func (h *PermissionHandler) GetRole(c *gin.Context) {
 func (h *PermissionHandler) UpdateRole(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.Error(apperrors.BadRequest("无效的角色ID"))
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
 		return
 	}
 	var req model.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("参数验证失败: " + err.Error()))
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
 		return
 	}
 	role, err := h.service.UpdateRole(c.Request.Context(), uint(id), &req)
@@ -292,7 +294,7 @@ func (h *PermissionHandler) UpdateRole(c *gin.Context) {
 func (h *PermissionHandler) DeleteRole(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.Error(apperrors.BadRequest("无效的角色ID"))
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
 		return
 	}
 	if err := h.service.DeleteRole(c.Request.Context(), uint(id)); err != nil {
@@ -313,7 +315,7 @@ func (h *PermissionHandler) DeleteRole(c *gin.Context) {
 func (h *PermissionHandler) GetRolePermissions(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.Error(apperrors.BadRequest("无效的角色ID"))
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
 		return
 	}
 	codes, err := h.service.GetRolePermissions(c.Request.Context(), uint(id))
@@ -337,12 +339,12 @@ func (h *PermissionHandler) GetRolePermissions(c *gin.Context) {
 func (h *PermissionHandler) AddRolePermissions(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.Error(apperrors.BadRequest("无效的角色ID"))
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
 		return
 	}
 	var req model.RolePermissionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("参数验证失败: " + err.Error()))
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
 		return
 	}
 	if err := h.service.AddRolePermissions(c.Request.Context(), uint(id), req.PermissionCodes); err != nil {
@@ -365,12 +367,12 @@ func (h *PermissionHandler) AddRolePermissions(c *gin.Context) {
 func (h *PermissionHandler) RemoveRolePermissions(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.Error(apperrors.BadRequest("无效的角色ID"))
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
 		return
 	}
 	var req model.RolePermissionsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("参数验证失败: " + err.Error()))
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
 		return
 	}
 	if err := h.service.RemoveRolePermissions(c.Request.Context(), uint(id), req.PermissionCodes); err != nil {
@@ -384,104 +386,6 @@ func (h *PermissionHandler) RemoveRolePermissions(c *gin.Context) {
 // 用户权限 (User Permissions)
 // ====================
 
-// GetUserRoles godoc
-// @Summary 获取用户角色
-// @Description 获取用户的所有角色
-// @Tags 用户权限
-// @Produce json
-// @Param id path int true "用户ID"
-// @Success 200 {object} response.Response{data=[]model.Role}
-// @Router /api/v1/permissions/users/{id}/roles [get]
-func (h *PermissionHandler) GetUserRoles(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.Error(apperrors.BadRequest("无效的用户ID"))
-		return
-	}
-	roles, err := h.service.GetUserRoles(c.Request.Context(), uint(id))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	response.Success(c, roles)
-}
-
-// AssignUserRole godoc
-// @Summary 为用户分配角色
-// @Description 为用户分配一个角色
-// @Tags 用户权限
-// @Accept json
-// @Produce json
-// @Param id path int true "用户ID"
-// @Param role body model.AssignRoleRequest true "角色ID"
-// @Success 200 {object} response.Response
-// @Router /api/v1/permissions/users/{id}/roles [post]
-func (h *PermissionHandler) AssignUserRole(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.Error(apperrors.BadRequest("无效的用户ID"))
-		return
-	}
-	var req model.AssignRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("参数验证失败: " + err.Error()))
-		return
-	}
-	if err := h.service.AssignUserRole(c.Request.Context(), uint(id), req.RoleID); err != nil {
-		c.Error(err)
-		return
-	}
-	response.Success(c, nil)
-}
-
-// RemoveUserRole godoc
-// @Summary 移除用户角色
-// @Description 从用户中移除一个角色
-// @Tags 用户权限
-// @Param id path int true "用户ID"
-// @Param roleId path int true "角色ID"
-// @Success 204
-// @Router /api/v1/permissions/users/{id}/roles/{roleId} [delete]
-func (h *PermissionHandler) RemoveUserRole(c *gin.Context) {
-	userID, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.Error(apperrors.BadRequest("无效的用户ID"))
-		return
-	}
-	roleID, err := strconv.ParseUint(c.Param("roleId"), 10, 32)
-	if err != nil {
-		c.Error(apperrors.BadRequest("无效的角色ID"))
-		return
-	}
-	if err := h.service.RemoveUserRole(c.Request.Context(), uint(userID), uint(roleID)); err != nil {
-		c.Error(err)
-		return
-	}
-	response.NoContent(c)
-}
-
-// GetUserPermissions godoc
-// @Summary 获取用户权限
-// @Description 获取用户的所有权限代码
-// @Tags 用户权限
-// @Produce json
-// @Param id path int true "用户ID"
-// @Success 200 {object} response.Response{data=[]string}
-// @Router /api/v1/permissions/users/{id}/permissions [get]
-func (h *PermissionHandler) GetUserPermissions(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
-	if err != nil {
-		c.Error(apperrors.BadRequest("无效的用户ID"))
-		return
-	}
-	codes, err := h.service.GetUserPermissions(c.Request.Context(), uint(id))
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	response.Success(c, codes)
-}
-
 // GetMyPermissions godoc
 // @Summary 获取当前用户权限
 // @Description 获取当前登录用户的所有权限代码
@@ -490,14 +394,8 @@ func (h *PermissionHandler) GetUserPermissions(c *gin.Context) {
 // @Success 200 {object} response.Response{data=[]string}
 // @Router /api/v1/permissions/me/permissions [get]
 func (h *PermissionHandler) GetMyPermissions(c *gin.Context) {
-	userIDVal, exists := c.Get("userID")
-	if !exists {
-		c.Error(apperrors.Unauthorized("用户未认证"))
-		return
-	}
-	userID, ok := userIDVal.(uint)
+	userID, ok := GetUserID(c)
 	if !ok {
-		c.Error(apperrors.Unauthorized("用户ID无效"))
 		return
 	}
 	codes, err := h.service.GetUserPermissions(c.Request.Context(), userID)
@@ -506,4 +404,73 @@ func (h *PermissionHandler) GetMyPermissions(c *gin.Context) {
 		return
 	}
 	response.Success(c, codes)
+}
+
+// ====================
+// 用户角色操作 (通过 sec_uid)
+// ====================
+
+// GetUserRolesBySecUID 通过 sec_uid 获取用户角色
+func (h *PermissionHandler) GetUserRolesBySecUID(c *gin.Context) {
+	secUID, ok := GetSecUID(c)
+	if !ok {
+		return
+	}
+	user, err := h.userService.GetBySecUID(c.Request.Context(), secUID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	roles, err := h.service.GetUserRoles(c.Request.Context(), user.ID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	response.Success(c, roles)
+}
+
+// AssignUserRoleBySecUID 通过 sec_uid 分配角色
+func (h *PermissionHandler) AssignUserRoleBySecUID(c *gin.Context) {
+	secUID, ok := GetSecUID(c)
+	if !ok {
+		return
+	}
+	user, err := h.userService.GetBySecUID(c.Request.Context(), secUID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	var req model.AssignRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
+		return
+	}
+	if err := h.service.AssignUserRole(c.Request.Context(), user.ID, req.RoleID); err != nil {
+		c.Error(err)
+		return
+	}
+	response.Success(c, nil)
+}
+
+// RemoveUserRoleBySecUID 通过 sec_uid 移除角色
+func (h *PermissionHandler) RemoveUserRoleBySecUID(c *gin.Context) {
+	secUID, ok := GetSecUID(c)
+	if !ok {
+		return
+	}
+	user, err := h.userService.GetBySecUID(c.Request.Context(), secUID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	roleID, err := strconv.ParseUint(c.Param("roleId"), 10, 32)
+	if err != nil {
+		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
+		return
+	}
+	if err := h.service.RemoveUserRole(c.Request.Context(), user.ID, uint(roleID)); err != nil {
+		c.Error(err)
+		return
+	}
+	response.NoContent(c)
 }

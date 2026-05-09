@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/api/v1/auth/login": {
             "post": {
-                "description": "使用邮箱和密码登录",
+                "description": "使用手机号或邮箱和密码登录",
                 "consumes": [
                     "application/json"
                 ],
@@ -80,7 +80,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "使当前令牌失效",
+                "description": "使当前令牌失效（需要 Redis 支持）",
                 "produces": [
                     "application/json"
                 ],
@@ -135,21 +135,30 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/auth/me": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
+        "/api/v1/auth/refresh": {
+            "post": {
+                "description": "使用刷新令牌获取新的访问令牌",
+                "consumes": [
+                    "application/json"
                 ],
-                "description": "获取当前已认证用户的详细信息",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "认证"
                 ],
-                "summary": "获取当前用户信息",
+                "summary": "刷新访问令牌",
+                "parameters": [
+                    {
+                        "description": "刷新令牌请求数据",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.RefreshTokenRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -162,11 +171,17 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.User"
+                                            "$ref": "#/definitions/model.RefreshTokenResponse"
                                         }
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
                         }
                     },
                     "401": {
@@ -180,7 +195,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/register": {
             "post": {
-                "description": "注册一个新的用户账号（需要邮箱验证码）",
+                "description": "使用邮箱或手机号 + 密码注册一个新用户，注册成功后自动返回登录令牌",
                 "consumes": [
                     "application/json"
                 ],
@@ -214,7 +229,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.User"
+                                            "$ref": "#/definitions/model.LoginResponse"
                                         }
                                     }
                                 }
@@ -253,7 +268,7 @@ const docTemplate = `{
                 "tags": [
                     "认证"
                 ],
-                "summary": "重置用户密码",
+                "summary": "重置用户密码（管理员）",
                 "parameters": [
                     {
                         "type": "integer",
@@ -294,57 +309,45 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/operation-logs": {
+        "/api/v1/file": {
             "get": {
-                "description": "分页查询操作日志，支持按用户、模块、操作类型、时间范围过滤",
+                "description": "获取文件分页列表，未登录只返回公开文件",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "操作日志"
+                    "文件管理"
                 ],
-                "summary": "获取操作日志列表",
+                "summary": "获取文件列表（可选认证）",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "页码（默认：1）",
+                        "description": "页码（默认 1）",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "每页数量（默认：10，最大：100）",
+                        "description": "每页数量（默认 10）",
                         "name": "page_size",
                         "in": "query"
                     },
                     {
-                        "type": "integer",
-                        "description": "用户ID",
-                        "name": "user_id",
+                        "type": "string",
+                        "description": "排序（如 created_at,desc）",
+                        "name": "sort",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "模块名称",
-                        "name": "module",
+                        "description": "按用户 SecUID 筛选",
+                        "name": "user_sec_uid",
                         "in": "query"
                     },
                     {
-                        "type": "string",
-                        "description": "操作类型",
-                        "name": "action",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "开始时间（格式：2006-01-02 15:04:05）",
-                        "name": "start_time",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "结束时间（格式：2006-01-02 15:04:05）",
-                        "name": "end_time",
+                        "type": "boolean",
+                        "description": "是否仅返回私密文件（需认证）",
+                        "name": "is_private",
                         "in": "query"
                     }
                 ],
@@ -352,205 +355,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handler.OperationLogPageResult"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
             }
         },
-        "/api/v1/operation-logs/{id}": {
-            "get": {
-                "description": "根据ID获取操作日志详情",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "操作日志"
-                ],
-                "summary": "获取操作日志详情",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "日志ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/model.OperationLog"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/oss/callback": {
+        "/api/v1/file/public/upload": {
             "post": {
-                "description": "处理 OSS 上传成功后的回调请求",
+                "description": "直接上传文件到 OSS 的 public 目录，不落库。适合头像等小文件场景。",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "OSS文件管理"
+                    "文件管理"
                 ],
-                "summary": "OSS 上传回调",
+                "summary": "公开文件上传（无需鉴权）",
                 "parameters": [
                     {
-                        "description": "回调请求数据",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.CallbackRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/model.OSSFile"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/oss/files": {
-            "get": {
-                "description": "获取已上传文件的分页列表",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "OSS文件管理"
-                ],
-                "summary": "获取文件列表",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "default": 1,
-                        "description": "页码",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 20,
-                        "description": "每页数量",
-                        "name": "page_size",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/oss/files/{id}": {
-            "delete": {
-                "description": "从 OSS 和数据库中删除文件",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "OSS文件管理"
-                ],
-                "summary": "删除文件",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "文件ID",
-                        "name": "id",
-                        "in": "path",
+                        "type": "file",
+                        "description": "要上传的文件",
+                        "name": "file",
+                        "in": "formData",
                         "required": true
                     }
                 ],
@@ -560,25 +389,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
                     }
                 }
             }
         },
-        "/api/v1/oss/multipart/abort": {
+        "/api/v1/file/upload/abort": {
             "post": {
-                "description": "取消分片上传，清理已上传的分片",
+                "description": "取消分片上传并清理已上传的分片",
                 "consumes": [
                     "application/json"
                 ],
@@ -586,7 +403,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OSS文件管理"
+                    "文件管理"
                 ],
                 "summary": "取消分片上传",
                 "parameters": [
@@ -606,19 +423,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
                     }
                 }
             }
         },
-        "/api/v1/oss/multipart/complete": {
+        "/api/v1/file/upload/complete": {
             "post": {
-                "description": "完成分片上传，合并所有分片",
+                "description": "统一的上传完成接口，支持普通上传和分片上传",
                 "consumes": [
                     "application/json"
                 ],
@@ -626,9 +437,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OSS文件管理"
+                    "文件管理"
                 ],
-                "summary": "完成分片上传",
+                "summary": "完成上传",
                 "parameters": [
                     {
                         "description": "完成请求",
@@ -636,7 +447,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.CompleteMultipartRequest"
+                            "$ref": "#/definitions/handler.UploadCompleteRequest"
                         }
                     }
                 ],
@@ -652,7 +463,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.OSSFile"
+                                            "$ref": "#/definitions/model.File"
                                         }
                                     }
                                 }
@@ -668,47 +479,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/oss/multipart/db-parts": {
-            "get": {
-                "description": "从数据库获取已上传的分片列表，用于断点续传时获取完整的分片信息",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "OSS文件管理"
-                ],
-                "summary": "从数据库获取已上传分片列表",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "上传ID",
-                        "name": "upload_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/oss/multipart/init": {
+        "/api/v1/file/upload/init": {
             "post": {
-                "description": "初始化分片上传，返回 uploadId 和 key。如果存在相同MD5的未完成上传，会返回已上传的分片列表用于断点续传",
+                "description": "统一的上传初始化接口，自动检查秒传，根据文件大小决定普通/分片上传",
                 "consumes": [
                     "application/json"
                 ],
@@ -716,9 +489,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OSS文件管理"
+                    "文件管理"
                 ],
-                "summary": "初始化分片上传",
+                "summary": "初始化上传",
                 "parameters": [
                     {
                         "description": "初始化请求",
@@ -726,7 +499,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.InitMultipartRequest"
+                            "$ref": "#/definitions/handler.UploadInitRequest"
                         }
                     }
                 ],
@@ -746,9 +519,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/oss/multipart/part": {
+        "/api/v1/file/upload/urls": {
             "post": {
-                "description": "保存已上传分片信息到数据库，用于断点续传",
+                "description": "获取分片上传的预签名 URL",
                 "consumes": [
                     "application/json"
                 ],
@@ -756,92 +529,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OSS文件管理"
-                ],
-                "summary": "保存已上传分片信息",
-                "parameters": [
-                    {
-                        "description": "分片信息",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.SavePartRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/oss/multipart/parts": {
-            "get": {
-                "description": "获取已上传的分片列表，用于断点续传",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "OSS文件管理"
-                ],
-                "summary": "获取已上传分片列表",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "文件key",
-                        "name": "key",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "上传ID",
-                        "name": "upload_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/oss/multipart/urls": {
-            "post": {
-                "description": "获取分片上传的预签名URL",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "OSS文件管理"
+                    "文件管理"
                 ],
                 "summary": "获取分片上传URL",
                 "parameters": [
@@ -861,19 +549,13 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
                     }
                 }
             }
         },
-        "/api/v1/oss/token": {
+        "/api/v1/file/{sec_uid}": {
             "get": {
-                "description": "获取客户端直传 OSS 的上传令牌，或通过 MD5 检查文件是否已存在",
+                "description": "根据 SecUID 获取文件信息",
                 "consumes": [
                     "application/json"
                 ],
@@ -881,21 +563,16 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "OSS文件管理"
+                    "文件管理"
                 ],
-                "summary": "获取上传令牌",
+                "summary": "获取文件详情",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "文件 MD5 哈希值（用于检查文件是否存在）",
-                        "name": "md5",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "文件名（可选，用于扩展名验证）",
-                        "name": "file_name",
-                        "in": "query"
+                        "description": "文件 SecUID",
+                        "name": "sec_uid",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -910,21 +587,98 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/oss.UploadToken"
+                                            "$ref": "#/definitions/model.File"
                                         }
                                     }
                                 }
                             ]
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
+                    }
+                }
+            },
+            "put": {
+                "description": "更新文件的名称或隐私设置",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "更新文件信息",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文件 SecUID",
+                        "name": "sec_uid",
+                        "in": "path",
+                        "required": true
                     },
-                    "500": {
-                        "description": "Internal Server Error",
+                    {
+                        "description": "更新请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateFileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.File"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "从 OSS 和数据库中删除文件",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "文件管理"
+                ],
+                "summary": "删除文件",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "文件 SecUID",
+                        "name": "sec_uid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -1612,253 +1366,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/permissions/users/{id}/permissions": {
-            "get": {
-                "description": "获取用户的所有权限代码",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "用户权限"
-                ],
-                "summary": "获取用户权限",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "用户ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/permissions/users/{id}/roles": {
-            "get": {
-                "description": "获取用户的所有角色",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "用户权限"
-                ],
-                "summary": "获取用户角色",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "用户ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/model.Role"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "为用户分配一个角色",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "用户权限"
-                ],
-                "summary": "为用户分配角色",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "用户ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "角色ID",
-                        "name": "role",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/model.AssignRoleRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/permissions/users/{id}/roles/{roleId}": {
-            "delete": {
-                "description": "从用户中移除一个角色",
-                "tags": [
-                    "用户权限"
-                ],
-                "summary": "移除用户角色",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "用户ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "角色ID",
-                        "name": "roleId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    }
-                }
-            }
-        },
-        "/api/v1/test/no-permission": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "测试不需要任何特定权限的端点，只需要登录",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "权限测试"
-                ],
-                "summary": "测试无权限要求的端点",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/test/user-create": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "测试需要 user.create 权限的端点",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "权限测试"
-                ],
-                "summary": "测试 user.create 权限",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/test/user-read": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "测试需要 user.read 权限的端点",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "权限测试"
-                ],
-                "summary": "测试 user.read 权限",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/users": {
             "get": {
-                "description": "获取分页的用户列表，支持按以下字段排序：id, name, email, createdAt, updatedAt",
+                "description": "获取分页的用户列表",
                 "produces": [
                     "application/json"
                 ],
@@ -1869,22 +1379,19 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "example": 1,
                         "description": "页码（默认：1）",
                         "name": "page",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "example": 10,
-                        "description": "每页数量，最大100（默认：10）",
+                        "description": "每页数量（默认：10）",
                         "name": "page_size",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "example": "createdAt,desc",
-                        "description": "排序：字段,顺序。示例：createdAt,desc 或 name,asc（默认：id,desc）",
+                        "description": "排序，例如 created_at,desc",
                         "name": "sort",
                         "in": "query"
                     }
@@ -1893,31 +1400,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/response.UserPageResult"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
                     }
                 }
             },
             "post": {
-                "description": "创建一个新用户，需要提供姓名和邮箱",
+                "description": "创建一个新用户",
                 "consumes": [
                     "application/json"
                 ],
@@ -1930,7 +1419,7 @@ const docTemplate = `{
                 "summary": "创建用户",
                 "parameters": [
                     {
-                        "description": "用户数据：name(必填,2-100字符), email(必填)",
+                        "description": "用户数据",
                         "name": "user",
                         "in": "body",
                         "required": true,
@@ -1941,7 +1430,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "创建成功",
+                        "description": "Created",
                         "schema": {
                             "allOf": [
                                 {
@@ -1951,7 +1440,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.User"
+                                            "$ref": "#/definitions/model.UserResponse"
                                         }
                                     }
                                 }
@@ -1959,13 +1448,115 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "参数验证错误",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
                     },
-                    "500": {
-                        "description": "服务器内部错误",
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/users/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "获取当前用户信息",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.UserResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "用户管理"
+                ],
+                "summary": "更新当前用户信息",
+                "parameters": [
+                    {
+                        "description": "用户数据",
+                        "name": "user",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateUserRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.UserResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -1975,7 +1566,7 @@ const docTemplate = `{
         },
         "/api/v1/users/{sec_uid}": {
             "get": {
-                "description": "根据用户SecUID获取单个用户的详细信息",
+                "description": "根据 SecUID 获取用户信息",
                 "produces": [
                     "application/json"
                 ],
@@ -1986,7 +1577,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "用户SecUID",
+                        "description": "用户 SecUID",
                         "name": "sec_uid",
                         "in": "path",
                         "required": true
@@ -1994,7 +1585,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "获取成功",
+                        "description": "OK",
                         "schema": {
                             "allOf": [
                                 {
@@ -2004,21 +1595,15 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.User"
+                                            "$ref": "#/definitions/model.UserResponse"
                                         }
                                     }
                                 }
                             ]
                         }
                     },
-                    "400": {
-                        "description": "无效的用户SecUID",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
                     "404": {
-                        "description": "用户不存在",
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -2026,7 +1611,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "根据SecUID更新现有用户，所有字段都是可选的",
+                "description": "根据 SecUID 更新用户",
                 "consumes": [
                     "application/json"
                 ],
@@ -2040,13 +1625,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "用户SecUID",
+                        "description": "用户 SecUID",
                         "name": "sec_uid",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "用户数据：username(4-50字符,字母数字), name(2-100字符), email，所有字段可选",
+                        "description": "用户数据",
                         "name": "user",
                         "in": "body",
                         "required": true,
@@ -2057,7 +1642,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "更新成功",
+                        "description": "OK",
                         "schema": {
                             "allOf": [
                                 {
@@ -2067,7 +1652,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/model.User"
+                                            "$ref": "#/definitions/model.UserResponse"
                                         }
                                     }
                                 }
@@ -2075,19 +1660,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "参数验证错误",
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
                     },
                     "404": {
-                        "description": "用户不存在",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "409": {
-                        "description": "用户账号已被占用",
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -2095,7 +1674,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "根据SecUID删除用户（软删除）",
+                "description": "软删除用户",
                 "tags": [
                     "用户管理"
                 ],
@@ -2103,7 +1682,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "用户SecUID",
+                        "description": "用户 SecUID",
                         "name": "sec_uid",
                         "in": "path",
                         "required": true
@@ -2113,100 +1692,8 @@ const docTemplate = `{
                     "204": {
                         "description": "删除成功"
                     },
-                    "400": {
-                        "description": "无效的用户SecUID",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
                     "404": {
-                        "description": "用户不存在",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/verification/send": {
-            "post": {
-                "description": "发送邮箱验证码",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "验证码"
-                ],
-                "summary": "发送验证码",
-                "parameters": [
-                    {
-                        "description": "发送验证码请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.SendCodeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/verification/verify": {
-            "post": {
-                "description": "验证邮箱验证码",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "验证码"
-                ],
-                "summary": "验证验证码",
-                "parameters": [
-                    {
-                        "description": "验证验证码请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.VerifyCodeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
                         }
@@ -2277,69 +1764,6 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.CallbackRequest": {
-            "type": "object",
-            "required": [
-                "file_name",
-                "file_size",
-                "key",
-                "md5"
-            ],
-            "properties": {
-                "content_type": {
-                    "type": "string"
-                },
-                "file_name": {
-                    "type": "string"
-                },
-                "file_size": {
-                    "type": "integer"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "md5": {
-                    "type": "string"
-                }
-            }
-        },
-        "handler.CompleteMultipartRequest": {
-            "type": "object",
-            "required": [
-                "file_name",
-                "file_size",
-                "key",
-                "md5",
-                "parts",
-                "upload_id"
-            ],
-            "properties": {
-                "content_type": {
-                    "type": "string"
-                },
-                "file_name": {
-                    "type": "string"
-                },
-                "file_size": {
-                    "type": "integer"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "md5": {
-                    "type": "string"
-                },
-                "parts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/service.CompletePart"
-                    }
-                },
-                "upload_id": {
-                    "type": "string"
-                }
-            }
-        },
         "handler.GetPartURLRequest": {
             "type": "object",
             "required": [
@@ -2379,51 +1803,6 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.InitMultipartRequest": {
-            "type": "object",
-            "required": [
-                "chunk_size",
-                "file_name",
-                "file_size"
-            ],
-            "properties": {
-                "chunk_size": {
-                    "type": "integer"
-                },
-                "file_name": {
-                    "type": "string"
-                },
-                "file_size": {
-                    "type": "integer"
-                },
-                "md5": {
-                    "type": "string"
-                }
-            }
-        },
-        "handler.OperationLogPageResult": {
-            "type": "object",
-            "properties": {
-                "list": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.OperationLog"
-                    }
-                },
-                "page": {
-                    "type": "integer"
-                },
-                "page_size": {
-                    "type": "integer"
-                },
-                "total": {
-                    "type": "integer"
-                },
-                "total_pages": {
-                    "type": "integer"
-                }
-            }
-        },
         "handler.ReadinessResponse": {
             "type": "object",
             "properties": {
@@ -2438,82 +1817,74 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.SavePartRequest": {
+        "handler.UploadCompleteRequest": {
             "type": "object",
             "required": [
-                "etag",
-                "part_number",
-                "size",
-                "upload_id"
+                "file_name",
+                "file_size",
+                "key",
+                "md5"
             ],
             "properties": {
-                "etag": {
+                "file_name": {
                     "type": "string"
                 },
-                "part_number": {
+                "file_size": {
                     "type": "integer"
                 },
-                "size": {
-                    "type": "integer"
+                "is_private": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "md5": {
+                    "type": "string"
+                },
+                "parts": {
+                    "description": "分片上传专用",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.CompletePart"
+                    }
                 },
                 "upload_id": {
+                    "description": "分片上传专用",
                     "type": "string"
                 }
             }
         },
-        "handler.SendCodeRequest": {
+        "handler.UploadInitRequest": {
             "type": "object",
             "required": [
-                "email",
-                "purpose"
+                "file_name",
+                "file_size",
+                "md5"
             ],
             "properties": {
-                "email": {
+                "chunk_size": {
+                    "description": "可选，不传则使用默认值或普通上传",
+                    "type": "integer"
+                },
+                "file_name": {
                     "type": "string"
                 },
-                "purpose": {
-                    "type": "string",
-                    "enum": [
-                        "register",
-                        "reset_password",
-                        "bind_email"
-                    ]
+                "file_size": {
+                    "type": "integer"
+                },
+                "md5": {
+                    "type": "string"
                 }
             }
         },
-        "handler.VerifyCodeRequest": {
+        "model.AvatarFileResponse": {
             "type": "object",
-            "required": [
-                "code",
-                "email",
-                "purpose"
-            ],
             "properties": {
-                "code": {
+                "sec_uid": {
                     "type": "string"
                 },
-                "email": {
+                "url": {
                     "type": "string"
-                },
-                "purpose": {
-                    "type": "string",
-                    "enum": [
-                        "register",
-                        "reset_password",
-                        "bind_email"
-                    ]
-                }
-            }
-        },
-        "model.AssignRoleRequest": {
-            "type": "object",
-            "required": [
-                "role_id"
-            ],
-            "properties": {
-                "role_id": {
-                    "type": "integer",
-                    "example": 1
                 }
             }
         },
@@ -2603,33 +1974,101 @@ const docTemplate = `{
         },
         "model.CreateUserRequest": {
             "type": "object",
-            "required": [
-                "email",
-                "name"
-            ],
             "properties": {
                 "email": {
                     "type": "string",
                     "example": "john@example.com"
                 },
-                "name": {
+                "mobile": {
                     "type": "string",
-                    "maxLength": 100,
-                    "minLength": 2,
-                    "example": "John Doe"
+                    "example": "13800138000"
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 50,
+                    "minLength": 1,
+                    "example": "john_doe"
+                }
+            }
+        },
+        "model.File": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "extension": {
+                    "type": "string"
+                },
+                "file_md5": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "is_private": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "description": "OSS 存储路径（相对路径）",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "sec_uid": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "type": {
+                    "description": "MIME type",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL 由 Key + BaseURL 动态生成，不存数据库",
+                    "type": "string"
+                },
+                "user": {
+                    "description": "Relations",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.User"
+                        }
+                    ]
+                },
+                "width": {
+                    "type": "integer"
                 }
             }
         },
         "model.LoginRequest": {
             "type": "object",
             "required": [
-                "email",
-                "password"
+                "account"
             ],
             "properties": {
-                "email": {
+                "account": {
+                    "description": "账号：邮箱或手机号，自动识别",
                     "type": "string",
                     "example": "admin@example.com"
+                },
+                "code": {
+                    "description": "验证码登录时使用",
+                    "type": "string",
+                    "example": "123456"
+                },
+                "login_type": {
+                    "description": "\"code\" 表示验证码登录，空或其他表示密码登录",
+                    "type": "string",
+                    "example": "code"
                 },
                 "password": {
                     "type": "string",
@@ -2641,143 +2080,21 @@ const docTemplate = `{
         "model.LoginResponse": {
             "type": "object",
             "properties": {
-                "token": {
+                "access_token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                },
+                "expires_in": {
+                    "description": "access_token 过期时间（秒）",
+                    "type": "integer",
+                    "example": 86400
+                },
+                "refresh_token": {
                     "type": "string",
                     "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 },
                 "user": {
-                    "$ref": "#/definitions/model.User"
-                }
-            }
-        },
-        "model.OSSFile": {
-            "type": "object",
-            "properties": {
-                "content_type": {
-                    "description": "MIME type",
-                    "type": "string",
-                    "example": "image/jpeg"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "extension": {
-                    "description": "File extension",
-                    "type": "string",
-                    "example": ".jpg"
-                },
-                "file_name": {
-                    "description": "Original file name",
-                    "type": "string",
-                    "example": "example.jpg"
-                },
-                "file_size": {
-                    "description": "File size in bytes",
-                    "type": "integer",
-                    "example": 102400
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "key": {
-                    "description": "OSS file path (relative)",
-                    "type": "string",
-                    "example": "go_oss/uploads/2026-01-15/uuid.jpg"
-                },
-                "md5": {
-                    "description": "File MD5 hash",
-                    "type": "string",
-                    "example": "5d41402abc4b2a76b9719d911017c592"
-                },
-                "status": {
-                    "description": "Status: 1=active, 0=deleted",
-                    "type": "integer",
-                    "example": 1
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "url": {
-                    "description": "Access URL (dynamically generated, not stored)",
-                    "type": "string",
-                    "example": "https://cdn.example.com/go_oss/uploads/2026-01-15/uuid.jpg"
-                },
-                "user_id": {
-                    "description": "Uploader user ID",
-                    "type": "integer",
-                    "example": 1
-                }
-            }
-        },
-        "model.OperationLog": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "description": "操作类型",
-                    "type": "string"
-                },
-                "created_at": {
-                    "description": "创建时间",
-                    "type": "string"
-                },
-                "error": {
-                    "description": "错误信息",
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "ip": {
-                    "description": "客户端IP",
-                    "type": "string"
-                },
-                "latency": {
-                    "description": "耗时(毫秒)",
-                    "type": "integer"
-                },
-                "method": {
-                    "description": "HTTP方法",
-                    "type": "string"
-                },
-                "module": {
-                    "description": "模块名称",
-                    "type": "string"
-                },
-                "path": {
-                    "description": "请求路径",
-                    "type": "string"
-                },
-                "req_body": {
-                    "description": "请求体(脱敏)",
-                    "type": "string"
-                },
-                "request_id": {
-                    "description": "请求ID",
-                    "type": "string"
-                },
-                "resp_body": {
-                    "description": "响应体(截断)",
-                    "type": "string"
-                },
-                "status_code": {
-                    "description": "响应状态码",
-                    "type": "integer"
-                },
-                "user_agent": {
-                    "description": "User-Agent",
-                    "type": "string"
-                },
-                "user_email": {
-                    "description": "操作人邮箱",
-                    "type": "string"
-                },
-                "user_id": {
-                    "description": "操作人ID，匿名操作为nil",
-                    "type": "integer"
-                },
-                "user_name": {
-                    "description": "操作人名称",
-                    "type": "string"
+                    "$ref": "#/definitions/model.UserResponse"
                 }
             }
         },
@@ -2888,12 +2205,36 @@ const docTemplate = `{
                 }
             }
         },
+        "model.RefreshTokenRequest": {
+            "type": "object",
+            "required": [
+                "refresh_token"
+            ],
+            "properties": {
+                "refresh_token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                }
+            }
+        },
+        "model.RefreshTokenResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                },
+                "expires_in": {
+                    "description": "access_token 过期时间（秒）",
+                    "type": "integer",
+                    "example": 86400
+                }
+            }
+        },
         "model.RegisterRequest": {
             "type": "object",
             "required": [
                 "code",
-                "email",
-                "name",
                 "password"
             ],
             "properties": {
@@ -2905,11 +2246,9 @@ const docTemplate = `{
                     "type": "string",
                     "example": "admin@example.com"
                 },
-                "name": {
+                "mobile": {
                     "type": "string",
-                    "maxLength": 100,
-                    "minLength": 2,
-                    "example": "Admin User"
+                    "example": "13800138000"
                 },
                 "password": {
                     "type": "string",
@@ -3070,6 +2409,19 @@ const docTemplate = `{
                 }
             }
         },
+        "model.UpdateFileRequest": {
+            "type": "object",
+            "properties": {
+                "is_private": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
+                }
+            }
+        },
         "model.UpdatePermissionRequest": {
             "type": "object",
             "properties": {
@@ -3113,73 +2465,201 @@ const docTemplate = `{
         "model.UpdateUserRequest": {
             "type": "object",
             "properties": {
+                "avatar_sec_uid": {
+                    "type": "string",
+                    "example": "abc123"
+                },
+                "background_sec_uid": {
+                    "type": "string",
+                    "example": "def456"
+                },
+                "birthday": {
+                    "type": "string",
+                    "example": "1990-01-01T00:00:00Z"
+                },
+                "city": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "example": "Beijing"
+                },
+                "company": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "example": "Tech Corp"
+                },
                 "email": {
                     "type": "string",
                     "example": "john@example.com"
                 },
-                "name": {
+                "job": {
                     "type": "string",
                     "maxLength": 100,
-                    "minLength": 2,
-                    "example": "John Doe"
+                    "example": "Software Engineer"
+                },
+                "lp_id": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "minLength": 3,
+                    "example": "LP_8806386288"
+                },
+                "mobile": {
+                    "type": "string",
+                    "example": "13800138000"
+                },
+                "sex": {
+                    "type": "integer",
+                    "maximum": 2,
+                    "minimum": 0,
+                    "example": 1
+                },
+                "signature": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "example": "Hello World"
                 },
                 "username": {
-                    "description": "用户账号",
                     "type": "string",
                     "maxLength": 50,
-                    "minLength": 4,
+                    "minLength": 1,
                     "example": "john_doe"
+                },
+                "website": {
+                    "type": "string",
+                    "example": "https://example.com"
                 }
             }
         },
         "model.User": {
             "type": "object",
             "properties": {
+                "avatar_file": {
+                    "description": "Relations",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.File"
+                        }
+                    ]
+                },
+                "background_file": {
+                    "description": "背景文件对象",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.File"
+                        }
+                    ]
+                },
+                "birthday": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "company": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
                 "email": {
+                    "description": "邮箱，可选",
                     "type": "string"
                 },
-                "name": {
+                "freezed": {
+                    "description": "是否冻结",
+                    "type": "boolean"
+                },
+                "job": {
+                    "type": "string"
+                },
+                "lp_id": {
+                    "description": "LP号，类似抖音号",
+                    "type": "string"
+                },
+                "mobile": {
+                    "description": "手机号，可选",
                     "type": "string"
                 },
                 "sec_uid": {
                     "description": "安全标识符，对外暴露",
                     "type": "string"
                 },
+                "sex": {
+                    "description": "性别: 0-未知, 1-男, 2-女",
+                    "type": "integer"
+                },
+                "signature": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 },
                 "username": {
-                    "description": "用户账号，唯一",
+                    "description": "用户账号",
+                    "type": "string"
+                },
+                "website": {
                     "type": "string"
                 }
             }
         },
-        "oss.UploadToken": {
+        "model.UserResponse": {
             "type": "object",
             "properties": {
-                "accessid": {
-                    "description": "返回给前端时使用小写，前端会转换为 OSSAccessKeyId",
+                "avatar_file": {
+                    "$ref": "#/definitions/model.AvatarFileResponse"
+                },
+                "background_file": {
+                    "$ref": "#/definitions/model.AvatarFileResponse"
+                },
+                "birthday": {
                     "type": "string"
                 },
-                "dir": {
+                "city": {
                     "type": "string"
                 },
-                "expire": {
+                "company": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "freezed": {
+                    "type": "boolean"
+                },
+                "job": {
+                    "type": "string"
+                },
+                "lp_id": {
+                    "type": "string"
+                },
+                "mobile": {
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sec_uid": {
+                    "type": "string"
+                },
+                "sex": {
                     "type": "integer"
                 },
-                "host": {
-                    "type": "string"
-                },
-                "key": {
-                    "type": "string"
-                },
-                "policy": {
-                    "type": "string"
-                },
                 "signature": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "website": {
                     "type": "string"
                 }
             }
@@ -3193,27 +2673,6 @@ const docTemplate = `{
                 "data": {},
                 "message": {
                     "type": "string"
-                }
-            }
-        },
-        "response.UserPageResult": {
-            "type": "object",
-            "properties": {
-                "list": {
-                    "type": "array",
-                    "items": {}
-                },
-                "page": {
-                    "type": "integer"
-                },
-                "page_size": {
-                    "type": "integer"
-                },
-                "total": {
-                    "type": "integer"
-                },
-                "total_pages": {
-                    "type": "integer"
                 }
             }
         },

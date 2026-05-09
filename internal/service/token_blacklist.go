@@ -149,39 +149,3 @@ func splitTokens(s string) []string {
 	}
 	return result
 }
-
-// MemoryTokenBlacklist implements TokenBlacklist using memory (for fallback)
-type MemoryTokenBlacklist struct {
-	cache cache.CacheBackend
-}
-
-// NewMemoryTokenBlacklist creates a new memory-backed token blacklist
-func NewMemoryTokenBlacklist(cacheBackend cache.CacheBackend) *MemoryTokenBlacklist {
-	return &MemoryTokenBlacklist{
-		cache: cacheBackend,
-	}
-}
-
-// Add adds a token to the blacklist
-func (b *MemoryTokenBlacklist) Add(ctx context.Context, token string, expiration time.Duration) error {
-	tokenHash := hashToken(token)
-	key := tokenBlacklistPrefix + tokenHash
-	return b.cache.Set(ctx, key, []byte("1"), expiration)
-}
-
-// IsBlacklisted checks if a token is in the blacklist
-func (b *MemoryTokenBlacklist) IsBlacklisted(ctx context.Context, token string) (bool, error) {
-	tokenHash := hashToken(token)
-	key := tokenBlacklistPrefix + tokenHash
-	return b.cache.Exists(ctx, key)
-}
-
-// InvalidateUserTokens is a no-op for memory blacklist (tokens expire naturally)
-func (b *MemoryTokenBlacklist) InvalidateUserTokens(ctx context.Context, userID uint) error {
-	return nil
-}
-
-// AddUserToken is a no-op for memory blacklist
-func (b *MemoryTokenBlacklist) AddUserToken(ctx context.Context, userID uint, token string, expiration time.Duration) error {
-	return nil
-}

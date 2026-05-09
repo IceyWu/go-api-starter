@@ -1,12 +1,12 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/service"
 	"go-api-starter/pkg/apperrors"
 	"go-api-starter/pkg/response"
-
-	"github.com/gin-gonic/gin"
 )
 
 // UserHandler handles user HTTP requests
@@ -21,18 +21,18 @@ func NewUserHandler(svc service.UserServiceInterface) *UserHandler {
 
 // Create godoc
 // @Summary 创建用户
-// @Description 创建一个新用户，需要提供姓名和邮箱
+// @Description 创建一个新用户
 // @Tags 用户管理
 // @Accept json
 // @Produce json
-// @Param user body model.CreateUserRequest true "用户数据：name(必填,2-100字符), email(必填)"
-// @Success 201 {object} response.Response{data=model.User} "创建成功"
-// @Failure 400 {object} response.Response "参数验证错误"
-// @Failure 500 {object} response.Response "服务器内部错误"
+// @Param user body model.CreateUserRequest true "用户数据"
+// @Success 201 {object} response.Response{data=model.UserResponse}
+// @Failure 400 {object} response.Response
+// @Failure 409 {object} response.Response
 // @Router /api/v1/users [post]
 func (h *UserHandler) Create(c *gin.Context) {
 	ctx := c.Request.Context()
-	
+
 	var req model.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("validation error: " + err.Error()))
@@ -45,53 +45,49 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
-	response.Created(c, user)
+	response.Created(c, user.ToResponse())
 }
 
 // List godoc
 // @Summary 获取用户列表
-// @Description 获取分页的用户列表，支持按以下字段排序：id, name, email, createdAt, updatedAt
+// @Description 获取分页的用户列表
 // @Tags 用户管理
 // @Produce json
-// @Param page query int false "页码（默认：1）" Example(1)
-// @Param page_size query int false "每页数量，最大100（默认：10）" Example(10)
-// @Param sort query string false "排序：字段,顺序。示例：createdAt,desc 或 name,asc（默认：id,desc）" Example(createdAt,desc)
-// @Success 200 {object} response.Response{data=response.UserPageResult}
-// @Failure 500 {object} response.Response
+// @Param page query int false "页码（默认：1）"
+// @Param page_size query int false "每页数量（默认：10）"
+// @Param sort query string false "排序，例如 created_at,desc"
+// @Success 200 {object} response.Response
 // @Router /api/v1/users [get]
 func (h *UserHandler) List(c *gin.Context) {
 	ctx := c.Request.Context()
-	
-	var pagination response.Pagination
-	if err := c.ShouldBindQuery(&pagination); err != nil {
-		c.Error(apperrors.BadRequest("invalid pagination params"))
+
+	p, ok := BindPagination(c)
+	if !ok {
 		return
 	}
 
-	users, total, err := h.service.List(ctx, pagination.GetOffset(), pagination.GetPageSize(), pagination.GetSort())
+	users, total, err := h.service.List(ctx, p.GetOffset(), p.GetPageSize(), p.GetSort())
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	response.SuccessWithPage(c, users, total, &pagination)
+	response.SuccessWithPage(c, model.ToUserResponseList(users), total, p)
 }
 
 // Get godoc
 // @Summary 获取用户详情
-// @Description 根据用户SecUID获取单个用户的详细信息
+// @Description 根据 SecUID 获取用户信息
 // @Tags 用户管理
 // @Produce json
-// @Param sec_uid path string true "用户SecUID"
-// @Success 200 {object} response.Response{data=model.User} "获取成功"
-// @Failure 400 {object} response.Response "无效的用户SecUID"
-// @Failure 404 {object} response.Response "用户不存在"
+// @Param sec_uid path string true "用户 SecUID"
+// @Success 200 {object} response.Response{data=model.UserResponse}
+// @Failure 404 {object} response.Response
 // @Router /api/v1/users/{sec_uid} [get]
 func (h *UserHandler) Get(c *gin.Context) {
 	ctx := c.Request.Context()
-	
-	secUID := c.Param("sec_uid")
-	if secUID == "" {
-		c.Error(apperrors.BadRequest("invalid user SecUID"))
+
+	secUID, ok := GetSecUID(c)
+	if !ok {
 		return
 	}
 
@@ -100,32 +96,29 @@ func (h *UserHandler) Get(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	response.Success(c, user)
+	response.Success(c, user.ToResponse())
 }
 
 // Update godoc
 // @Summary 更新用户
-// @Description 根据SecUID更新现有用户，所有字段都是可选的
+// @Description 根据 SecUID 更新用户
 // @Tags 用户管理
 // @Accept json
 // @Produce json
-// @Param sec_uid path string true "用户SecUID"
-// @Param user body model.UpdateUserRequest true "用户数据：username(4-50字符,字母数字), name(2-100字符), email，所有字段可选"
-// @Success 200 {object} response.Response{data=model.User} "更新成功"
-// @Failure 400 {object} response.Response "参数验证错误"
-// @Failure 404 {object} response.Response "用户不存在"
-// @Failure 409 {object} response.Response "用户账号已被占用"
+// @Param sec_uid path string true "用户 SecUID"
+// @Param user body model.UpdateUserRequest true "用户数据"
+// @Success 200 {object} response.Response{data=model.UserResponse}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
 // @Router /api/v1/users/{sec_uid} [put]
 func (h *UserHandler) Update(c *gin.Context) {
 	ctx := c.Request.Context()
-	
-	secUID := c.Param("sec_uid")
-	if secUID == "" {
-		c.Error(apperrors.BadRequest("invalid user SecUID"))
+
+	secUID, ok := GetSecUID(c)
+	if !ok {
 		return
 	}
 
-	// 先通过 SecUID 获取用户
 	user, err := h.service.GetBySecUID(ctx, secUID)
 	if err != nil {
 		c.Error(err)
@@ -143,28 +136,25 @@ func (h *UserHandler) Update(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	response.Success(c, updatedUser)
+	response.Success(c, updatedUser.ToResponse())
 }
 
 // Delete godoc
 // @Summary 删除用户
-// @Description 根据SecUID删除用户（软删除）
+// @Description 软删除用户
 // @Tags 用户管理
-// @Param sec_uid path string true "用户SecUID"
+// @Param sec_uid path string true "用户 SecUID"
 // @Success 204 "删除成功"
-// @Failure 400 {object} response.Response "无效的用户SecUID"
-// @Failure 404 {object} response.Response "用户不存在"
+// @Failure 404 {object} response.Response
 // @Router /api/v1/users/{sec_uid} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
 	ctx := c.Request.Context()
-	
-	secUID := c.Param("sec_uid")
-	if secUID == "" {
-		c.Error(apperrors.BadRequest("invalid user SecUID"))
+
+	secUID, ok := GetSecUID(c)
+	if !ok {
 		return
 	}
 
-	// 先通过 SecUID 获取用户
 	user, err := h.service.GetBySecUID(ctx, secUID)
 	if err != nil {
 		c.Error(err)
@@ -176,4 +166,61 @@ func (h *UserHandler) Delete(c *gin.Context) {
 		return
 	}
 	response.NoContent(c)
+}
+
+// GetMe godoc
+// @Summary 获取当前用户信息
+// @Tags 用户管理
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} response.Response{data=model.UserResponse}
+// @Failure 401 {object} response.Response
+// @Router /api/v1/users/me [get]
+func (h *UserHandler) GetMe(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID, ok := GetUserID(c)
+	if !ok {
+		return
+	}
+
+	user, err := h.service.GetByID(ctx, userID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	response.Success(c, user.ToResponse())
+}
+
+// UpdateMe godoc
+// @Summary 更新当前用户信息
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param user body model.UpdateUserRequest true "用户数据"
+// @Success 200 {object} response.Response{data=model.UserResponse}
+// @Failure 400 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Router /api/v1/users/me [put]
+func (h *UserHandler) UpdateMe(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	userID, ok := GetUserID(c)
+	if !ok {
+		return
+	}
+
+	var req model.UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(apperrors.BadRequest("validation error: " + err.Error()))
+		return
+	}
+
+	updatedUser, err := h.service.Update(ctx, userID, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	response.Success(c, updatedUser.ToResponse())
 }

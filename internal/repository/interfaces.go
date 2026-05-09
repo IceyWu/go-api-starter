@@ -12,8 +12,10 @@ type UserRepositoryInterface interface {
 	FindAll(ctx context.Context, offset, limit int, sort string) ([]model.User, int64, error)
 	FindByID(ctx context.Context, id uint) (*model.User, error)
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
+	FindByMobile(ctx context.Context, mobile string) (*model.User, error)
 	FindBySecUID(ctx context.Context, secUID string) (*model.User, error)
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
+	FindByLPID(ctx context.Context, lpID string) (*model.User, error)
 	Update(ctx context.Context, user *model.User) error
 	Delete(ctx context.Context, id uint) error
 }
@@ -43,17 +45,6 @@ type RoleRepositoryInterface interface {
 	Update(ctx context.Context, role *model.Role) error
 	Delete(ctx context.Context, id uint) error
 	Exists(ctx context.Context, name string) (bool, error)
-}
-
-// OSSRepositoryInterface defines the interface for OSS file data operations
-type OSSRepositoryInterface interface {
-	Create(file *model.OSSFile) error
-	GetByKey(key string) (*model.OSSFile, error)
-	GetByMD5(md5 string, userID uint) (*model.OSSFile, error)
-	GetByID(id uint) (*model.OSSFile, error)
-	List(userID uint, page, pageSize int) ([]model.OSSFile, int64, error)
-	Delete(id uint) error
-	DeleteByKey(key string) error
 }
 
 // PermissionSpaceRepositoryInterface defines the interface for permission space data operations
@@ -111,4 +102,15 @@ type MultipartRepositoryInterface interface {
 	GetUploadedParts(uploadID string) ([]model.UploadedPart, error)
 	DeleteParts(uploadID string) error
 	GetUploadedPartNumbers(uploadID string) ([]int, error)
+}
+
+// FileRepositoryInterface defines the interface for file data operations
+type FileRepositoryInterface interface {
+	Create(ctx context.Context, file *model.File) error
+	FindByID(ctx context.Context, id uint) (*model.File, error)
+	FindByMD5(ctx context.Context, md5 string) (*model.File, error)
+	FindBySecUID(ctx context.Context, secUID string) (*model.File, error)
+	Update(ctx context.Context, file *model.File) error
+	Delete(ctx context.Context, id uint) error
+	List(ctx context.Context, filter model.FileFilter, offset, limit int, sort string) ([]model.File, int64, error)
 }

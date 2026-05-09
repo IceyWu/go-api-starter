@@ -88,8 +88,15 @@ func (b bannerBox) line(content string, width int) string {
 	return b.vertical + padRightVisible(content, width) + b.vertical
 }
 
+// ToolInfo represents the status of an external tool
+type ToolInfo struct {
+	Name    string
+	Version string
+	OK      bool
+}
+
 // PrintBanner prints the startup banner
-func PrintBanner(appName, env, port, localIP string) {
+func PrintBanner(appName, env, port, localIP string, tools []ToolInfo) {
 	useColor := isColorSupported()
 	style := bannerStyle()
 
@@ -122,6 +129,19 @@ func PrintBanner(appName, env, port, localIP string) {
 		{lineEnv},
 		{lineLocal, lineNetwork},
 		{lineAPIBase, lineDocs, lineSwagger, lineOpenAPI},
+	}
+
+	// Add tools section if any tools are provided
+	if len(tools) > 0 {
+		var toolLines []string
+		for _, t := range tools {
+			if t.OK {
+				toolLines = append(toolLines, "  "+green+"✓"+reset+" "+t.Name+": "+cyan+t.Version+reset)
+			} else {
+				toolLines = append(toolLines, "  "+"\033[31m"+"✗"+reset+" "+t.Name+": "+"NOT FOUND")
+			}
+		}
+		sections = append(sections, toolLines)
 	}
 
 	// Determine inner width based on visible characters.

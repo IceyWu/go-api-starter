@@ -1,185 +1,217 @@
-package service
+﻿package service
 
 import (
 	"context"
+	"errors"
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
 
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/repository"
 	"go-api-starter/pkg/apperrors"
-)
-
-const (
-	// TokenExpiration is the default token expiration time
-	TokenExpiration = time.Hour * 24 * 7 // 7 days
+	"go-api-starter/pkg/auth"
+	"go-api-starter/pkg/i18n"
 )
 
 // AuthService handles authentication business logic
 type AuthService struct {
 	userRepo       repository.UserRepositoryInterface
-	jwtSecret      string
+	jwtManager     *auth.JWTManager
+	passwordHasher *auth.PasswordHasher
 	tokenBlacklist TokenBlacklist
 }
 
 // NewAuthService creates a new AuthService
-func NewAuthService(userRepo repository.UserRepositoryInterface, jwtSecret string) *AuthService {
-	return &AuthService{
-		userRepo:  userRepo,
-		jwtSecret: jwtSecret,
-	}
-}
-
-// NewAuthServiceWithBlacklist creates a new AuthService with token blacklist support
-func NewAuthServiceWithBlacklist(userRepo repository.UserRepositoryInterface, jwtSecret string, blacklist TokenBlacklist) *AuthService {
+func NewAuthService(userRepo repository.UserRepositoryInterface, jwtManager *auth.JWTManager, blacklist TokenBlacklist) *AuthService {
 	return &AuthService{
 		userRepo:       userRepo,
-		jwtSecret:      jwtSecret,
+		jwtManager:     jwtManager,
+		passwordHasher: auth.NewPasswordHasher(),
 		tokenBlacklist: blacklist,
 	}
 }
 
 // Register creates a new user account
-func (s *AuthService) Register(ctx context.Context, req *model.RegisterRequest) (*model.User, error) {
-	// Check if email already exists
-	existingUser, err := s.userRepo.FindByEmail(ctx, req.Email)
-	if err != nil && err != repository.ErrUserNotFound {
-		return nil, apperrors.Internal(err, "查询用户失败")
-	}
-	if existingUser != nil {
-		return nil, apperrors.Conflict("邮箱已被注册")
+func (s *AuthService) Register(ctx context.Context, req *model.RegisterRequest) (*model.LoginResponse, error) {
+	// Validate that at least one of mobile or email is provided
+	if req.Mobile == nil && req.Email == nil {
+		return nil, apperrors.BadRequestCode(i18n.ErrMobileOrEmailRequired)
 	}
 
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	// Check if mobile already exists
+	if req.Mobile != nil {
+		existingUser, err := s.userRepo.FindByMobile(ctx, *req.Mobile)
+		if err != nil && !errors.Is(err, repository.ErrUserNotFound) {
+			return nil, apperrors.InternalCode(err, i18n.ErrQueryUserFailed)
+		}
+		if existingUser != nil {
+			return nil, apperrors.ConflictCode(i18n.ErrMobileTaken)
+		}
+	}
+
+	// Check if email already exists
+	if req.Email != nil {
+		existingUser, err := s.userRepo.FindByEmail(ctx, *req.Email)
+		if err != nil && !errors.Is(err, repository.ErrUserNotFound) {
+			return nil, apperrors.InternalCode(err, i18n.ErrQueryUserFailed)
+		}
+		if existingUser != nil {
+			return nil, apperrors.ConflictCode(i18n.ErrEmailTaken)
+		}
+	}
+
+	// Hash password using Argon2
+	hashedPassword, err := s.passwordHasher.HashPassword(req.Password)
 	if err != nil {
-		return nil, apperrors.Internal(err, "密码加密失败")
+		return nil, apperrors.InternalCode(err, i18n.ErrHashPasswordFailed)
 	}
 
 	// Create user
 	user := &model.User{
-		Name:     req.Name,
+		Mobile:   req.Mobile,
 		Email:    req.Email,
-		Password: string(hashedPassword),
+		Password: &hashedPassword,
+		Freezed:  false,
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
-		return nil, apperrors.Internal(err, "创建用户失败")
+		return nil, apperrors.InternalCode(err, i18n.ErrCreateUserFailed)
 	}
 
-	return user, nil
-}
-
-// Login authenticates a user and returns a JWT token
-func (s *AuthService) Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error) {
-	// Find user by email
-	user, err := s.userRepo.FindByEmail(ctx, req.Email)
+	// Generate JWT tokens for the newly registered user
+	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(user.ID)
 	if err != nil {
-		if err == repository.ErrUserNotFound {
-			return nil, apperrors.Unauthorized("邮箱或密码错误")
-		}
-		return nil, apperrors.Internal(err, "查询用户失败")
-	}
-
-	// Verify password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return nil, apperrors.Unauthorized("邮箱或密码错误")
-	}
-
-	// Generate JWT token
-	token, err := s.generateToken(user.ID)
-	if err != nil {
-		return nil, apperrors.Internal(err, "生成令牌失败")
+		return nil, apperrors.InternalCode(err, i18n.ErrGenerateTokenFailed)
 	}
 
 	return &model.LoginResponse{
-		Token: token,
-		User:  user,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    s.jwtManager.AccessTokenExpiresIn(),
+		User:         user.ToResponse(),
 	}, nil
+}
+
+// Login authenticates a user and returns JWT tokens
+func (s *AuthService) Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error) {
+	// Validate that at least one of mobile or email is provided
+	if req.Mobile == nil && req.Email == nil {
+		return nil, apperrors.BadRequestCode(i18n.ErrMobileOrEmailRequired)
+	}
+
+	var user *model.User
+	var err error
+
+	// Find user by mobile or email
+	if req.Mobile != nil {
+		user, err = s.userRepo.FindByMobile(ctx, *req.Mobile)
+	} else if req.Email != nil {
+		user, err = s.userRepo.FindByEmail(ctx, *req.Email)
+	}
+
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, apperrors.UnauthorizedCode(i18n.ErrWrongCredentials)
+		}
+		return nil, apperrors.InternalCode(err, i18n.ErrQueryUserFailed)
+	}
+
+	// Check if user is frozen
+	if user.Freezed {
+		return nil, apperrors.ForbiddenCode(i18n.ErrAccountFrozen)
+	}
+
+	// Verify password using Argon2
+	if user.Password == nil {
+		return nil, apperrors.UnauthorizedCode(i18n.ErrWrongCredentials)
+	}
+	valid, err := s.passwordHasher.VerifyPassword(req.Password, *user.Password)
+	if err != nil {
+		return nil, apperrors.InternalCode(err, i18n.ErrVerifyPasswordFailed)
+	}
+	if !valid {
+		return nil, apperrors.UnauthorizedCode(i18n.ErrWrongCredentials)
+	}
+
+	// Generate JWT tokens
+	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(user.ID)
+	if err != nil {
+		return nil, apperrors.InternalCode(err, i18n.ErrGenerateTokenFailed)
+	}
+
+	return &model.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    s.jwtManager.AccessTokenExpiresIn(),
+		User:         user.ToResponse(),
+	}, nil
+}
+
+// RefreshToken generates a new access token from a refresh token
+func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (string, error) {
+	accessToken, err := s.jwtManager.RefreshAccessToken(refreshToken)
+	if err != nil {
+		if errors.Is(err, auth.ErrTokenExpired) {
+			return "", apperrors.UnauthorizedCode(i18n.ErrRefreshTokenExpired)
+		}
+		return "", apperrors.UnauthorizedCode(i18n.ErrInvalidRefreshToken)
+	}
+	return accessToken, nil
+}
+
+// AccessTokenExpiresIn returns the access token duration in seconds
+func (s *AuthService) AccessTokenExpiresIn() int64 {
+	return s.jwtManager.AccessTokenExpiresIn()
 }
 
 // GetCurrentUser retrieves the current authenticated user
 func (s *AuthService) GetCurrentUser(ctx context.Context, userID uint) (*model.User, error) {
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		if err == repository.ErrUserNotFound {
-			return nil, apperrors.NotFound("用户不存在")
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, apperrors.NotFoundCode(i18n.ErrUserNotFound)
 		}
-		return nil, apperrors.Internal(err, "查询用户失败")
+		return nil, apperrors.InternalCode(err, i18n.ErrQueryUserFailed)
 	}
 	return user, nil
 }
 
-// ResetPassword resets a user's password
+// ResetPassword resets a user's password (admin)
 func (s *AuthService) ResetPassword(ctx context.Context, userID uint, req *model.ResetPasswordRequest) error {
-	// Find user
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		if err == repository.ErrUserNotFound {
-			return apperrors.NotFound("用户不存在")
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return apperrors.NotFoundCode(i18n.ErrUserNotFound)
 		}
-		return apperrors.Internal(err, "查询用户失败")
+		return apperrors.InternalCode(err, i18n.ErrQueryUserFailed)
 	}
 
-	// Hash new password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	hashedPassword, err := s.passwordHasher.HashPassword(req.NewPassword)
 	if err != nil {
-		return apperrors.Internal(err, "密码加密失败")
+		return apperrors.InternalCode(err, i18n.ErrHashPasswordFailed)
 	}
 
-	// Update password
-	user.Password = string(hashedPassword)
+	user.Password = &hashedPassword
 	if err := s.userRepo.Update(ctx, user); err != nil {
-		return apperrors.Internal(err, "密码重置失败")
+		return apperrors.InternalCode(err, i18n.ErrResetPasswordFailed)
 	}
-
 	return nil
-}
-
-// generateToken creates a JWT token for the given user ID
-func (s *AuthService) generateToken(userID uint) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(TokenExpiration).Unix(), // 7 days
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.jwtSecret))
 }
 
 // Logout invalidates the current token
 func (s *AuthService) Logout(ctx context.Context, token string) error {
 	if s.tokenBlacklist == nil {
-		// No blacklist configured, logout is a no-op
 		return nil
 	}
 
-	// Parse token to get expiration time
-	parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
-		return []byte(s.jwtSecret), nil
-	})
+	claims, err := s.jwtManager.ValidateToken(token)
 	if err != nil {
-		// Token is invalid, no need to blacklist
+		// Token already invalid, no need to blacklist
 		return nil
 	}
 
-	// Calculate remaining TTL
-	var ttl time.Duration
-	if claims, ok := parsedToken.Claims.(jwt.MapClaims); ok {
-		if exp, ok := claims["exp"].(float64); ok {
-			expTime := time.Unix(int64(exp), 0)
-			ttl = time.Until(expTime)
-			if ttl <= 0 {
-				// Token already expired
-				return nil
-			}
-		}
-	}
-
-	if ttl == 0 {
-		ttl = TokenExpiration
+	ttl := time.Until(claims.ExpiresAt.Time)
+	if ttl <= 0 {
+		return nil
 	}
 
 	return s.tokenBlacklist.Add(ctx, token, ttl)
@@ -203,24 +235,12 @@ func (s *AuthService) IsTokenBlacklisted(ctx context.Context, token string) (boo
 
 // ValidateToken validates a JWT token and returns the user ID
 func (s *AuthService) ValidateToken(tokenString string) (uint, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, apperrors.Unauthorized("无效的令牌签名方法")
-		}
-		return []byte(s.jwtSecret), nil
-	})
-
+	claims, err := s.jwtManager.ValidateAccessToken(tokenString)
 	if err != nil {
-		return 0, apperrors.Unauthorized("无效的令牌")
-	}
-
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		userIDFloat, ok := claims["user_id"].(float64)
-		if !ok {
-			return 0, apperrors.Unauthorized("无效的令牌内容")
+		if errors.Is(err, auth.ErrTokenExpired) {
+			return 0, apperrors.UnauthorizedCode(i18n.ErrTokenExpired)
 		}
-		return uint(userIDFloat), nil
+		return 0, apperrors.UnauthorizedCode(i18n.ErrInvalidToken)
 	}
-
-	return 0, apperrors.Unauthorized("无效的令牌")
+	return claims.UserID, nil
 }

@@ -4,7 +4,6 @@
 *.dll
 *.so
 *.dylib
-server
 
 # Test binary
 *.test
@@ -41,6 +40,8 @@ logs/
 .env
 .env.local
 .env.*.local
+.env.dev
+.env.prod
 
 # Build
 build/

@@ -19,20 +19,13 @@ func InitOSS(cfg *config.OSSConfig) error {
 		return fmt.Errorf("OSS credentials not configured")
 	}
 
-	// Clean endpoint - remove bucket name if present
 	endpoint := cfg.Endpoint
-	// If endpoint contains bucket name (e.g., lpalette.oss-accelerate.aliyuncs.com)
-	// extract the actual endpoint (e.g., oss-accelerate.aliyuncs.com)
-	if strings.HasPrefix(endpoint, cfg.Bucket+".") {
-		endpoint = strings.TrimPrefix(endpoint, cfg.Bucket+".")
-	}
-	
-	// Ensure endpoint has protocol
-	if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
-		endpoint = "https://" + endpoint
-	}
+	// Remove protocol if present (OSS SDK will add it automatically)
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
 
-	client, err := oss.New(endpoint, cfg.AccessKeyID, cfg.AccessKeySecret)
+	// 确保使用 HTTPS（预签名 URL 等会继承 endpoint 的协议）
+	client, err := oss.New("https://"+endpoint, cfg.AccessKeyID, cfg.AccessKeySecret)
 	if err != nil {
 		return fmt.Errorf("failed to create OSS client: %w", err)
 	}

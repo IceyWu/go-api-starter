@@ -21,16 +21,7 @@ type HealthHandler struct {
 }
 
 // NewHealthHandler creates a new HealthHandler
-func NewHealthHandler(db *gorm.DB, version string) *HealthHandler {
-	return &HealthHandler{
-		db:        db,
-		startTime: time.Now(),
-		version:   version,
-	}
-}
-
-// NewHealthHandlerWithCache creates a new HealthHandler with cache health checking
-func NewHealthHandlerWithCache(db *gorm.DB, version string, cacheBackend cache.CacheBackend) *HealthHandler {
+func NewHealthHandler(db *gorm.DB, version string, cacheBackend cache.CacheBackend) *HealthHandler {
 	var checker *cache.HealthChecker
 	if cacheBackend != nil {
 		checker = cache.NewHealthChecker(cacheBackend)

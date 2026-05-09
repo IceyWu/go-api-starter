@@ -14,12 +14,7 @@ type PermissionService struct {
 }
 
 // NewPermissionService creates a new PermissionService
-func NewPermissionService(manager *BitPermissionManager) *PermissionService {
-	return &PermissionService{manager: manager}
-}
-
-// NewPermissionServiceWithComponents creates a new PermissionService with checker and cache
-func NewPermissionServiceWithComponents(manager *BitPermissionManager, checker *PermissionChecker, cache *PermissionCache) *PermissionService {
+func NewPermissionService(manager *BitPermissionManager, checker *PermissionChecker, cache *PermissionCache) *PermissionService {
 	return &PermissionService{
 		manager: manager,
 		checker: checker,

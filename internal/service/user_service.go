@@ -7,20 +7,40 @@ import (
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/repository"
 	"go-api-starter/pkg/apperrors"
+	"go-api-starter/pkg/i18n"
 )
 
 // UserService handles user business logic
 type UserService struct {
-	repo repository.UserRepositoryInterface
+	repo     repository.UserRepositoryInterface
+	fileRepo repository.FileRepositoryInterface
 }
 
 // NewUserService creates a new UserService
-func NewUserService(repo repository.UserRepositoryInterface) *UserService {
-	return &UserService{repo: repo}
+func NewUserService(repo repository.UserRepositoryInterface, fileRepo repository.FileRepositoryInterface) *UserService {
+	return &UserService{
+		repo:     repo,
+		fileRepo: fileRepo,
+	}
 }
 
 // Create creates a new user
 func (s *UserService) Create(ctx context.Context, req *model.CreateUserRequest) (*model.User, error) {
+	// Check uniqueness of email
+	if req.Email != nil && *req.Email != "" {
+		existing, err := s.repo.FindByEmail(ctx, *req.Email)
+		if err == nil && existing != nil {
+			return nil, apperrors.ConflictCode(i18n.ErrEmailTaken)
+		}
+	}
+	// Check uniqueness of mobile
+	if req.Mobile != nil && *req.Mobile != "" {
+		existing, err := s.repo.FindByMobile(ctx, *req.Mobile)
+		if err == nil && existing != nil {
+			return nil, apperrors.ConflictCode(i18n.ErrMobileTaken)
+		}
+	}
+
 	user := req.ToUser()
 	if err := s.repo.Create(ctx, user); err != nil {
 		return nil, apperrors.Wrap(err, "failed to create user")
@@ -71,20 +91,82 @@ func (s *UserService) Update(ctx context.Context, id uint, req *model.UpdateUser
 		return nil, apperrors.Wrap(err, "failed to find user")
 	}
 
-	// Update fields if provided
-	if req.Username != "" && req.Username != user.Username {
-		// 检查用户名是否已被占用
-		existing, err := s.repo.FindByUsername(ctx, req.Username)
-		if err == nil && existing != nil && existing.ID != user.ID {
-			return nil, apperrors.Conflict("用户账号已被占用")
+	if req.LPID != nil && *req.LPID != "" {
+		if *req.LPID != user.LPID {
+			existing, err := s.repo.FindByLPID(ctx, *req.LPID)
+			if err == nil && existing != nil && existing.ID != user.ID {
+				return nil, apperrors.ConflictCode(i18n.ErrLPIDTaken)
+			}
+			user.LPID = *req.LPID
 		}
+	}
+	if req.Username != nil && *req.Username != "" {
 		user.Username = req.Username
 	}
-	if req.Name != "" {
-		user.Name = req.Name
+	if req.Mobile != nil {
+		if *req.Mobile != "" && (user.Mobile == nil || *req.Mobile != *user.Mobile) {
+			existing, err := s.repo.FindByMobile(ctx, *req.Mobile)
+			if err == nil && existing != nil && existing.ID != user.ID {
+				return nil, apperrors.ConflictCode(i18n.ErrMobileTaken)
+			}
+		}
+		user.Mobile = req.Mobile
 	}
-	if req.Email != "" {
+	if req.Email != nil {
+		if *req.Email != "" && (user.Email == nil || *req.Email != *user.Email) {
+			existing, err := s.repo.FindByEmail(ctx, *req.Email)
+			if err == nil && existing != nil && existing.ID != user.ID {
+				return nil, apperrors.ConflictCode(i18n.ErrEmailTaken)
+			}
+		}
 		user.Email = req.Email
+	}
+	if req.AvatarSecUID != nil {
+		if *req.AvatarSecUID == "" {
+			user.AvatarFileID = nil
+			user.AvatarFile = nil
+		} else if s.fileRepo != nil {
+			file, err := s.fileRepo.FindBySecUID(ctx, *req.AvatarSecUID)
+			if err != nil {
+				return nil, apperrors.BadRequest("avatar file not found: " + *req.AvatarSecUID)
+			}
+			user.AvatarFileID = &file.ID
+			user.AvatarFile = file
+		}
+	}
+	if req.BackgroundSecUID != nil {
+		if *req.BackgroundSecUID == "" {
+			user.BackgroundFileID = nil
+			user.BackgroundFile = nil
+		} else if s.fileRepo != nil {
+			file, err := s.fileRepo.FindBySecUID(ctx, *req.BackgroundSecUID)
+			if err != nil {
+				return nil, apperrors.BadRequest("background file not found: " + *req.BackgroundSecUID)
+			}
+			user.BackgroundFileID = &file.ID
+			user.BackgroundFile = file
+		}
+	}
+	if req.Sex != nil {
+		user.Sex = *req.Sex
+	}
+	if req.Birthday != nil {
+		user.Birthday = req.Birthday
+	}
+	if req.City != nil {
+		user.City = req.City
+	}
+	if req.Job != nil {
+		user.Job = req.Job
+	}
+	if req.Company != nil {
+		user.Company = req.Company
+	}
+	if req.Signature != nil {
+		user.Signature = req.Signature
+	}
+	if req.Website != nil {
+		user.Website = req.Website
 	}
 
 	if err := s.repo.Update(ctx, user); err != nil {

@@ -1,68 +1,80 @@
 package service
 
 import (
-	"fmt"
+	"errors"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+
 	"go-api-starter/internal/config"
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/repository"
 	"go-api-starter/pkg/apperrors"
+	"go-api-starter/pkg/logger"
 	"go-api-starter/pkg/oss"
-	"path/filepath"
-	"strings"
-	"time"
-
-	"github.com/google/uuid"
 )
 
+// OSSService handles OSS-related operations including simple uploads and multipart uploads.
+// It deliberately does not do any media processing (EXIF / blurhash / transcoding);
+// clients are expected to upload finished artifacts.
 type OSSService struct {
-	repo          repository.OSSRepositoryInterface
+	db            *gorm.DB
+	fileRepo      repository.FileRepositoryInterface
 	multipartRepo repository.MultipartRepositoryInterface
 	config        *config.OSSConfig
+	appEnv        string
+	secUIDCache   sync.Map // userID -> secUID cache
 }
 
-func NewOSSService(repo repository.OSSRepositoryInterface, multipartRepo repository.MultipartRepositoryInterface, cfg *config.OSSConfig) *OSSService {
+// NewOSSService creates a new OSSService
+func NewOSSService(db *gorm.DB, fileRepo repository.FileRepositoryInterface, multipartRepo repository.MultipartRepositoryInterface, cfg *config.OSSConfig, appEnv string) *OSSService {
 	return &OSSService{
-		repo:          repo,
+		db:            db,
+		fileRepo:      fileRepo,
 		multipartRepo: multipartRepo,
 		config:        cfg,
+		appEnv:        appEnv,
 	}
 }
 
-// GetUploadToken generates upload token for client-side direct upload
-func (s *OSSService) GetUploadToken(fileName string, userID uint) (*oss.UploadToken, error) {
-	var ext string
-	
+// ======================
+// Simple upload / Token
+// ======================
+
+// GetUploadToken returns an upload token with an auto-generated key.
+func (s *OSSService) GetUploadToken(userID uint) (*oss.UploadToken, error) {
+	return s.GetUploadTokenWithFileName(userID, "")
+}
+
+// GetUploadTokenWithFileName returns an upload token that preserves the file extension in the key.
+func (s *OSSService) GetUploadTokenWithFileName(userID uint, fileName string) (*oss.UploadToken, error) {
+	ext := ""
 	if fileName != "" {
-		// Validate file extension if fileName is provided
 		ext = strings.ToLower(filepath.Ext(fileName))
-		if !s.isAllowedExtension(ext) {
-			return nil, apperrors.FileExtensionNotAllowed(ext)
-		}
-	} else {
-		// Use default extension if no fileName provided
-		ext = ""
 	}
 
-	// Generate unique key
-	key := s.generateFileKey(ext)
-
-	// Get directory prefix (everything before the filename)
-	lastSlash := strings.LastIndex(key, "/")
-	var dir string
-	if lastSlash > 0 {
-		dir = key[:lastSlash+1] // Include the trailing slash
-	} else {
-		dir = ""
+	userSecUID, err := s.getUserSecUID(userID)
+	if err != nil {
+		return nil, err
 	}
 
-	// Prepare endpoint for token generation
-	// Remove bucket prefix if present to get the base endpoint
+	key := s.generateFileKey(ext, userSecUID)
+
+	// Directory prefix used by the policy's starts-with condition.
+	dir := ""
+	if idx := strings.LastIndex(key, "/"); idx >= 0 {
+		dir = key[:idx+1]
+	}
+
 	endpoint := s.config.Endpoint
 	if strings.HasPrefix(endpoint, s.config.Bucket+".") {
 		endpoint = strings.TrimPrefix(endpoint, s.config.Bucket+".")
 	}
 
-	// Generate upload token
 	token, err := oss.GenerateUploadToken(
 		s.config.AccessKeyID,
 		s.config.AccessKeySecret,
@@ -76,363 +88,415 @@ func (s *OSSService) GetUploadToken(fileName string, userID uint) (*oss.UploadTo
 	if err != nil {
 		return nil, apperrors.OSSInitError(err)
 	}
-
 	return token, nil
 }
 
-// CheckFileExists checks if file with same MD5 already exists
-func (s *OSSService) CheckFileExists(md5 string, userID uint) (*model.OSSFile, bool) {
-	file, err := s.repo.GetByMD5(md5, userID)
-	if err != nil {
+// CheckFileExists reports whether a file with the given MD5 already exists
+// (scoped to the user when userID > 0, used for instant upload).
+func (s *OSSService) CheckFileExists(md5 string, userID uint) (*model.File, bool) {
+	var file model.File
+	query := s.db.Where("file_md5 = ?", md5)
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
+	}
+	if err := query.First(&file).Error; err != nil {
 		return nil, false
 	}
-	// Fill URL dynamically
-	file.URL = s.buildFileURL(file.Key)
-	return file, true
+	return &file, true
 }
 
-// SaveFileRecord saves file record after successful upload
-func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, contentType string, userID uint) (*model.OSSFile, error) {
-	file := &model.OSSFile{
-		Key:         key,
-		MD5:         md5,
-		FileName:    fileName,
-		FileSize:    fileSize,
-		ContentType: contentType,
-		Extension:   strings.ToLower(filepath.Ext(fileName)),
-		UserID:      userID,
-		Status:      1,
+// SaveFileRecord creates a DB record after a successful direct client-to-OSS upload.
+func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, userID uint) (*model.File, error) {
+	// Dedup by MD5 (scoped to user)
+	if existing, ok := s.CheckFileExists(md5, userID); ok {
+		if err := s.db.Preload("User").First(existing, existing.ID).Error; err != nil {
+			logger.Log.Warnf("failed to preload user for existing file: %v", err)
+		}
+		return existing, nil
 	}
 
-	if err := s.repo.Create(file); err != nil {
+	ext := strings.ToLower(filepath.Ext(fileName))
+	contentType := inferContentType(ext)
+
+	file := &model.File{
+		UserID:    userID,
+		Name:      fileName,
+		Type:      contentType,
+		FileMd5:   md5,
+		Size:      uint(fileSize),
+		Key:       key,
+		Extension: ext,
+	}
+
+	if err := s.db.Create(file).Error; err != nil {
 		return nil, apperrors.Internal(err, "failed to save file record")
 	}
-
-	// Fill URL dynamically before returning
-	file.URL = s.buildFileURL(file.Key)
-
+	if err := s.db.Preload("User").First(file, file.ID).Error; err != nil {
+		logger.Log.Warnf("failed to preload user: %v", err)
+	}
 	return file, nil
 }
 
-// GetFileByKey gets file by key
-func (s *OSSService) GetFileByKey(key string) (*model.OSSFile, error) {
-	file, err := s.repo.GetByKey(key)
-	if err != nil {
-		return nil, err
+// ======================
+// File queries / updates
+// ======================
+
+// GetFileBySecUID returns a file by its SecUID.
+func (s *OSSService) GetFileBySecUID(secUID string) (*model.File, error) {
+	var file model.File
+	if err := s.db.Preload("User").Where("sec_uid = ?", secUID).First(&file).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.NotFound("file not found")
+		}
+		return nil, apperrors.Internal(err, "failed to query file")
 	}
-	// Fill URL dynamically
-	file.URL = s.buildFileURL(file.Key)
-	return file, nil
+	return &file, nil
 }
 
-// GetFileByID gets file by ID
-func (s *OSSService) GetFileByID(id uint) (*model.OSSFile, error) {
-	file, err := s.repo.GetByID(id)
+// UpdateFile updates mutable fields (name / visibility) on a file.
+func (s *OSSService) UpdateFile(secUID string, req *model.UpdateFileRequest) error {
+	file, err := s.GetFileBySecUID(secUID)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	// Fill URL dynamically
-	file.URL = s.buildFileURL(file.Key)
-	return file, nil
+	if req.Name != nil {
+		file.Name = *req.Name
+	}
+	if req.IsPrivate != nil {
+		file.IsPrivate = *req.IsPrivate
+	}
+	if err := s.db.Save(file).Error; err != nil {
+		return apperrors.Internal(err, "failed to update file")
+	}
+	return nil
 }
 
-// ListFiles lists files with pagination
-func (s *OSSService) ListFiles(userID uint, page, pageSize int) ([]model.OSSFile, int64, error) {
-	if page < 1 {
-		page = 1
+// ListFiles returns a paginated list of files, optionally filtered by owner and privacy.
+func (s *OSSService) ListFiles(userID uint, isPrivate *bool, offset, limit int, sort string) ([]model.File, int64, error) {
+	query := s.db.Model(&model.File{})
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
 	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
+	if isPrivate != nil {
+		query = query.Where("is_private = ?", *isPrivate)
 	}
-	files, total, err := s.repo.List(userID, page, pageSize)
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, apperrors.Internal(err, "failed to count files")
+	}
+
+	if sort == "" {
+		sort = "created_at DESC"
+	}
+
+	var files []model.File
+	err := query.Preload("User").Offset(offset).Limit(limit).Order(sort).Find(&files).Error
 	if err != nil {
-		return nil, 0, err
-	}
-	// Fill URL dynamically for each file
-	for i := range files {
-		files[i].URL = s.buildFileURL(files[i].Key)
+		return nil, 0, apperrors.Internal(err, "failed to list files")
 	}
 	return files, total, nil
 }
 
-// DeleteFile deletes file record and OSS file
-func (s *OSSService) DeleteFile(id uint) error {
-	file, err := s.repo.GetByID(id)
+// DeleteFile removes the file from OSS and deletes the DB record.
+func (s *OSSService) DeleteFile(secUID string) error {
+	file, err := s.GetFileBySecUID(secUID)
 	if err != nil {
-		return apperrors.FileNotFound(id)
+		return err
 	}
 
-	// Delete from OSS first
-	bucket := oss.GetBucket()
-	if bucket == nil {
-		return apperrors.ErrOSSNotInitialized
+	// Best-effort OSS delete; don't fail the request if cleanup fails.
+	if file.Key != "" {
+		if err := oss.DeleteFile(file.Key); err != nil {
+			logger.Log.Warnf("failed to delete %s from OSS: %v", file.Key, err)
+		}
 	}
 
-	// Delete the file from OSS
-	if err := bucket.DeleteObject(file.Key); err != nil {
-		return apperrors.OSSDeleteError(err, file.Key)
+	if err := s.db.Delete(file).Error; err != nil {
+		return apperrors.Internal(err, "failed to delete file")
 	}
-
-	// Delete record from database
-	if err := s.repo.Delete(id); err != nil {
-		return apperrors.Internal(err, "failed to delete file record")
-	}
-
 	return nil
 }
 
-// generateFileKey generates a unique file key with date-based directory structure
-func (s *OSSService) generateFileKey(ext string) string {
-	now := time.Now()
-	dateDir := now.Format("2006-01-02")
-	fileName := uuid.New().String() + ext
-	
-	// Use forward slash for OSS paths (not filepath.Join which uses backslash on Windows)
-	// Example: go_oss/uploads/2026-01-15/uuid.jpg
-	if s.config.UploadDir != "" {
-		return fmt.Sprintf("%s/%s/%s/%s", s.config.UploadDir, s.config.BasePath, dateDir, fileName)
-	}
-	return fmt.Sprintf("%s/%s/%s", s.config.BasePath, dateDir, fileName)
-}
+// ======================
+// Multipart upload
+// ======================
 
-// buildFileURL builds the full URL for accessing the file
-func (s *OSSService) buildFileURL(key string) string {
-	if s.config.Domain != "" {
-		return fmt.Sprintf("%s/%s", strings.TrimRight(s.config.Domain, "/"), key)
-	}
-	
-	// Endpoint already contains bucket name (e.g., lpalette.oss-accelerate.aliyuncs.com)
-	// Just use it directly
-	return fmt.Sprintf("https://%s/%s", s.config.Endpoint, key)
-}
-
-// isAllowedExtension checks if the file extension is allowed
-func (s *OSSService) isAllowedExtension(ext string) bool {
-	if len(s.config.AllowedExtensions) == 0 {
-		return true
-	}
-	for _, allowed := range s.config.AllowedExtensions {
-		if strings.EqualFold(ext, allowed) {
-			return true
-		}
-	}
-	return false
-}
-
-
-// ============ Multipart Upload (分片上传) ============
-
-// MultipartInitResult represents the result of initializing multipart upload
+// MultipartInitResult is returned by InitMultipartUpload.
 type MultipartInitResult struct {
-	UploadID      string `json:"upload_id"`
-	Key           string `json:"key"`
-	Host          string `json:"host"`
-	TotalParts    int    `json:"total_parts"`
-	ChunkSize     int64  `json:"chunk_size"`
-	UploadedParts []int  `json:"uploaded_parts"` // Already uploaded part numbers for resuming
+	UploadID      string         `json:"upload_id"`
+	Key           string         `json:"key"`
+	Host          string         `json:"host"`
+	TotalParts    int            `json:"total_parts"`
+	ChunkSize     int64          `json:"chunk_size"`
+	UploadedParts []CompletePart `json:"uploaded_parts"`
 }
 
-// InitMultipartUpload initializes a multipart upload or resumes an existing one
-func (s *OSSService) InitMultipartUpload(fileName string, md5 string, fileSize int64, chunkSize int64, userID uint) (*MultipartInitResult, error) {
-	var ext string
-	if fileName != "" {
-		ext = strings.ToLower(filepath.Ext(fileName))
-		if !s.isAllowedExtension(ext) {
-			return nil, apperrors.FileExtensionNotAllowed(ext)
-		}
-	}
-
-	// Calculate total parts
-	totalParts := int((fileSize + chunkSize - 1) / chunkSize)
-
-	// Check if there's an existing upload for this file (by MD5)
-	if md5 != "" && s.multipartRepo != nil {
-		existingUpload, err := s.multipartRepo.GetUploadByMD5(md5, userID)
-		if err == nil && existingUpload != nil {
-			// Found existing upload, get uploaded parts
-			uploadedParts, _ := s.multipartRepo.GetUploadedPartNumbers(existingUpload.UploadID)
-			return &MultipartInitResult{
-				UploadID:      existingUpload.UploadID,
-				Key:           existingUpload.Key,
-				Host:          fmt.Sprintf("https://%s", s.config.Endpoint),
-				TotalParts:    existingUpload.TotalParts,
-				ChunkSize:     existingUpload.ChunkSize,
-				UploadedParts: uploadedParts,
-			}, nil
-		}
-	}
-
-	// Generate unique key
-	key := s.generateFileKey(ext)
-
-	// Initialize multipart upload on OSS
-	result, err := oss.InitMultipartUpload(key)
-	if err != nil {
-		return nil, apperrors.MultipartInitError(err)
-	}
-
-	// Save upload task to database
-	if s.multipartRepo != nil {
-		upload := &model.MultipartUpload{
-			UploadID:    result.UploadID,
-			Key:         result.Key,
-			MD5:         md5,
-			FileName:    fileName,
-			FileSize:    fileSize,
-			ContentType: "",
-			TotalParts:  totalParts,
-			ChunkSize:   chunkSize,
-			UserID:      userID,
-			Status:      model.MultipartStatusInitiated,
-		}
-		if err := s.multipartRepo.CreateUpload(upload); err != nil {
-			// Log error but don't fail - upload can still work without DB tracking
-			fmt.Printf("Warning: failed to save upload task to DB: %v\n", err)
-		}
-	}
-
-	return &MultipartInitResult{
-		UploadID:      result.UploadID,
-		Key:           result.Key,
-		Host:          result.Host,
-		TotalParts:    totalParts,
-		ChunkSize:     chunkSize,
-		UploadedParts: []int{},
-	}, nil
-}
-
-// PartUploadInfo represents info for uploading a part
+// PartUploadInfo represents a signed upload URL for a single part.
 type PartUploadInfo struct {
 	PartNumber int    `json:"part_number"`
 	URL        string `json:"url"`
+	Expire     int64  `json:"expire"`
 }
 
-// GetPartUploadURL generates presigned URL for uploading a part
-func (s *OSSService) GetPartUploadURL(key, uploadID string, partNumber int) (*PartUploadInfo, error) {
-	result, err := oss.GeneratePartUploadURL(key, uploadID, partNumber, s.config.TokenExpire)
-	if err != nil {
-		return nil, apperrors.OSSUploadError(err, fmt.Sprintf("part %d", partNumber))
-	}
-
-	return &PartUploadInfo{
-		PartNumber: result.PartNumber,
-		URL:        result.URL,
-	}, nil
-}
-
-// GetPartUploadURLs generates presigned URLs for multiple parts
-func (s *OSSService) GetPartUploadURLs(key, uploadID string, partNumbers []int) ([]PartUploadInfo, error) {
-	var results []PartUploadInfo
-	for _, partNumber := range partNumbers {
-		result, err := oss.GeneratePartUploadURL(key, uploadID, partNumber, s.config.TokenExpire)
-		if err != nil {
-			return nil, apperrors.OSSUploadError(err, fmt.Sprintf("part %d", partNumber))
-		}
-		results = append(results, PartUploadInfo{
-			PartNumber: result.PartNumber,
-			URL:        result.URL,
-		})
-	}
-	return results, nil
-}
-
-// CompletePart represents a completed part
+// CompletePart represents a completed part.
 type CompletePart struct {
 	PartNumber int    `json:"part_number"`
 	ETag       string `json:"etag"`
 }
 
-// CompleteMultipartUpload completes a multipart upload and saves file record
-func (s *OSSService) CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, contentType string, parts []CompletePart, userID uint) (*model.OSSFile, error) {
-	// Convert to oss package type
-	var ossParts []oss.CompletePart
-	for _, p := range parts {
-		ossParts = append(ossParts, oss.CompletePart{
-			PartNumber: p.PartNumber,
-			ETag:       p.ETag,
-		})
+// InitMultipartUpload starts (or resumes) a multipart upload for the given file.
+// If a matching upload already exists for this user, it is reused.
+func (s *OSSService) InitMultipartUpload(fileName, md5 string, fileSize, chunkSize int64, userID uint) (*MultipartInitResult, error) {
+	// Try to resume an existing upload for the same MD5 + user.
+	if existing, err := s.multipartRepo.GetUploadByMD5(md5, userID); err == nil && existing != nil {
+		uploaded, _ := s.GetUploadedPartsFromDB(existing.UploadID)
+		return &MultipartInitResult{
+			UploadID:      existing.UploadID,
+			Key:           existing.Key,
+			Host:          s.buildHost(),
+			TotalParts:    existing.TotalParts,
+			ChunkSize:     existing.ChunkSize,
+			UploadedParts: uploaded,
+		}, nil
 	}
 
-	// Complete multipart upload
-	if err := oss.CompleteMultipartUpload(key, uploadID, ossParts); err != nil {
-		return nil, apperrors.MultipartCompleteError(err)
+	userSecUID, err := s.getUserSecUID(userID)
+	if err != nil {
+		return nil, err
+	}
+	ext := strings.ToLower(filepath.Ext(fileName))
+	key := s.generateFileKey(ext, userSecUID)
+	contentType := inferContentType(ext)
+
+	initResp, err := oss.InitMultipartUpload(key, contentType)
+	if err != nil {
+		return nil, apperrors.Internal(err, "failed to init multipart upload")
 	}
 
-	// Clean up database records
-	if s.multipartRepo != nil {
-		s.multipartRepo.UpdateUploadStatus(uploadID, model.MultipartStatusCompleted)
-		s.multipartRepo.DeleteParts(uploadID)
+	totalParts := int((fileSize + chunkSize - 1) / chunkSize)
+	upload := &model.MultipartUpload{
+		UploadID:    initResp.UploadID,
+		Key:         initResp.Key,
+		MD5:         md5,
+		FileName:    fileName,
+		FileSize:    fileSize,
+		ContentType: contentType,
+		TotalParts:  totalParts,
+		ChunkSize:   chunkSize,
+		UserID:      userID,
+		Status:      model.MultipartStatusInitiated,
+	}
+	if err := s.multipartRepo.CreateUpload(upload); err != nil {
+		// Upload already created in OSS — abort to avoid dangling
+		_ = oss.AbortMultipartUpload(initResp.Key, initResp.UploadID)
+		return nil, apperrors.Internal(err, "failed to record multipart upload")
 	}
 
-	// Save file record
-	return s.SaveFileRecord(key, md5, fileName, fileSize, contentType, userID)
+	return &MultipartInitResult{
+		UploadID:      initResp.UploadID,
+		Key:           initResp.Key,
+		Host:          initResp.Host,
+		TotalParts:    totalParts,
+		ChunkSize:     chunkSize,
+		UploadedParts: nil,
+	}, nil
 }
 
-// AbortMultipartUpload aborts a multipart upload
-func (s *OSSService) AbortMultipartUpload(key, uploadID string) error {
-	err := oss.AbortMultipartUpload(key, uploadID)
-	
-	// Clean up database records regardless of OSS result
-	if s.multipartRepo != nil {
-		s.multipartRepo.UpdateUploadStatus(uploadID, model.MultipartStatusAborted)
-		s.multipartRepo.DeleteParts(uploadID)
+// GetPartUploadURL returns a presigned URL for uploading a single part.
+func (s *OSSService) GetPartUploadURL(key, uploadID string, partNumber int) (*PartUploadInfo, error) {
+	expire := s.config.TokenExpire
+	if expire <= 0 {
+		expire = 1800
 	}
-	
+	u, err := oss.GeneratePartUploadURL(key, uploadID, partNumber, expire)
 	if err != nil {
-		return apperrors.MultipartAbortError(err)
+		return nil, apperrors.Internal(err, "failed to sign part URL")
 	}
+	return &PartUploadInfo{PartNumber: u.PartNumber, URL: u.URL, Expire: u.Expire}, nil
+}
+
+// GetPartUploadURLs returns presigned URLs for a batch of parts.
+func (s *OSSService) GetPartUploadURLs(key, uploadID string, partNumbers []int) ([]PartUploadInfo, error) {
+	results := make([]PartUploadInfo, 0, len(partNumbers))
+	for _, n := range partNumbers {
+		info, err := s.GetPartUploadURL(key, uploadID, n)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, *info)
+	}
+	return results, nil
+}
+
+// CompleteMultipartUpload completes a multipart upload and persists a file record.
+func (s *OSSService) CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, parts []CompletePart, userID uint) (*model.File, error) {
+	ossParts := make([]oss.CompletePart, 0, len(parts))
+	for _, p := range parts {
+		ossParts = append(ossParts, oss.CompletePart{PartNumber: p.PartNumber, ETag: p.ETag})
+	}
+	if err := oss.CompleteMultipartUpload(key, uploadID, ossParts); err != nil {
+		return nil, apperrors.Internal(err, "failed to complete multipart upload")
+	}
+
+	// Mark the record completed and clean up parts.
+	if err := s.multipartRepo.UpdateUploadStatus(uploadID, model.MultipartStatusCompleted); err != nil {
+		logger.Log.Warnf("failed to update multipart status: %v", err)
+	}
+	if err := s.multipartRepo.DeleteParts(uploadID); err != nil {
+		logger.Log.Warnf("failed to delete part records: %v", err)
+	}
+
+	return s.SaveFileRecord(key, md5, fileName, fileSize, userID)
+}
+
+// AbortMultipartUpload aborts an in-progress multipart upload.
+func (s *OSSService) AbortMultipartUpload(key, uploadID string) error {
+	if err := oss.AbortMultipartUpload(key, uploadID); err != nil {
+		logger.Log.Warnf("failed to abort OSS multipart upload: %v", err)
+	}
+	_ = s.multipartRepo.UpdateUploadStatus(uploadID, model.MultipartStatusAborted)
+	_ = s.multipartRepo.DeleteParts(uploadID)
 	return nil
 }
 
-// ListUploadedParts lists uploaded parts for resumable upload
+// ListUploadedParts lists the parts OSS currently knows about for the given upload.
 func (s *OSSService) ListUploadedParts(key, uploadID string) ([]CompletePart, error) {
 	parts, err := oss.ListParts(key, uploadID)
 	if err != nil {
-		return nil, apperrors.OSSListError(err)
+		return nil, apperrors.Internal(err, "failed to list uploaded parts")
 	}
-
-	var result []CompletePart
-	for _, p := range parts {
-		result = append(result, CompletePart{
-			PartNumber: p.PartNumber,
-			ETag:       p.ETag,
-		})
+	result := make([]CompletePart, len(parts))
+	for i, p := range parts {
+		result[i] = CompletePart{PartNumber: p.PartNumber, ETag: p.ETag}
 	}
 	return result, nil
 }
 
-// SaveUploadedPart saves an uploaded part info to database for resumable upload
+// SaveUploadedPart persists a part record (used by clients that want resumable uploads
+// to reconstruct progress without asking OSS).
 func (s *OSSService) SaveUploadedPart(uploadID string, partNumber int, etag string, size int64) error {
-	if s.multipartRepo == nil {
-		return nil
-	}
-	
 	part := &model.UploadedPart{
 		UploadID:   uploadID,
 		PartNumber: partNumber,
 		ETag:       etag,
 		Size:       size,
 	}
-	return s.multipartRepo.SavePart(part)
+	if err := s.multipartRepo.SavePart(part); err != nil {
+		return apperrors.Internal(err, "failed to save part record")
+	}
+	return nil
 }
 
-// GetUploadedPartsFromDB gets uploaded parts from database
+// GetUploadedPartsFromDB returns parts recorded in the local DB.
 func (s *OSSService) GetUploadedPartsFromDB(uploadID string) ([]CompletePart, error) {
-	if s.multipartRepo == nil {
-		return nil, nil
-	}
-	
 	parts, err := s.multipartRepo.GetUploadedParts(uploadID)
 	if err != nil {
-		return nil, err
+		return nil, apperrors.Internal(err, "failed to get uploaded parts")
 	}
-	
-	var result []CompletePart
-	for _, p := range parts {
-		result = append(result, CompletePart{
-			PartNumber: p.PartNumber,
-			ETag:       p.ETag,
-		})
+	result := make([]CompletePart, len(parts))
+	for i, p := range parts {
+		result[i] = CompletePart{PartNumber: p.PartNumber, ETag: p.ETag}
 	}
 	return result, nil
+}
+
+// ======================
+// Internal helpers
+// ======================
+
+// getUserSecUID returns the secUID of the given user, caching results in-memory.
+func (s *OSSService) getUserSecUID(userID uint) (string, error) {
+	if userID == 0 {
+		return "anonymous", nil
+	}
+	if v, ok := s.secUIDCache.Load(userID); ok {
+		return v.(string), nil
+	}
+	var user model.User
+	if err := s.db.Select("sec_uid").First(&user, userID).Error; err != nil {
+		return "", apperrors.Internal(err, "failed to load user")
+	}
+	s.secUIDCache.Store(userID, user.SecUID)
+	return user.SecUID, nil
+}
+
+// generateFileKey builds an OSS object key like `<upload_dir>/<userSecUID>/<date>/<uuid>.<ext>`.
+func (s *OSSService) generateFileKey(ext, userSecUID string) string {
+	dir := s.config.UploadDir
+	if dir == "" {
+		dir = "uploads"
+	}
+	date := time.Now().Format("2006-01-02")
+	name := uuid.New().String()
+	if ext != "" {
+		name += ext
+	}
+	if userSecUID != "" {
+		return dir + "/" + userSecUID + "/" + date + "/" + name
+	}
+	return dir + "/" + date + "/" + name
+}
+
+// buildHost returns the OSS host used in multipart init responses.
+func (s *OSSService) buildHost() string {
+	endpoint := s.config.Endpoint
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	if strings.HasPrefix(endpoint, s.config.Bucket+".") {
+		return "https://" + endpoint
+	}
+	return "https://" + s.config.Bucket + "." + endpoint
+}
+
+// inferContentType returns a best-guess MIME type for an extension.
+func inferContentType(ext string) string {
+	switch strings.ToLower(ext) {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".heic", ".heif":
+		return "image/heic"
+	case ".bmp":
+		return "image/bmp"
+	case ".svg":
+		return "image/svg+xml"
+	case ".mp4":
+		return "video/mp4"
+	case ".mov":
+		return "video/quicktime"
+	case ".avi":
+		return "video/x-msvideo"
+	case ".webm":
+		return "video/webm"
+	case ".mkv":
+		return "video/x-matroska"
+	case ".pdf":
+		return "application/pdf"
+	case ".doc":
+		return "application/msword"
+	case ".docx":
+		return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+	case ".xls":
+		return "application/vnd.ms-excel"
+	case ".xlsx":
+		return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	case ".zip":
+		return "application/zip"
+	case ".mp3":
+		return "audio/mpeg"
+	case ".wav":
+		return "audio/wav"
+	case ".txt":
+		return "text/plain"
+	case ".json":
+		return "application/json"
+	default:
+		return "application/octet-stream"
+	}
 }

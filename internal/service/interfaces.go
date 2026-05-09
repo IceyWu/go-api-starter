@@ -2,63 +2,36 @@ package service
 
 import (
 	"context"
+	"mime/multipart"
 
 	"go-api-starter/internal/model"
 	"go-api-starter/pkg/oss"
 )
 
 // AuthServiceInterface defines the interface for authentication service operations
-// Validates: Requirements 7.1, 7.3
 type AuthServiceInterface interface {
-	// Register creates a new user account
-	// Validates input, hashes password, and creates user record
-	Register(ctx context.Context, req *model.RegisterRequest) (*model.User, error)
-
-	// Login authenticates a user and returns a JWT token
-	// Verifies credentials and generates JWT token
+	Register(ctx context.Context, req *model.RegisterRequest) (*model.LoginResponse, error)
 	Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error)
-
-	// GetCurrentUser retrieves user data by ID
+	RefreshToken(ctx context.Context, refreshToken string) (string, error)
+	AccessTokenExpiresIn() int64
 	GetCurrentUser(ctx context.Context, userID uint) (*model.User, error)
-
-	// ResetPassword updates a user's password
-	// Validates user existence and updates password hash
 	ResetPassword(ctx context.Context, userID uint, req *model.ResetPasswordRequest) error
-
-	// Logout invalidates the current token
 	Logout(ctx context.Context, token string) error
-
-	// LogoutAllDevices invalidates all tokens for a user
 	LogoutAllDevices(ctx context.Context, userID uint) error
-
-	// IsTokenBlacklisted checks if a token is blacklisted
 	IsTokenBlacklisted(ctx context.Context, token string) (bool, error)
 }
 
 // UserServiceInterface defines the interface for user service operations
-// Validates: Requirements 7.1, 7.2
 type UserServiceInterface interface {
-	// Create creates a new user
 	Create(ctx context.Context, req *model.CreateUserRequest) (*model.User, error)
-
-	// GetByID retrieves a user by ID
 	GetByID(ctx context.Context, id uint) (*model.User, error)
-
-	// GetBySecUID retrieves a user by SecUID
 	GetBySecUID(ctx context.Context, secUID string) (*model.User, error)
-
-	// List returns users with pagination and sorting
 	List(ctx context.Context, offset, limit int, sort string) ([]model.User, int64, error)
-
-	// Update updates a user's information
 	Update(ctx context.Context, id uint, req *model.UpdateUserRequest) (*model.User, error)
-
-	// Delete removes a user by ID
 	Delete(ctx context.Context, id uint) error
 }
 
 // PermissionServiceInterface defines the interface for permission service operations
-// Validates: Requirements 7.1, 7.4
 type PermissionServiceInterface interface {
 	// Space operations
 	CreateSpace(ctx context.Context, req *model.CreateSpaceRequest) (*model.PermissionSpace, error)
@@ -95,28 +68,37 @@ type PermissionServiceInterface interface {
 }
 
 // OSSServiceInterface defines the interface for OSS service operations
-// Validates: Requirements 7.1, 7.5
 type OSSServiceInterface interface {
 	// Simple upload operations
-	GetUploadToken(fileName string, userID uint) (*oss.UploadToken, error)
-	CheckFileExists(md5 string, userID uint) (*model.OSSFile, bool)
-	SaveFileRecord(key, md5, fileName string, fileSize int64, contentType string, userID uint) (*model.OSSFile, error)
+	GetUploadToken(userID uint) (*oss.UploadToken, error)
+	GetUploadTokenWithFileName(userID uint, fileName string) (*oss.UploadToken, error)
+	CheckFileExists(md5 string, userID uint) (*model.File, bool)
+	SaveFileRecord(key, md5, fileName string, fileSize int64, userID uint) (*model.File, error)
 
-	// File operations
-	GetFileByKey(key string) (*model.OSSFile, error)
-	GetFileByID(id uint) (*model.OSSFile, error)
-	ListFiles(userID uint, page, pageSize int) ([]model.OSSFile, int64, error)
-	DeleteFile(id uint) error
+	// File operations (all use sec_uid)
+	GetFileBySecUID(secUID string) (*model.File, error)
+	UpdateFile(secUID string, req *model.UpdateFileRequest) error
+	ListFiles(userID uint, isPrivate *bool, offset, limit int, sort string) ([]model.File, int64, error)
+	DeleteFile(secUID string) error
 
 	// Multipart upload operations
 	InitMultipartUpload(fileName string, md5 string, fileSize int64, chunkSize int64, userID uint) (*MultipartInitResult, error)
 	GetPartUploadURL(key, uploadID string, partNumber int) (*PartUploadInfo, error)
 	GetPartUploadURLs(key, uploadID string, partNumbers []int) ([]PartUploadInfo, error)
-	CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, contentType string, parts []CompletePart, userID uint) (*model.OSSFile, error)
+	CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, parts []CompletePart, userID uint) (*model.File, error)
 	AbortMultipartUpload(key, uploadID string) error
 	ListUploadedParts(key, uploadID string) ([]CompletePart, error)
 
 	// Resumable upload support
 	SaveUploadedPart(uploadID string, partNumber int, etag string, size int64) error
 	GetUploadedPartsFromDB(uploadID string) ([]CompletePart, error)
+}
+
+// FileServiceInterface defines the interface for file service operations
+type FileServiceInterface interface {
+	Upload(ctx context.Context, userID uint, file multipart.File, header *multipart.FileHeader) (*model.File, error)
+	GetByID(ctx context.Context, id uint, userID *uint) (*model.File, error)
+	List(ctx context.Context, filter model.FileFilter, offset, limit int, sort string, requestUserID *uint) ([]model.File, int64, error)
+	Update(ctx context.Context, id uint, userID uint, req *model.UpdateFileRequest) (*model.File, error)
+	Delete(ctx context.Context, id uint, userID uint) error
 }

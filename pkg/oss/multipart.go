@@ -28,13 +28,18 @@ type CompletePart struct {
 }
 
 // InitMultipartUpload initializes a multipart upload
-func InitMultipartUpload(key string) (*MultipartInitResponse, error) {
+func InitMultipartUpload(key string, contentType string) (*MultipartInitResponse, error) {
 	bkt := GetBucket()
 	if bkt == nil {
 		return nil, fmt.Errorf("OSS bucket not initialized")
 	}
 
-	result, err := bkt.InitiateMultipartUpload(key)
+	var options []alioss.Option
+	if contentType != "" {
+		options = append(options, alioss.ContentType(contentType))
+	}
+
+	result, err := bkt.InitiateMultipartUpload(key, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initiate multipart upload: %w", err)
 	}
@@ -66,9 +71,11 @@ func GeneratePartUploadURL(key, uploadID string, partNumber int, expireSeconds i
 	}
 
 	// Generate presigned URL for PUT request
+	// 签名时包含 Content-Type，因为微信小程序会自动添加 application/json
 	options := []alioss.Option{
 		alioss.AddParam("partNumber", fmt.Sprintf("%d", partNumber)),
 		alioss.AddParam("uploadId", uploadID),
+		alioss.ContentType("application/json"),
 	}
 
 	signedURL, err := bkt.SignURL(key, alioss.HTTPPut, expireSeconds, options...)

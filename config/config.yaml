@@ -1,20 +1,26 @@
 # Application Configuration
 app:
   name: go-api-starter
-  env: development  # development, production, test
+  env: development
+  # 若 admin_email 为空则不自动创建管理员；填写后首次启动会自动创建并赋予所有权限
+  admin_email: ""
+  admin_password: "123456"
+  # Swagger / Docs 页面的 Basic Auth
+  docs_user: admin
+  docs_password: admin123
 
 # Server Configuration
 server:
   host: localhost
   port: 9527
-  mode: debug  # debug, release, test
+  mode: debug # debug, release, test
 
 # Database Configuration
 database:
-  driver: mysql  # sqlite, mysql
+  driver: sqlite # sqlite, mysql, postgres
   # SQLite config
   path: ./data.db
-  # MySQL config
+  # MySQL / Postgres config
   host: localhost
   port: 3306
   username: root
@@ -24,14 +30,14 @@ database:
 
 # Log Configuration
 log:
-  level: debug  # debug, info, warn, error
-  format: console  # console, json
-  output: stdout  # stdout, file
+  level: debug # debug, info, warn, error
+  format: console # console, json
+  output: stdout # stdout, file
   file_path: ./logs/app.log
 
-# Redis Configuration
+# Redis Configuration (optional)
 redis:
-  enabled: false  # Enable Redis caching
+  enabled: false # Enable Redis caching / token blacklist / distributed rate limit
   host: localhost
   port: 6379
   password: ""
@@ -42,21 +48,36 @@ redis:
   dial_timeout: 5s
   read_timeout: 3s
   write_timeout: 3s
-  cluster_mode: false  # Enable Redis cluster mode
-  cluster_addrs: []  # Cluster addresses, e.g., ["localhost:7000", "localhost:7001"]
-  enable_fallback: true  # Fallback to memory cache when Redis unavailable
+  cluster_mode: false
+  cluster_addrs: []
+  enable_fallback: true # Fallback to memory cache when Redis is unavailable
 
-# OSS Configuration
+# OSS Configuration (Aliyun OSS, optional)
+# AccessKey should be supplied via env: ALICLOUD_ACCESS_KEY_ID / ALICLOUD_ACCESS_KEY_SECRET
 oss:
-  endpoint: your-bucket.oss-accelerate.aliyuncs.com  # OSS endpoint
-  bucket: your-bucket  # OSS bucket name
-  region: oss-cn-hangzhou  # OSS region
-  access_key_id: ""  # Will be loaded from env
-  access_key_secret: ""  # Will be loaded from env
-  upload_dir: go_oss  # Upload directory in bucket
-  base_path: uploads  # Base path for uploaded files (will be combined with upload_dir)
-  domain: ""  # Custom domain (optional), e.g., https://cdn.example.com
-  callback_url: ""  # Callback URL after upload (optional)
-  max_file_size: 10485760  # Max file size in bytes (10MB)
-  token_expire: 1800  # Token expire time in seconds (30 minutes)
-  allowed_extensions: []  # 空数组表示允许所有文件类型
+  endpoint: your-bucket.oss-cn-hangzhou.aliyuncs.com
+  bucket: your-bucket
+  region: oss-cn-hangzhou
+  access_key_id: ""
+  access_key_secret: ""
+  upload_dir: go_oss # Upload root directory inside the bucket
+  domain: "" # Custom CDN domain, e.g. https://cdn.example.com
+  callback_url: ""
+  max_file_size: 104857600 # 100MB (larger files should use multipart upload)
+  token_expire: 1800
+  allowed_extensions: [] # empty = all types allowed
+
+# CORS
+cors:
+  allow_origins: ["*"]
+  allow_methods: [GET, POST, PUT, DELETE, OPTIONS]
+  allow_headers: [Origin, Content-Type, Authorization, X-Request-ID]
+
+# Rate Limit
+rate_limit:
+  global_per_minute: 100
+  user_per_minute: 60
+  login_per_minute: 10
+  upload_per_minute: 120
+  fallback_rps: 100
+  fallback_burst: 200

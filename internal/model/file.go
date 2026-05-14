@@ -11,7 +11,7 @@ import (
 type File struct {
 	ID     uint   `json:"-" gorm:"primaryKey"`
 	SecUID string `json:"sec_uid" gorm:"size:64;uniqueIndex;not null"`
-	UserID uint   `json:"-" gorm:"index:idx_user_created;uniqueIndex:idx_md5_user;not null"`
+	UserID uint   `json:"-" gorm:"index:idx_files_user_created;uniqueIndex:idx_md5_user;not null"`
 
 	Name    string  `json:"name" gorm:"size:255;not null"`
 	Path    *string `json:"path" gorm:"size:500"`
@@ -29,7 +29,7 @@ type File struct {
 	Height    *uint `json:"height"`
 	IsPrivate bool  `json:"is_private" gorm:"default:false;index"`
 
-	CreatedAt time.Time `json:"created_at" gorm:"index:idx_user_created"`
+	CreatedAt time.Time `json:"created_at" gorm:"index:idx_files_user_created"`
 	UpdatedAt time.Time `json:"updated_at"`
 
 	// Relations

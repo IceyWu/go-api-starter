@@ -21,14 +21,15 @@ func NewMigrator(db *gorm.DB) *Migrator {
 func (m *Migrator) AutoMigrate(models ...interface{}) error {
 	log.Println("Running database migrations...")
 
-	// Disable FK checks during migration to avoid ordering issues
-	m.db.Exec("SET FOREIGN_KEY_CHECKS = 0")
-	defer m.db.Exec("SET FOREIGN_KEY_CHECKS = 1")
+	if m.db.Dialector.Name() == "mysql" {
+		m.db.Exec("SET FOREIGN_KEY_CHECKS = 0")
+		defer m.db.Exec("SET FOREIGN_KEY_CHECKS = 1")
+	}
 
 	if err := m.db.AutoMigrate(models...); err != nil {
 		return fmt.Errorf("migration failed: %w", err)
 	}
-	
+
 	log.Println("Database migrations completed successfully")
 	return nil
 }
@@ -36,7 +37,7 @@ func (m *Migrator) AutoMigrate(models ...interface{}) error {
 // DropTables drops all tables for given models (use with caution)
 func (m *Migrator) DropTables(models ...interface{}) error {
 	log.Println("Dropping database tables...")
-	
+
 	migrator := m.db.Migrator()
 	for _, model := range models {
 		if migrator.HasTable(model) {
@@ -45,7 +46,7 @@ func (m *Migrator) DropTables(models ...interface{}) error {
 			}
 		}
 	}
-	
+
 	log.Println("Database tables dropped successfully")
 	return nil
 }
@@ -60,10 +61,10 @@ func (m *Migrator) CreateTable(model interface{}) error {
 	if m.HasTable(model) {
 		return nil
 	}
-	
+
 	if err := m.db.Migrator().CreateTable(model); err != nil {
 		return fmt.Errorf("failed to create table: %w", err)
 	}
-	
+
 	return nil
 }

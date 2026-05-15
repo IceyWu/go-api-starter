@@ -83,6 +83,7 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 
 	// Documentation routes (protected by Basic Auth)
 	docs.SwaggerInfo.BasePath = "/"
+	docs.SwaggerInfo.Host = ""
 	docsAuth := gin.BasicAuth(gin.Accounts{
 		cfg.App.DocsUser: cfg.App.DocsPassword,
 	})
@@ -91,7 +92,7 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 
 	// LLMs.txt routes (public, for AI consumption)
 	llmsHandler := llmstxt.NewHandler(docs.SwaggerInfo.ReadDoc(), llmstxt.Config{
-		BaseURL: "http://" + cfg.Server.Host + ":" + cfg.Server.Port,
+		BaseURL: "", // 空值表示使用请求时的 Host 动态生成
 	})
 	llmsHandler.RegisterRoutes(r)
 

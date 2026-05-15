@@ -38,8 +38,9 @@ func (h *Handler) LLMsTxt(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Failed to parse swagger spec")
 		return
 	}
+	cfg := h.resolveConfig(c)
 	c.Header("Content-Type", "text/plain; charset=utf-8")
-	c.String(http.StatusOK, GenerateLLMsTxt(h.spec, h.cfg))
+	c.String(http.StatusOK, GenerateLLMsTxt(h.spec, cfg))
 }
 
 // LLMsFullTxt serves GET /llms-full.txt
@@ -49,8 +50,23 @@ func (h *Handler) LLMsFullTxt(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "Failed to parse swagger spec")
 		return
 	}
+	cfg := h.resolveConfig(c)
 	c.Header("Content-Type", "text/plain; charset=utf-8")
-	c.String(http.StatusOK, GenerateLLMsFullTxt(h.spec, h.cfg))
+	c.String(http.StatusOK, GenerateLLMsFullTxt(h.spec, cfg))
+}
+
+// resolveConfig returns a Config with BaseURL resolved from the request if not set
+func (h *Handler) resolveConfig(c *gin.Context) Config {
+	if h.cfg.BaseURL != "" {
+		return h.cfg
+	}
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return Config{
+		BaseURL: scheme + "://" + c.Request.Host,
+	}
 }
 
 // RegisterRoutes registers llms.txt routes on the given router group or engine

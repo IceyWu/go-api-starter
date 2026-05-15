@@ -150,8 +150,17 @@ go-api-starter/
 | http://localhost:9527/docs | Scalar UI |
 | http://localhost:9527/swagger/index.html | Swagger UI |
 | http://localhost:9527/swagger/doc.json | OpenAPI JSON |
+| http://localhost:9527/llms.txt | LLMs.txt（AI 可读接口概览） |
+| http://localhost:9527/llms-full.txt | LLMs-full.txt（AI 可读完整文档） |
 
 文档接口由 `DOCS_USER` / `DOCS_PASSWORD` 做 Basic Auth 保护。
+
+### LLMs.txt
+
+项目内置了 [llms.txt](https://llmstxt.org/) 支持，服务启动时根据 Swagger spec 自动生成，无需手动维护。
+
+- `/llms.txt` — 轻量入口，AI 快速了解接口概览
+- `/llms-full.txt` — 完整 Markdown 文档，包含参数、响应示例，AI 可据此调用接口
 
 ## 🔌 API 端点
 

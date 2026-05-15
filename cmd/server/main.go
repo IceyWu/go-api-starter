@@ -24,6 +24,10 @@ import (
 // @title Go API Starter
 // @version 1.0
 // @description A RESTful API starter with Go, Gin, and GORM
+// @description
+// @description **LLMs 入口：**
+// @description - [llms.txt](/llms.txt) - AI 可读接口概览
+// @description - [llms-full.txt](/llms-full.txt) - AI 可读完整文档
 // @host localhost:9527
 // @BasePath /
 

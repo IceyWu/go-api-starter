@@ -17,6 +17,7 @@ import (
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/handler"
 	"go-api-starter/internal/middleware"
+	"go-api-starter/pkg/llmstxt"
 )
 
 // Setup configures and returns the router, permission middleware, and DI container.
@@ -87,6 +88,12 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	})
 	r.GET("/swagger/*any", docsAuth, ginSwagger.WrapHandler(swaggerFiles.Handler))
 	r.GET("/docs", docsAuth, handler.DocsHandler)
+
+	// LLMs.txt routes (public, for AI consumption)
+	llmsHandler := llmstxt.NewHandler(docs.SwaggerInfo.ReadDoc(), llmstxt.Config{
+		BaseURL: "http://" + cfg.Server.Host + ":" + cfg.Server.Port,
+	})
+	llmsHandler.RegisterRoutes(r)
 
 	return r, permMw, c
 }

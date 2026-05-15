@@ -2697,7 +2697,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Go API Starter",
-	Description:      "A RESTful API starter with Go, Gin, and GORM",
+	Description:      "A RESTful API starter with Go, Gin, and GORM\n\n**LLMs 入口：**\n- [llms.txt](/llms.txt) - AI 可读接口概览\n- [llms-full.txt](/llms-full.txt) - AI 可读完整文档",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

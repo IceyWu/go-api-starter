@@ -110,12 +110,12 @@ func PrintBanner(appName, env, port, localIP string, tools []ToolInfo) {
 		magenta = Magenta
 	}
 
-	arrow := "➤"
+	arrow := "\u27A4"
 	if style == "ascii" {
 		arrow = ">"
 	}
 
-	lineTitle := "  " + green + "✓ " + appName + " started successfully!" + reset
+	lineTitle := "  " + green + "\u2713 " + appName + " started successfully!" + reset
 	lineEnv := "  " + yellow + arrow + reset + " Environment:  " + cyan + env + reset
 	lineLocal := "  " + green + arrow + reset + " Local:        " + cyan + "http://localhost:" + port + reset
 	lineNetwork := "  " + green + arrow + reset + " Network:      " + cyan + "http://" + localIP + ":" + port + reset
@@ -123,12 +123,14 @@ func PrintBanner(appName, env, port, localIP string, tools []ToolInfo) {
 	lineDocs := "  " + magenta + arrow + reset + " API Docs:     " + cyan + "http://localhost:" + port + "/docs" + reset
 	lineSwagger := "  " + magenta + arrow + reset + " Swagger:      " + cyan + "http://localhost:" + port + "/swagger/index.html" + reset
 	lineOpenAPI := "  " + magenta + arrow + reset + " OpenAPI:      " + cyan + "http://localhost:" + port + "/swagger/doc.json" + reset
+	lineLLMs := "  " + magenta + arrow + reset + " LLMs:         " + cyan + "http://" + localIP + ":" + port + "/llms.txt" + reset
+	lineLLMsFull := "  " + magenta + arrow + reset + " LLMs-full:    " + cyan + "http://" + localIP + ":" + port + "/llms-full.txt" + reset
 
 	sections := [][]string{
 		{lineTitle},
 		{lineEnv},
 		{lineLocal, lineNetwork},
-		{lineAPIBase, lineDocs, lineSwagger, lineOpenAPI},
+		{lineAPIBase, lineDocs, lineSwagger, lineOpenAPI, lineLLMs, lineLLMsFull},
 	}
 
 	// Add tools section if any tools are provided
@@ -136,9 +138,9 @@ func PrintBanner(appName, env, port, localIP string, tools []ToolInfo) {
 		var toolLines []string
 		for _, t := range tools {
 			if t.OK {
-				toolLines = append(toolLines, "  "+green+"✓"+reset+" "+t.Name+": "+cyan+t.Version+reset)
+				toolLines = append(toolLines, "  "+green+"\u2713"+reset+" "+t.Name+": "+cyan+t.Version+reset)
 			} else {
-				toolLines = append(toolLines, "  "+"\033[31m"+"✗"+reset+" "+t.Name+": "+"NOT FOUND")
+				toolLines = append(toolLines, "  "+"\033[31m"+"\u2717"+reset+" "+t.Name+": "+"NOT FOUND")
 			}
 		}
 		sections = append(sections, toolLines)
@@ -158,14 +160,14 @@ func PrintBanner(appName, env, port, localIP string, tools []ToolInfo) {
 	var box bannerBox
 	if style == "unicode" {
 		box = bannerBox{
-			topLeft:     "╭",
-			topRight:    "╮",
-			bottomLeft:  "╰",
-			bottomRight: "╯",
-			horizontal:  "─",
-			vertical:    "│",
-			sepLeft:     "├",
-			sepRight:    "┤",
+			topLeft:     "\u256D",
+			topRight:    "\u256E",
+			bottomLeft:  "\u2570",
+			bottomRight: "\u256F",
+			horizontal:  "\u2500",
+			vertical:    "\u2502",
+			sepLeft:     "\u251C",
+			sepRight:    "\u2524",
 		}
 	} else {
 		box = bannerBox{

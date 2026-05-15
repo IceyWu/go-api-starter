@@ -652,7 +652,12 @@ definitions:
 host: localhost:9527
 info:
   contact: {}
-  description: A RESTful API starter with Go, Gin, and GORM
+  description: |-
+    A RESTful API starter with Go, Gin, and GORM
+
+    **LLMs 入口：**
+    - [llms.txt](/llms.txt) - AI 可读接口概览
+    - [llms-full.txt](/llms-full.txt) - AI 可读完整文档
   title: Go API Starter
   version: "1.0"
 paths:

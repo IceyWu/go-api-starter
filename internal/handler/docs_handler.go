@@ -15,8 +15,19 @@ const ScalarHTML = `<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
 <body>
-    <script id="api-reference" data-url="/swagger/doc.json"></script>
+    <div id="app"></div>
     <script src="https://fastly.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script>
+      Scalar.createApiReference('#app', {
+        url: '/swagger/doc.json',
+        theme: 'elysiajs',
+        showSidebar: true,
+        hideClientButton: false,
+        showDeveloperTools: 'always',
+        persistAuth: true,
+        darkMode: true,
+      })
+    </script>
 </body>
 </html>`
 

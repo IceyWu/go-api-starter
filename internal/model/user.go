@@ -15,8 +15,8 @@ var UsernamePrefix = "go"
 
 // User represents the user model
 type User struct {
-	ID               uint    `json:"-" gorm:"primaryKey"`                         // 内部ID，不对外暴露
-	SecUID           string  `json:"sec_uid" gorm:"size:64;uniqueIndex;not null"` // 安全标识符，对外暴露
+	ID               uint    `json:"-" gorm:"primaryKey"`                      // 内部ID，不对外暴露
+	UID              string  `json:"uid" gorm:"column:uid;size:64;uniqueIndex;not null"` // 对外唯一标识
 	LPID             string  `json:"lp_id" gorm:"size:20;uniqueIndex;not null"`   // LP号，类似抖音号
 	Username         *string `json:"username,omitempty" gorm:"size:100;index"`    // 用户账号
 	Mobile           *string `json:"mobile,omitempty" gorm:"size:20;uniqueIndex"` // 手机号，可选
@@ -44,10 +44,10 @@ type User struct {
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
-// BeforeCreate 创建前自动生成 SecUID、Username 和 LPID
+// BeforeCreate 创建前自动生成 UID、Username 和 LPID
 func (u *User) BeforeCreate(tx *gorm.DB) error {
-	if u.SecUID == "" {
-		u.SecUID = GenerateSecUID()
+	if u.UID == "" {
+		u.UID = GenerateUID()
 	}
 	if u.Username == nil || *u.Username == "" {
 		username := GenerateUsername()
@@ -71,8 +71,8 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// GenerateSecUID 生成安全标识符 (22字符，URL安全的base64)
-func GenerateSecUID() string {
+// GenerateUID 生成唯一标识符 (22字符，URL安全的base64)
+func GenerateUID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b)
@@ -103,8 +103,8 @@ type UpdateUserRequest struct {
 	LPID             *string    `json:"lp_id" binding:"omitempty,min=3,max=20" example:"LP_8806386288"`
 	Mobile           *string    `json:"mobile" binding:"omitempty,len=11" example:"13800138000"`
 	Email            *string    `json:"email" binding:"omitempty,email" example:"john@example.com"`
-	AvatarSecUID     *string    `json:"avatar_sec_uid" binding:"omitempty" example:"abc123"`
-	BackgroundSecUID *string    `json:"background_sec_uid" binding:"omitempty" example:"def456"`
+	AvatarUID     *string    `json:"avatar_uid" binding:"omitempty" example:"abc123"`
+	BackgroundUID *string    `json:"background_uid" binding:"omitempty" example:"def456"`
 	Sex              *int       `json:"sex" binding:"omitempty,min=0,max=2" example:"1"`
 	Birthday         *time.Time `json:"birthday" example:"1990-01-01T00:00:00Z"`
 	City             *string    `json:"city" binding:"omitempty,max=100" example:"Beijing"`
@@ -125,13 +125,13 @@ func (r *CreateUserRequest) ToUser() *User {
 
 // AvatarFileResponse 头像/背景文件的精简响应
 type AvatarFileResponse struct {
-	SecUID string `json:"sec_uid"`
-	URL    string `json:"url"`
+	UID string `json:"uid"`
+	URL string `json:"url"`
 }
 
 // UserResponse 用户 API 响应 DTO
 type UserResponse struct {
-	SecUID         string              `json:"sec_uid"`
+	UID            string              `json:"uid"`
 	LPID           string              `json:"lp_id"`
 	Username       *string             `json:"username"`
 	Mobile         *string             `json:"mobile,omitempty"`
@@ -159,7 +159,7 @@ func (u *User) ToResponse() *UserResponse {
 	}
 
 	resp := &UserResponse{
-		SecUID:    u.SecUID,
+		UID:       u.UID,
 		LPID:      u.LPID,
 		Username:  u.Username,
 		Email:     u.Email,
@@ -177,14 +177,14 @@ func (u *User) ToResponse() *UserResponse {
 	}
 	if u.AvatarFile != nil {
 		resp.AvatarFile = &AvatarFileResponse{
-			SecUID: u.AvatarFile.SecUID,
-			URL:    u.AvatarFile.URL,
+			UID: u.AvatarFile.UID,
+			URL: u.AvatarFile.URL,
 		}
 	}
 	if u.BackgroundFile != nil {
 		resp.BackgroundFile = &AvatarFileResponse{
-			SecUID: u.BackgroundFile.SecUID,
-			URL:    u.BackgroundFile.URL,
+			UID: u.BackgroundFile.UID,
+			URL: u.BackgroundFile.URL,
 		}
 	}
 	return resp

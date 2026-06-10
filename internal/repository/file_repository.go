@@ -54,12 +54,12 @@ func (r *FileRepository) FindByMD5(ctx context.Context, md5 string) (*model.File
 	return &file, err
 }
 
-// FindBySecUID finds a file by SecUID
-func (r *FileRepository) FindBySecUID(ctx context.Context, secUID string) (*model.File, error) {
+// FindByUID finds a file by UID
+func (r *FileRepository) FindByUID(ctx context.Context, uid string) (*model.File, error) {
 	var file model.File
 	err := r.db.WithContext(ctx).
 		Preload("User").
-		Where("sec_uid = ?", secUID).
+		Where("uid = ?", uid).
 		First(&file).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrFileNotFound

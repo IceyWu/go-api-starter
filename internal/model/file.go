@@ -10,7 +10,7 @@ import (
 // File represents a file in the system
 type File struct {
 	ID     uint   `json:"-" gorm:"primaryKey"`
-	SecUID string `json:"sec_uid" gorm:"size:64;uniqueIndex;not null"`
+	UID    string `json:"uid" gorm:"column:uid;size:64;uniqueIndex;not null"`
 	UserID uint   `json:"-" gorm:"index:idx_files_user_created;uniqueIndex:idx_md5_user;not null"`
 
 	Name    string  `json:"name" gorm:"size:255;not null"`
@@ -38,7 +38,7 @@ type File struct {
 
 // FileSimpleResponse 简化的文件响应(用于列表等场景)
 type FileSimpleResponse struct {
-	SecUID    string            `json:"sec_uid"`
+	UID       string            `json:"uid"`
 	Name      string            `json:"name"`
 	Type      string            `json:"type"`
 	FileMd5   string            `json:"file_md5"`
@@ -54,14 +54,14 @@ type FileSimpleResponse struct {
 
 // FileUserResponse 文件列表中的用户精简信息
 type FileUserResponse struct {
-	SecUID   string  `json:"sec_uid"`
+	UID      string  `json:"uid"`
 	Username *string `json:"username"`
 }
 
 // ToSimpleResponse converts File to FileSimpleResponse
 func (f *File) ToSimpleResponse() *FileSimpleResponse {
 	resp := &FileSimpleResponse{
-		SecUID:    f.SecUID,
+		UID:       f.UID,
 		Name:      f.Name,
 		Type:      f.Type,
 		FileMd5:   f.FileMd5,
@@ -75,17 +75,17 @@ func (f *File) ToSimpleResponse() *FileSimpleResponse {
 	}
 	if f.User != nil {
 		resp.User = &FileUserResponse{
-			SecUID:   f.User.SecUID,
+			UID:      f.User.UID,
 			Username: f.User.Username,
 		}
 	}
 	return resp
 }
 
-// BeforeCreate 创建前自动生成 SecUID
+// BeforeCreate 创建前自动生成 UID
 func (f *File) BeforeCreate(tx *gorm.DB) error {
-	if f.SecUID == "" {
-		f.SecUID = GenerateSecUID()
+	if f.UID == "" {
+		f.UID = GenerateUID()
 	}
 	return nil
 }

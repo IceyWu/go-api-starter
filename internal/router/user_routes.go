@@ -13,7 +13,7 @@ func registerUserRoutes(api *gin.RouterGroup, c *container.Container, authMw *mi
 	users := api.Group("/users")
 
 	// 公开接口（可选认证）— 查看用户公开资料
-	users.GET("/:sec_uid", authMw.OptionalAuth(), userH.Get)
+	users.GET("/:uid", authMw.OptionalAuth(), userH.Get)
 
 	// 需要认证的接口
 	users.Use(authMw.RequireAuth())
@@ -25,7 +25,7 @@ func registerUserRoutes(api *gin.RouterGroup, c *container.Container, authMw *mi
 		// User management endpoints (需要权限)
 		users.POST("", permMw.RequirePermission("user.create"), userH.Create)
 		users.GET("", permMw.RequirePermission("user.read"), userH.List)
-		users.PUT("/:sec_uid", permMw.RequirePermission("user.update"), userH.Update)
-		users.DELETE("/:sec_uid", permMw.RequirePermission("user.delete"), userH.Delete)
+		users.PUT("/:uid", permMw.RequirePermission("user.update"), userH.Update)
+		users.DELETE("/:uid", permMw.RequirePermission("user.delete"), userH.Delete)
 	}
 }

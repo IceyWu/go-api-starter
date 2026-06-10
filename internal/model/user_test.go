@@ -6,22 +6,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestGenerateSecUID tests SecUID generation
-func TestGenerateSecUID(t *testing.T) {
-	secUID1 := GenerateSecUID()
-	secUID2 := GenerateSecUID()
+// TestGenerateUID tests UID generation
+func TestGenerateUID(t *testing.T) {
+	uid1 := GenerateUID()
+	uid2 := GenerateUID()
 
-	// SecUID should be 22 characters (base64 URL encoding of 16 bytes)
-	assert.Equal(t, 22, len(secUID1), "SecUID should be 22 characters")
-	assert.Equal(t, 22, len(secUID2), "SecUID should be 22 characters")
+	// UID should be 22 characters (base64 URL encoding of 16 bytes)
+	assert.Equal(t, 22, len(uid1), "UID should be 22 characters")
+	assert.Equal(t, 22, len(uid2), "UID should be 22 characters")
 
-	// SecUIDs should be unique
-	assert.NotEqual(t, secUID1, secUID2, "SecUIDs should be unique")
+	// UIDs should be unique
+	assert.NotEqual(t, uid1, uid2, "UIDs should be unique")
 
-	// SecUID should be URL-safe (no +, /, or =)
-	assert.NotContains(t, secUID1, "+")
-	assert.NotContains(t, secUID1, "/")
-	assert.NotContains(t, secUID1, "=")
+	// UID should be URL-safe (no +, /, or =)
+	assert.NotContains(t, uid1, "+")
+	assert.NotContains(t, uid1, "/")
+	assert.NotContains(t, uid1, "=")
 }
 
 // TestGenerateUsername tests username generation
@@ -58,18 +58,18 @@ func TestCreateUserRequest(t *testing.T) {
 	assert.Equal(t, email, *user.Email, "Email should match")
 }
 
-// TestSecUIDUniqueness tests that multiple SecUID generations produce unique values
-func TestSecUIDUniqueness(t *testing.T) {
-	secUIDs := make(map[string]bool)
+// TestUIDUniqueness tests that multiple UID generations produce unique values
+func TestUIDUniqueness(t *testing.T) {
+	uids := make(map[string]bool)
 	iterations := 100
 
 	for i := 0; i < iterations; i++ {
-		secUID := GenerateSecUID()
-		assert.False(t, secUIDs[secUID], "SecUID should be unique")
-		secUIDs[secUID] = true
+		uid := GenerateUID()
+		assert.False(t, uids[uid], "UID should be unique")
+		uids[uid] = true
 	}
 
-	assert.Len(t, secUIDs, iterations, "All SecUIDs should be unique")
+	assert.Len(t, uids, iterations, "All UIDs should be unique")
 }
 
 // TestUsernameUniqueness tests that multiple username generations produce unique values

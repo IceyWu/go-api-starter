@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 
 	"go-api-starter/internal/model"
@@ -12,16 +10,17 @@ import (
 	"go-api-starter/pkg/response"
 )
 
-
 type AuthHandler struct {
 	authService   service.AuthServiceInterface
+	userService   service.UserServiceInterface
 	wechatService *service.WechatService
 }
 
 // NewAuthHandler creates a new AuthHandler
-func NewAuthHandler(authService service.AuthServiceInterface) *AuthHandler {
+func NewAuthHandler(authService service.AuthServiceInterface, userService service.UserServiceInterface) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
+		userService: userService,
 	}
 }
 
@@ -137,17 +136,23 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Param id path int true "用户ID"
+// @Param uid path string true "用户 UID"
 // @Param request body model.ResetPasswordRequest true "重置密码请求数据"
 // @Success 200 {object} response.Response
 // @Failure 400 {object} response.Response
 // @Failure 404 {object} response.Response
-// @Router /api/v1/auth/reset-password/{id} [post]
+// @Router /api/v1/auth/reset-password/{uid} [post]
 func (h *AuthHandler) ResetPassword(c *gin.Context) {
-	userIDStr := c.Param("id")
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
+	uid := c.Param("uid")
+	if uid == "" {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidUserID))
+		return
+	}
+
+	ctx := c.Request.Context()
+	user, err := h.userService.GetByUID(ctx, uid)
+	if err != nil {
+		c.Error(err)
 		return
 	}
 
@@ -157,8 +162,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
-	if err := h.authService.ResetPassword(ctx, uint(userID), &req); err != nil {
+	if err := h.authService.ResetPassword(ctx, user.ID, &req); err != nil {
 		c.Error(err)
 		return
 	}

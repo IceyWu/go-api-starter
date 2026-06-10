@@ -19,7 +19,7 @@ func registerFileRoutes(api *gin.RouterGroup, c *container.Container, authMw *mi
 
 	// 可选认证：带 token 可查看/筛选私密文件，不带 token 只返回公开文件
 	file.GET("", authMw.OptionalAuth(), h.ListFiles)
-	file.GET("/:sec_uid", authMw.OptionalAuth(), h.GetFile)
+	file.GET("/:uid", authMw.OptionalAuth(), h.GetFile)
 
 	// 需要认证
 	file.Use(authMw.RequireAuth())
@@ -52,7 +52,7 @@ func registerFileRoutes(api *gin.RouterGroup, c *container.Container, authMw *mi
 			upload.POST("/abort", h.AbortMultipart)
 		}
 
-		file.PUT("/:sec_uid", h.UpdateFile)
-		file.DELETE("/:sec_uid", h.DeleteFile)
+		file.PUT("/:uid", h.UpdateFile)
+		file.DELETE("/:uid", h.DeleteFile)
 	}
 }

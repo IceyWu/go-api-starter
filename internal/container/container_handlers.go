@@ -9,7 +9,7 @@ import (
 
 func (c *Container) AuthHandler() *handler.AuthHandler {
 	c.authHandlerOnce.Do(func() {
-		c.authHandler = handler.NewAuthHandler(c.AuthService())
+		c.authHandler = handler.NewAuthHandler(c.AuthService(), c.UserService())
 		// Wire up optional WechatService
 		c.authHandler.SetWechatService(c.WechatLoginService())
 	})

@@ -35,9 +35,9 @@ func registerPermissionRoutes(api *gin.RouterGroup, c *container.Container, auth
 		permissions.DELETE("/roles/:id/permissions", permMw.RequirePermission("role.manage"), h.RemoveRolePermissions)
 
 		// User roles
-		permissions.GET("/users/:sec_uid/roles", h.GetUserRolesBySecUID)
-		permissions.POST("/users/:sec_uid/roles", permMw.RequirePermission("role.manage"), h.AssignUserRoleBySecUID)
-		permissions.DELETE("/users/:sec_uid/roles/:roleId", permMw.RequirePermission("role.manage"), h.RemoveUserRoleBySecUID)
+		permissions.GET("/users/:uid/roles", h.GetUserRolesByUID)
+		permissions.POST("/users/:uid/roles", permMw.RequirePermission("role.manage"), h.AssignUserRoleByUID)
+		permissions.DELETE("/users/:uid/roles/:roleId", permMw.RequirePermission("role.manage"), h.RemoveUserRoleByUID)
 		permissions.GET("/me/permissions", h.GetMyPermissions)
 	}
 }

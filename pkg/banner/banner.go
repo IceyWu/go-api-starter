@@ -119,10 +119,11 @@ func PrintBanner(appName, env, port, localIP string, tools []ToolInfo) {
 	lineEnv := "  " + yellow + arrow + reset + " Environment:  " + cyan + env + reset
 	lineLocal := "  " + green + arrow + reset + " Local:        " + cyan + "http://localhost:" + port + reset
 	lineNetwork := "  " + green + arrow + reset + " Network:      " + cyan + "http://" + localIP + ":" + port + reset
-	lineAPIBase := "  " + magenta + arrow + reset + " API Base:     " + cyan + "http://localhost:" + port + "/api/v1" + reset
-	lineDocs := "  " + magenta + arrow + reset + " API Docs:     " + cyan + "http://localhost:" + port + "/docs" + reset
-	lineSwagger := "  " + magenta + arrow + reset + " Swagger:      " + cyan + "http://localhost:" + port + "/swagger/index.html" + reset
-	lineOpenAPI := "  " + magenta + arrow + reset + " OpenAPI:      " + cyan + "http://localhost:" + port + "/swagger/doc.json" + reset
+	lineAPIBase := "  " + magenta + arrow + reset + " API Base:     " + cyan + "http://" + localIP + ":" + port + "/api/v1" + reset
+	lineDocs := "  " + magenta + arrow + reset + " API Docs:     " + cyan + "http://" + localIP + ":" + port + "/docs" + reset
+	lineSwagger := "  " + magenta + arrow + reset + " Swagger:      " + cyan + "http://" + localIP + ":" + port + "/swagger/index.html" + reset
+	lineOpenAPI := "  " + magenta + arrow + reset + " OpenAPI:      " + cyan + "http://" + localIP + ":" + port + "/swagger/doc.json" + reset
+	lineWS := "  " + magenta + arrow + reset + " WebSocket:    " + cyan + "ws://" + localIP + ":" + port + "/ws" + reset
 	lineLLMs := "  " + magenta + arrow + reset + " LLMs:         " + cyan + "http://" + localIP + ":" + port + "/llms.txt" + reset
 	lineLLMsFull := "  " + magenta + arrow + reset + " LLMs-full:    " + cyan + "http://" + localIP + ":" + port + "/llms-full.txt" + reset
 
@@ -130,7 +131,7 @@ func PrintBanner(appName, env, port, localIP string, tools []ToolInfo) {
 		{lineTitle},
 		{lineEnv},
 		{lineLocal, lineNetwork},
-		{lineAPIBase, lineDocs, lineSwagger, lineOpenAPI, lineLLMs, lineLLMsFull},
+		{lineAPIBase, lineDocs, lineSwagger, lineOpenAPI, lineWS, lineLLMs, lineLLMsFull},
 	}
 
 	// Add tools section if any tools are provided

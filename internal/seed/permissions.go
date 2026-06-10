@@ -156,7 +156,7 @@ func SyncAdminUser(db *gorm.DB, email, password string) {
 	}
 
 	user = model.User{
-		SecUID:   model.GenerateSecUID(),
+		UID:   model.GenerateUID(),
 		Email:    &email,
 		Password: &hashedPassword,
 	}

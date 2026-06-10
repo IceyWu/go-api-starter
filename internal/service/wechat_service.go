@@ -125,7 +125,7 @@ func (s *WechatService) Login(ctx context.Context, req *model.WxLoginRequest) (*
 	}
 
 	if user != nil {
-		log.Printf("[WxLogin] ✅ 用户已存在, sec_uid=%s, mobile=%v", user.SecUID, user.Mobile)
+		log.Printf("[WxLogin] ✅ 用户已存在, uid=%s, mobile=%v", user.UID, user.Mobile)
 		return s.buildLoginResponse(user)
 	}
 
@@ -176,14 +176,14 @@ func (s *WechatService) bindAndLogin(ctx context.Context, req *model.WxLoginRequ
 		return nil, apperrors.WrapCode(err, i18n.ErrQueryUserFailed)
 	}
 	if existingByOpenID != nil {
-		log.Printf("[WxBind] openid 已绑定用户 sec_uid=%s, 直接登录", existingByOpenID.SecUID)
+		log.Printf("[WxBind] openid 已绑定用户 uid=%s, 直接登录", existingByOpenID.UID)
 		return s.buildLoginResponse(existingByOpenID)
 	}
 
 	// Check if mobile already has an account
 	existing, err := s.userRepo.FindByMobile(ctx, mobile)
 	if err == nil && existing != nil {
-		log.Printf("[WxBind] 手机号 %s 已有账号 sec_uid=%s", mobile, existing.SecUID)
+		log.Printf("[WxBind] 手机号 %s 已有账号 uid=%s", mobile, existing.UID)
 		// Mobile exists — bind openid to it
 		if existing.OpenID != nil && *existing.OpenID != "" {
 			log.Printf("[WxBind] ❌ 手机号已绑定其他微信: open_id=%s", *existing.OpenID)
@@ -194,7 +194,7 @@ func (s *WechatService) bindAndLogin(ctx context.Context, req *model.WxLoginRequ
 			log.Printf("[WxBind] ❌ 绑定 openid 到已有用户失败: %v", err)
 			return nil, apperrors.WrapCode(err, i18n.ErrWechatBindFailed)
 		}
-		log.Printf("[WxBind] ✅ 已绑定 openid 到已有用户 sec_uid=%s", existing.SecUID)
+		log.Printf("[WxBind] ✅ 已绑定 openid 到已有用户 uid=%s", existing.UID)
 		return s.buildLoginResponse(existing)
 	}
 
@@ -224,14 +224,14 @@ func (s *WechatService) bindAndLogin(ctx context.Context, req *model.WxLoginRequ
 		return nil, apperrors.WrapCode(err, i18n.ErrCreateUserFailed)
 	}
 
-	// Reload to get generated fields (SecUID, LPID, etc.)
+	// Reload to get generated fields (UID, LPID, etc.)
 	newUser, err = s.userRepo.FindByID(ctx, newUser.ID)
 	if err != nil {
 		log.Printf("[WxBind] ❌ 重新查询用户失败: %v", err)
 		return nil, apperrors.WrapCode(err, i18n.ErrQueryUserFailed)
 	}
 
-	log.Printf("[WxBind] ✅ 新用户创建成功: sec_uid=%s, lp_id=%s, mobile=%s", newUser.SecUID, newUser.LPID, mobile)
+	log.Printf("[WxBind] ✅ 新用户创建成功: uid=%s, lp_id=%s, mobile=%s", newUser.UID, newUser.LPID, mobile)
 	return s.buildLoginResponse(newUser)
 }
 

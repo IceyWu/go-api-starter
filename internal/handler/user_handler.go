@@ -76,22 +76,22 @@ func (h *UserHandler) List(c *gin.Context) {
 
 // Get godoc
 // @Summary 获取用户详情
-// @Description 根据 SecUID 获取用户信息
+// @Description 根据 UID 获取用户信息
 // @Tags 用户管理
 // @Produce json
-// @Param sec_uid path string true "用户 SecUID"
+// @Param uid path string true "用户 UID"
 // @Success 200 {object} response.Response{data=model.UserResponse}
 // @Failure 404 {object} response.Response
-// @Router /api/v1/users/{sec_uid} [get]
+// @Router /api/v1/users/{uid} [get]
 func (h *UserHandler) Get(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	secUID, ok := GetSecUID(c)
+	uid, ok := GetUID(c)
 	if !ok {
 		return
 	}
 
-	user, err := h.service.GetBySecUID(ctx, secUID)
+	user, err := h.service.GetByUID(ctx, uid)
 	if err != nil {
 		c.Error(err)
 		return
@@ -101,25 +101,25 @@ func (h *UserHandler) Get(c *gin.Context) {
 
 // Update godoc
 // @Summary 更新用户
-// @Description 根据 SecUID 更新用户
+// @Description 根据 UID 更新用户
 // @Tags 用户管理
 // @Accept json
 // @Produce json
-// @Param sec_uid path string true "用户 SecUID"
+// @Param uid path string true "用户 UID"
 // @Param user body model.UpdateUserRequest true "用户数据"
 // @Success 200 {object} response.Response{data=model.UserResponse}
 // @Failure 400 {object} response.Response
 // @Failure 404 {object} response.Response
-// @Router /api/v1/users/{sec_uid} [put]
+// @Router /api/v1/users/{uid} [put]
 func (h *UserHandler) Update(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	secUID, ok := GetSecUID(c)
+	uid, ok := GetUID(c)
 	if !ok {
 		return
 	}
 
-	user, err := h.service.GetBySecUID(ctx, secUID)
+	user, err := h.service.GetByUID(ctx, uid)
 	if err != nil {
 		c.Error(err)
 		return
@@ -143,19 +143,19 @@ func (h *UserHandler) Update(c *gin.Context) {
 // @Summary 删除用户
 // @Description 软删除用户
 // @Tags 用户管理
-// @Param sec_uid path string true "用户 SecUID"
+// @Param uid path string true "用户 UID"
 // @Success 204 "删除成功"
 // @Failure 404 {object} response.Response
-// @Router /api/v1/users/{sec_uid} [delete]
+// @Router /api/v1/users/{uid} [delete]
 func (h *UserHandler) Delete(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	secUID, ok := GetSecUID(c)
+	uid, ok := GetUID(c)
 	if !ok {
 		return
 	}
 
-	user, err := h.service.GetBySecUID(ctx, secUID)
+	user, err := h.service.GetByUID(ctx, uid)
 	if err != nil {
 		c.Error(err)
 		return

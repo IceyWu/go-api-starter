@@ -69,9 +69,9 @@ func (s *UserService) GetByID(ctx context.Context, id uint) (*model.User, error)
 	return user, nil
 }
 
-// GetBySecUID returns a user by SecUID
-func (s *UserService) GetBySecUID(ctx context.Context, secUID string) (*model.User, error) {
-	user, err := s.repo.FindBySecUID(ctx, secUID)
+// GetByUID returns a user by UID
+func (s *UserService) GetByUID(ctx context.Context, uid string) (*model.User, error) {
+	user, err := s.repo.FindByUID(ctx, uid)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return nil, apperrors.NotFound("user not found")
@@ -121,27 +121,27 @@ func (s *UserService) Update(ctx context.Context, id uint, req *model.UpdateUser
 		}
 		user.Email = req.Email
 	}
-	if req.AvatarSecUID != nil {
-		if *req.AvatarSecUID == "" {
+	if req.AvatarUID != nil {
+		if *req.AvatarUID == "" {
 			user.AvatarFileID = nil
 			user.AvatarFile = nil
 		} else if s.fileRepo != nil {
-			file, err := s.fileRepo.FindBySecUID(ctx, *req.AvatarSecUID)
+			file, err := s.fileRepo.FindByUID(ctx, *req.AvatarUID)
 			if err != nil {
-				return nil, apperrors.BadRequest("avatar file not found: " + *req.AvatarSecUID)
+				return nil, apperrors.BadRequest("avatar file not found: " + *req.AvatarUID)
 			}
 			user.AvatarFileID = &file.ID
 			user.AvatarFile = file
 		}
 	}
-	if req.BackgroundSecUID != nil {
-		if *req.BackgroundSecUID == "" {
+	if req.BackgroundUID != nil {
+		if *req.BackgroundUID == "" {
 			user.BackgroundFileID = nil
 			user.BackgroundFile = nil
 		} else if s.fileRepo != nil {
-			file, err := s.fileRepo.FindBySecUID(ctx, *req.BackgroundSecUID)
+			file, err := s.fileRepo.FindByUID(ctx, *req.BackgroundUID)
 			if err != nil {
-				return nil, apperrors.BadRequest("background file not found: " + *req.BackgroundSecUID)
+				return nil, apperrors.BadRequest("background file not found: " + *req.BackgroundUID)
 			}
 			user.BackgroundFileID = &file.ID
 			user.BackgroundFile = file

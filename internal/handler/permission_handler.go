@@ -407,16 +407,16 @@ func (h *PermissionHandler) GetMyPermissions(c *gin.Context) {
 }
 
 // ====================
-// 用户角色操作 (通过 sec_uid)
+// 用户角色操作 (通过 uid)
 // ====================
 
-// GetUserRolesBySecUID 通过 sec_uid 获取用户角色
-func (h *PermissionHandler) GetUserRolesBySecUID(c *gin.Context) {
-	secUID, ok := GetSecUID(c)
+// GetUserRolesByUID 通过 uid 获取用户角色
+func (h *PermissionHandler) GetUserRolesByUID(c *gin.Context) {
+	uid, ok := GetUID(c)
 	if !ok {
 		return
 	}
-	user, err := h.userService.GetBySecUID(c.Request.Context(), secUID)
+	user, err := h.userService.GetByUID(c.Request.Context(), uid)
 	if err != nil {
 		c.Error(err)
 		return
@@ -429,13 +429,13 @@ func (h *PermissionHandler) GetUserRolesBySecUID(c *gin.Context) {
 	response.Success(c, roles)
 }
 
-// AssignUserRoleBySecUID 通过 sec_uid 分配角色
-func (h *PermissionHandler) AssignUserRoleBySecUID(c *gin.Context) {
-	secUID, ok := GetSecUID(c)
+// AssignUserRoleByUID 通过 uid 分配角色
+func (h *PermissionHandler) AssignUserRoleByUID(c *gin.Context) {
+	uid, ok := GetUID(c)
 	if !ok {
 		return
 	}
-	user, err := h.userService.GetBySecUID(c.Request.Context(), secUID)
+	user, err := h.userService.GetByUID(c.Request.Context(), uid)
 	if err != nil {
 		c.Error(err)
 		return
@@ -452,13 +452,13 @@ func (h *PermissionHandler) AssignUserRoleBySecUID(c *gin.Context) {
 	response.Success(c, nil)
 }
 
-// RemoveUserRoleBySecUID 通过 sec_uid 移除角色
-func (h *PermissionHandler) RemoveUserRoleBySecUID(c *gin.Context) {
-	secUID, ok := GetSecUID(c)
+// RemoveUserRoleByUID 通过 uid 移除角色
+func (h *PermissionHandler) RemoveUserRoleByUID(c *gin.Context) {
+	uid, ok := GetUID(c)
 	if !ok {
 		return
 	}
-	user, err := h.userService.GetBySecUID(c.Request.Context(), secUID)
+	user, err := h.userService.GetByUID(c.Request.Context(), uid)
 	if err != nil {
 		c.Error(err)
 		return

@@ -10,10 +10,21 @@ import (
 // registerWsRoutes 注册 WebSocket 路由
 func registerWsRoutes(r *gin.Engine, c *container.Container) {
 	apiKey := c.Config().WS.Key
-	r.GET("/ws/bot", ws.Handler(c.WsHub(), apiKey))
+	r.GET("/ws", ws.Handler(c.WsHub(), apiKey))
 
 	// Bot 状态查询
-	r.GET("/api/v1/bot/status", func(ctx *gin.Context) {
+	r.GET("/api/v1/bot/status", botStatus(c))
+}
+
+// botStatus godoc
+// @Summary 查询 WebSocket 连接状态
+// @Description 返回当前 WebSocket 客户端是否已连接
+// @Tags WebSocket
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/bot/status [get]
+func botStatus(c *container.Container) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
 		connected := c.WsHub().IsConnected()
 		ctx.JSON(200, gin.H{
 			"code": 200,
@@ -21,5 +32,5 @@ func registerWsRoutes(r *gin.Engine, c *container.Container) {
 				"connected": connected,
 			},
 		})
-	})
+	}
 }

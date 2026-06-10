@@ -112,14 +112,14 @@ func (r *UserRepository) FindByOpenID(ctx context.Context, openID string) (*mode
 	return &user, err
 }
 
-// FindBySecUID finds a user by SecUID
-func (r *UserRepository) FindBySecUID(ctx context.Context, secUID string) (*model.User, error) {
+// FindByUID finds a user by UID
+func (r *UserRepository) FindByUID(ctx context.Context, uid string) (*model.User, error) {
 	var user model.User
 	err := r.db.WithContext(ctx).
 		Preload("AvatarFile").
 		Preload("BackgroundFile").
 		Preload("Roles").
-		Where("sec_uid = ?", secUID).First(&user).Error
+		Where("uid = ?", uid).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrUserNotFound
 	}

@@ -15,7 +15,7 @@ type UserRepositoryInterface interface {
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
 	FindByMobile(ctx context.Context, mobile string) (*model.User, error)
 	FindByOpenID(ctx context.Context, openID string) (*model.User, error)
-	FindBySecUID(ctx context.Context, secUID string) (*model.User, error)
+	FindByUID(ctx context.Context, uid string) (*model.User, error)
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
 	FindByLPID(ctx context.Context, lpID string) (*model.User, error)
 	Update(ctx context.Context, user *model.User) error
@@ -111,7 +111,7 @@ type FileRepositoryInterface interface {
 	Create(ctx context.Context, file *model.File) error
 	FindByID(ctx context.Context, id uint) (*model.File, error)
 	FindByMD5(ctx context.Context, md5 string) (*model.File, error)
-	FindBySecUID(ctx context.Context, secUID string) (*model.File, error)
+	FindByUID(ctx context.Context, uid string) (*model.File, error)
 	Update(ctx context.Context, file *model.File) error
 	Delete(ctx context.Context, id uint) error
 	List(ctx context.Context, filter model.FileFilter, offset, limit int, sort string) ([]model.File, int64, error)

@@ -16,7 +16,7 @@ func registerAuthRoutes(api *gin.RouterGroup, c *container.Container, authMw *mi
 		auth.POST("/login", h.Login)
 		auth.POST("/wx-login", h.WxLogin)
 		auth.POST("/refresh", h.RefreshToken)
-		auth.POST("/reset-password/:id", authMw.RequireAuth(), h.ResetPassword)
+		auth.POST("/reset-password/:uid", authMw.RequireAuth(), h.ResetPassword)
 		auth.POST("/logout", authMw.RequireAuth(), h.Logout)
 		auth.POST("/logout-all", authMw.RequireAuth(), h.LogoutAllDevices)
 	}

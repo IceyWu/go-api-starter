@@ -27,7 +27,7 @@ type OSSService struct {
 	multipartRepo repository.MultipartRepositoryInterface
 	config        *config.OSSConfig
 	appEnv        string
-	secUIDCache   sync.Map // userID -> secUID cache
+	uidCache   sync.Map // userID -> uid cache
 }
 
 // NewOSSService creates a new OSSService
@@ -57,12 +57,12 @@ func (s *OSSService) GetUploadTokenWithFileName(userID uint, fileName string) (*
 		ext = strings.ToLower(filepath.Ext(fileName))
 	}
 
-	userSecUID, err := s.getUserSecUID(userID)
+	userUID, err := s.getUserUID(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	key := s.generateFileKey(ext, userSecUID)
+	key := s.generateFileKey(ext, userUID)
 
 	// Directory prefix used by the policy's starts-with condition.
 	dir := ""
@@ -141,10 +141,10 @@ func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, u
 // File queries / updates
 // ======================
 
-// GetFileBySecUID returns a file by its SecUID.
-func (s *OSSService) GetFileBySecUID(secUID string) (*model.File, error) {
+// GetFileByUID returns a file by its UID.
+func (s *OSSService) GetFileByUID(uid string) (*model.File, error) {
 	var file model.File
-	if err := s.db.Preload("User").Where("sec_uid = ?", secUID).First(&file).Error; err != nil {
+	if err := s.db.Preload("User").Where("uid = ?", uid).First(&file).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, apperrors.NotFound("file not found")
 		}
@@ -154,8 +154,8 @@ func (s *OSSService) GetFileBySecUID(secUID string) (*model.File, error) {
 }
 
 // UpdateFile updates mutable fields (name / visibility) on a file.
-func (s *OSSService) UpdateFile(secUID string, req *model.UpdateFileRequest) error {
-	file, err := s.GetFileBySecUID(secUID)
+func (s *OSSService) UpdateFile(uid string, req *model.UpdateFileRequest) error {
+	file, err := s.GetFileByUID(uid)
 	if err != nil {
 		return err
 	}
@@ -199,8 +199,8 @@ func (s *OSSService) ListFiles(userID uint, isPrivate *bool, offset, limit int, 
 }
 
 // DeleteFile removes the file from OSS and deletes the DB record.
-func (s *OSSService) DeleteFile(secUID string) error {
-	file, err := s.GetFileBySecUID(secUID)
+func (s *OSSService) DeleteFile(uid string) error {
+	file, err := s.GetFileByUID(uid)
 	if err != nil {
 		return err
 	}
@@ -261,12 +261,12 @@ func (s *OSSService) InitMultipartUpload(fileName, md5 string, fileSize, chunkSi
 		}, nil
 	}
 
-	userSecUID, err := s.getUserSecUID(userID)
+	userUID, err := s.getUserUID(userID)
 	if err != nil {
 		return nil, err
 	}
 	ext := strings.ToLower(filepath.Ext(fileName))
-	key := s.generateFileKey(ext, userSecUID)
+	key := s.generateFileKey(ext, userUID)
 	contentType := inferContentType(ext)
 
 	initResp, err := oss.InitMultipartUpload(key, contentType)
@@ -405,24 +405,24 @@ func (s *OSSService) GetUploadedPartsFromDB(uploadID string) ([]CompletePart, er
 // Internal helpers
 // ======================
 
-// getUserSecUID returns the secUID of the given user, caching results in-memory.
-func (s *OSSService) getUserSecUID(userID uint) (string, error) {
+// getUserUID returns the UID of the given user, caching results in-memory.
+func (s *OSSService) getUserUID(userID uint) (string, error) {
 	if userID == 0 {
 		return "anonymous", nil
 	}
-	if v, ok := s.secUIDCache.Load(userID); ok {
+	if v, ok := s.uidCache.Load(userID); ok {
 		return v.(string), nil
 	}
 	var user model.User
-	if err := s.db.Select("sec_uid").First(&user, userID).Error; err != nil {
+	if err := s.db.Select("uid").First(&user, userID).Error; err != nil {
 		return "", apperrors.Internal(err, "failed to load user")
 	}
-	s.secUIDCache.Store(userID, user.SecUID)
-	return user.SecUID, nil
+	s.uidCache.Store(userID, user.UID)
+	return user.UID, nil
 }
 
-// generateFileKey builds an OSS object key like `<upload_dir>/<userSecUID>/<date>/<uuid>.<ext>`.
-func (s *OSSService) generateFileKey(ext, userSecUID string) string {
+// generateFileKey builds an OSS object key like `<upload_dir>/<userUID>/<date>/<uuid>.<ext>`.
+func (s *OSSService) generateFileKey(ext, userUID string) string {
 	dir := s.config.UploadDir
 	if dir == "" {
 		dir = "uploads"
@@ -432,8 +432,8 @@ func (s *OSSService) generateFileKey(ext, userSecUID string) string {
 	if ext != "" {
 		name += ext
 	}
-	if userSecUID != "" {
-		return dir + "/" + userSecUID + "/" + date + "/" + name
+	if userUID != "" {
+		return dir + "/" + userUID + "/" + date + "/" + name
 	}
 	return dir + "/" + date + "/" + name
 }

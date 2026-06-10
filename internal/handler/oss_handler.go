@@ -165,7 +165,7 @@ func (h *OSSHandler) UploadComplete(c *gin.Context) {
 
 	if req.IsPrivate != nil && *req.IsPrivate {
 		isPrivate := true
-		_ = h.service.UpdateFile(file.SecUID, &model.UpdateFileRequest{IsPrivate: &isPrivate})
+		_ = h.service.UpdateFile(file.UID, &model.UpdateFileRequest{IsPrivate: &isPrivate})
 		file.IsPrivate = true
 	}
 
@@ -174,20 +174,20 @@ func (h *OSSHandler) UploadComplete(c *gin.Context) {
 
 // GetFile godoc
 // @Summary 获取文件详情
-// @Description 根据 SecUID 获取文件信息
+// @Description 根据 UID 获取文件信息
 // @Tags 文件管理
 // @Accept json
 // @Produce json
-// @Param sec_uid path string true "文件 SecUID"
+// @Param uid path string true "文件 UID"
 // @Success 200 {object} response.Response{data=model.File}
 // @Failure 404 {object} response.Response
-// @Router /api/v1/file/{sec_uid} [get]
+// @Router /api/v1/file/{uid} [get]
 func (h *OSSHandler) GetFile(c *gin.Context) {
-	secUID, ok := GetSecUID(c)
+	uid, ok := GetUID(c)
 	if !ok {
 		return
 	}
-	file, err := h.service.GetFileBySecUID(secUID)
+	file, err := h.service.GetFileByUID(uid)
 	if err != nil {
 		c.Error(err)
 		return
@@ -203,7 +203,7 @@ func (h *OSSHandler) GetFile(c *gin.Context) {
 // @Param page query int false "页码（默认 1）"
 // @Param page_size query int false "每页数量（默认 10）"
 // @Param sort query string false "排序（如 created_at,desc）"
-// @Param user_sec_uid query string false "按用户 SecUID 筛选"
+// @Param user_uid query string false "按用户 UID 筛选"
 // @Param is_private query bool false "是否仅返回私密文件（需认证）"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file [get]
@@ -214,8 +214,8 @@ func (h *OSSHandler) ListFiles(c *gin.Context) {
 	}
 
 	var userID uint
-	if secUID := c.Query("user_sec_uid"); secUID != "" {
-		user, err := h.userService.GetBySecUID(c.Request.Context(), secUID)
+	if uid := c.Query("user_uid"); uid != "" {
+		user, err := h.userService.GetByUID(c.Request.Context(), uid)
 		if err != nil {
 			c.Error(err)
 			return
@@ -257,15 +257,15 @@ func (h *OSSHandler) ListFiles(c *gin.Context) {
 // @Tags 文件管理
 // @Produce json
 // @Security BearerAuth
-// @Param sec_uid path string true "文件 SecUID"
+// @Param uid path string true "文件 UID"
 // @Success 200 {object} response.Response
-// @Router /api/v1/file/{sec_uid} [delete]
+// @Router /api/v1/file/{uid} [delete]
 func (h *OSSHandler) DeleteFile(c *gin.Context) {
-	secUID, ok := GetSecUID(c)
+	uid, ok := GetUID(c)
 	if !ok {
 		return
 	}
-	if err := h.service.DeleteFile(secUID); err != nil {
+	if err := h.service.DeleteFile(uid); err != nil {
 		c.Error(err)
 		return
 	}
@@ -278,12 +278,12 @@ func (h *OSSHandler) DeleteFile(c *gin.Context) {
 // @Tags 文件管理
 // @Accept json
 // @Produce json
-// @Param sec_uid path string true "文件 SecUID"
+// @Param uid path string true "文件 UID"
 // @Param request body model.UpdateFileRequest true "更新请求"
 // @Success 200 {object} response.Response{data=model.File}
-// @Router /api/v1/file/{sec_uid} [put]
+// @Router /api/v1/file/{uid} [put]
 func (h *OSSHandler) UpdateFile(c *gin.Context) {
-	secUID, ok := GetSecUID(c)
+	uid, ok := GetUID(c)
 	if !ok {
 		return
 	}
@@ -296,7 +296,7 @@ func (h *OSSHandler) UpdateFile(c *gin.Context) {
 
 	userID := GetOptionalUserID(c)
 
-	file, err := h.service.GetFileBySecUID(secUID)
+	file, err := h.service.GetFileByUID(uid)
 	if err != nil {
 		c.Error(err)
 		return
@@ -305,12 +305,12 @@ func (h *OSSHandler) UpdateFile(c *gin.Context) {
 		c.Error(apperrors.Forbidden("you don't have permission to update this file"))
 		return
 	}
-	if err := h.service.UpdateFile(secUID, &req); err != nil {
+	if err := h.service.UpdateFile(uid, &req); err != nil {
 		c.Error(err)
 		return
 	}
 
-	file, err = h.service.GetFileBySecUID(secUID)
+	file, err = h.service.GetFileByUID(uid)
 	if err != nil {
 		c.Error(err)
 		return

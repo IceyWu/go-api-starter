@@ -29,15 +29,15 @@ func GetOptionalUserID(c *gin.Context) uint {
 	return 0
 }
 
-// GetSecUID extracts sec_uid path parameter.
+// GetUID extracts uid path parameter.
 // Returns empty string and sets an error if missing.
-func GetSecUID(c *gin.Context) (string, bool) {
-	secUID := c.Param("sec_uid")
-	if secUID == "" {
-		c.Error(apperrors.BadRequest("invalid sec_uid"))
+func GetUID(c *gin.Context) (string, bool) {
+	uid := c.Param("uid")
+	if uid == "" {
+		c.Error(apperrors.BadRequest("invalid uid"))
 		return "", false
 	}
-	return secUID, true
+	return uid, true
 }
 
 // GetIDParam extracts and parses a uint path parameter by name.

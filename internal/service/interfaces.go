@@ -25,7 +25,7 @@ type AuthServiceInterface interface {
 type UserServiceInterface interface {
 	Create(ctx context.Context, req *model.CreateUserRequest) (*model.User, error)
 	GetByID(ctx context.Context, id uint) (*model.User, error)
-	GetBySecUID(ctx context.Context, secUID string) (*model.User, error)
+	GetByUID(ctx context.Context, uid string) (*model.User, error)
 	List(ctx context.Context, offset, limit int, sort string) ([]model.User, int64, error)
 	Update(ctx context.Context, id uint, req *model.UpdateUserRequest) (*model.User, error)
 	Delete(ctx context.Context, id uint) error
@@ -75,11 +75,11 @@ type OSSServiceInterface interface {
 	CheckFileExists(md5 string, userID uint) (*model.File, bool)
 	SaveFileRecord(key, md5, fileName string, fileSize int64, userID uint) (*model.File, error)
 
-	// File operations (all use sec_uid)
-	GetFileBySecUID(secUID string) (*model.File, error)
-	UpdateFile(secUID string, req *model.UpdateFileRequest) error
+	// File operations (all use uid)
+	GetFileByUID(uid string) (*model.File, error)
+	UpdateFile(uid string, req *model.UpdateFileRequest) error
 	ListFiles(userID uint, isPrivate *bool, offset, limit int, sort string) ([]model.File, int64, error)
-	DeleteFile(secUID string) error
+	DeleteFile(uid string) error
 
 	// Multipart upload operations
 	InitMultipartUpload(fileName string, md5 string, fileSize int64, chunkSize int64, userID uint) (*MultipartInitResult, error)

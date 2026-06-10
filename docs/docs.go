@@ -251,7 +251,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/auth/reset-password/{id}": {
+        "/api/v1/auth/reset-password/{uid}": {
             "post": {
                 "security": [
                     {
@@ -271,9 +271,9 @@ const docTemplate = `{
                 "summary": "重置用户密码（管理员）",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "用户ID",
-                        "name": "id",
+                        "type": "string",
+                        "description": "用户 UID",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     },
@@ -304,6 +304,91 @@ const docTemplate = `{
                         "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/wx-login": {
+            "post": {
+                "description": "微信一键登录/注册接口。传入 js_code + phone_code，自动完成 openid 获取、手机号解析、用户查找或创建、签发 JWT，一步到位",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "微信小程序登录",
+                "parameters": [
+                    {
+                        "description": "微信登录请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.WxLoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.WxLoginResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "手机号已绑定其他微信号",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/bot/status": {
+            "get": {
+                "description": "返回当前 WebSocket 客户端是否已连接",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebSocket"
+                ],
+                "summary": "查询 WebSocket 连接状态",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -340,8 +425,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "按用户 SecUID 筛选",
-                        "name": "user_sec_uid",
+                        "description": "按用户 UID 筛选",
+                        "name": "user_uid",
                         "in": "query"
                     },
                     {
@@ -553,9 +638,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/file/{sec_uid}": {
+        "/api/v1/file/{uid}": {
             "get": {
-                "description": "根据 SecUID 获取文件信息",
+                "description": "根据 UID 获取文件信息",
                 "consumes": [
                     "application/json"
                 ],
@@ -569,8 +654,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "文件 SecUID",
-                        "name": "sec_uid",
+                        "description": "文件 UID",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }
@@ -617,8 +702,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "文件 SecUID",
-                        "name": "sec_uid",
+                        "description": "文件 UID",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     },
@@ -670,8 +755,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "文件 SecUID",
-                        "name": "sec_uid",
+                        "description": "文件 UID",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }
@@ -1564,9 +1649,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/users/{sec_uid}": {
+        "/api/v1/users/{uid}": {
             "get": {
-                "description": "根据 SecUID 获取用户信息",
+                "description": "根据 UID 获取用户信息",
                 "produces": [
                     "application/json"
                 ],
@@ -1577,8 +1662,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "用户 SecUID",
-                        "name": "sec_uid",
+                        "description": "用户 UID",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }
@@ -1611,7 +1696,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "根据 SecUID 更新用户",
+                "description": "根据 UID 更新用户",
                 "consumes": [
                     "application/json"
                 ],
@@ -1625,8 +1710,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "用户 SecUID",
-                        "name": "sec_uid",
+                        "description": "用户 UID",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     },
@@ -1682,8 +1767,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "用户 SecUID",
-                        "name": "sec_uid",
+                        "description": "用户 UID",
+                        "name": "uid",
                         "in": "path",
                         "required": true
                     }
@@ -1880,7 +1965,7 @@ const docTemplate = `{
         "model.AvatarFileResponse": {
             "type": "object",
             "properties": {
-                "sec_uid": {
+                "uid": {
                     "type": "string"
                 },
                 "url": {
@@ -2019,14 +2104,14 @@ const docTemplate = `{
                 "path": {
                     "type": "string"
                 },
-                "sec_uid": {
-                    "type": "string"
-                },
                 "size": {
                     "type": "integer"
                 },
                 "type": {
                     "description": "MIME type",
+                    "type": "string"
+                },
+                "uid": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -2465,11 +2550,11 @@ const docTemplate = `{
         "model.UpdateUserRequest": {
             "type": "object",
             "properties": {
-                "avatar_sec_uid": {
+                "avatar_uid": {
                     "type": "string",
                     "example": "abc123"
                 },
-                "background_sec_uid": {
+                "background_uid": {
                     "type": "string",
                     "example": "def456"
                 },
@@ -2579,8 +2664,8 @@ const docTemplate = `{
                     "description": "手机号，可选",
                     "type": "string"
                 },
-                "sec_uid": {
-                    "description": "安全标识符，对外暴露",
+                "open_id": {
+                    "description": "微信 OpenID",
                     "type": "string"
                 },
                 "sex": {
@@ -2588,6 +2673,10 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "signature": {
+                    "type": "string"
+                },
+                "uid": {
+                    "description": "对外唯一标识",
                     "type": "string"
                 },
                 "updated_at": {
@@ -2644,13 +2733,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "sec_uid": {
-                    "type": "string"
-                },
                 "sex": {
                     "type": "integer"
                 },
                 "signature": {
+                    "type": "string"
+                },
+                "uid": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -2661,6 +2750,64 @@ const docTemplate = `{
                 },
                 "website": {
                     "type": "string"
+                }
+            }
+        },
+        "model.WxLoginRequest": {
+            "type": "object",
+            "properties": {
+                "js_code": {
+                    "description": "wx.login() 返回的 code（首次必传）",
+                    "type": "string",
+                    "example": "0a1b2c3d4e"
+                },
+                "mobile": {
+                    "description": "绑定手机号（手动输入，可选）",
+                    "type": "string",
+                    "example": "13800138000"
+                },
+                "open_id": {
+                    "description": "绑定阶段传入",
+                    "type": "string",
+                    "example": "oXXXX"
+                },
+                "phone_code": {
+                    "description": "getPhoneNumber 按钮返回的 code（推荐方式）",
+                    "type": "string",
+                    "example": "xxx"
+                }
+            }
+        },
+        "model.WxLoginResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "description": "登录成功时返回",
+                    "type": "string"
+                },
+                "expires_in": {
+                    "description": "access_token 过期时间（秒）",
+                    "type": "integer"
+                },
+                "need_bind": {
+                    "description": "true 表示新用户需要绑定手机号",
+                    "type": "boolean"
+                },
+                "open_id": {
+                    "description": "need_bind=true 时返回",
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "description": "登录成功时返回",
+                    "type": "string"
+                },
+                "user": {
+                    "description": "登录成功时返回",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.UserResponse"
+                        }
+                    ]
                 }
             }
         },
@@ -2697,7 +2844,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Go API Starter",
-	Description:      "A RESTful API starter with Go, Gin, and GORM\n\n**LLMs 入口：**\n- [llms.txt](/llms.txt) - AI 可读接口概览\n- [llms-full.txt](/llms-full.txt) - AI 可读完整文档",
+	Description:      "A RESTful API starter with Go, Gin, and GORM\n\n**WebSocket：**\n- `GET /ws` — WebSocket 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证\n- 消息格式：`{\"type\":\"...\", \"id\":\"...\", \"data\":{...}}`\n- 下行指令：`send_text_msg`、`get_group_list`、`ping`\n- 上行消息：`ack`、`review`、`pong`\n\n**LLMs 入口：**\n- [llms.txt](/llms.txt) - AI 可读接口概览\n- [llms-full.txt](/llms-full.txt) - AI 可读完整文档",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

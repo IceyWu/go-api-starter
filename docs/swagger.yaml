@@ -696,8 +696,7 @@ definitions:
 host: localhost:9527
 info:
   contact: {}
-  description: |-
-    A RESTful API starter with Go, Gin, and GORM
+  description: |2-
 
     **WebSocket：**
     - `GET /ws` — WebSocket 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证
@@ -710,6 +709,9 @@ info:
     - [llms-full.txt](/llms-full.txt) - AI 可读完整文档
   title: Go API Starter
   version: "1.0"
+  x-logo:
+    altText: Go API Starter
+    url: /logo.svg
 paths:
   /api/v1/auth/login:
     post:
@@ -931,20 +933,6 @@ paths:
       summary: 微信小程序登录
       tags:
       - 认证
-  /api/v1/bot/status:
-    get:
-      description: 返回当前 WebSocket 客户端是否已连接
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-      summary: 查询 WebSocket 连接状态
-      tags:
-      - WebSocket
   /api/v1/file:
     get:
       description: 获取文件分页列表，未登录只返回公开文件
@@ -1799,6 +1787,20 @@ paths:
       summary: 更新当前用户信息
       tags:
       - 用户管理
+  /api/v1/ws/status:
+    get:
+      description: 返回当前 WebSocket 客户端是否已连接
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 查询 WebSocket 连接状态
+      tags:
+      - WebSocket
   /health:
     get:
       description: 获取服务健康状态

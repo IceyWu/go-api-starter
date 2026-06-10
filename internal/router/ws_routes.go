@@ -13,7 +13,7 @@ func registerWsRoutes(r *gin.Engine, c *container.Container) {
 	r.GET("/ws", ws.Handler(c.WsHub(), apiKey))
 
 	// Bot 状态查询
-	r.GET("/api/v1/bot/status", botStatus(c))
+	r.GET("/api/v1/ws/status", botStatus(c))
 }
 
 // botStatus godoc
@@ -22,7 +22,7 @@ func registerWsRoutes(r *gin.Engine, c *container.Container) {
 // @Tags WebSocket
 // @Produce json
 // @Success 200 {object} map[string]interface{}
-// @Router /api/v1/bot/status [get]
+// @Router /api/v1/ws/status [get]
 func botStatus(c *container.Container) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		connected := c.WsHub().IsConnected()

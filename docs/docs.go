@@ -10,7 +10,11 @@ const docTemplate = `{
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
         "contact": {},
-        "version": "{{.Version}}"
+        "version": "{{.Version}}",
+        "x-logo": {
+            "altText": "Go API Starter",
+            "url": "/logo.svg"
+        }
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
@@ -368,27 +372,6 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/bot/status": {
-            "get": {
-                "description": "返回当前 WebSocket 客户端是否已连接",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "WebSocket"
-                ],
-                "summary": "查询 WebSocket 连接状态",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
                         }
                     }
                 }
@@ -1786,6 +1769,27 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/ws/status": {
+            "get": {
+                "description": "返回当前 WebSocket 客户端是否已连接",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "WebSocket"
+                ],
+                "summary": "查询 WebSocket 连接状态",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "description": "获取服务健康状态",
@@ -2844,7 +2848,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Go API Starter",
-	Description:      "A RESTful API starter with Go, Gin, and GORM\n\n**WebSocket：**\n- `GET /ws` — WebSocket 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证\n- 消息格式：`{\"type\":\"...\", \"id\":\"...\", \"data\":{...}}`\n- 下行指令：`send_text_msg`、`get_group_list`、`ping`\n- 上行消息：`ack`、`review`、`pong`\n\n**LLMs 入口：**\n- [llms.txt](/llms.txt) - AI 可读接口概览\n- [llms-full.txt](/llms-full.txt) - AI 可读完整文档",
+	Description:      "\n**WebSocket：**\n- `GET /ws` — WebSocket 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证\n- 消息格式：`{\"type\":\"...\", \"id\":\"...\", \"data\":{...}}`\n- 下行指令：`send_text_msg`、`get_group_list`、`ping`\n- 上行消息：`ack`、`review`、`pong`\n\n**LLMs 入口：**\n- [llms.txt](/llms.txt) - AI 可读接口概览\n- [llms-full.txt](/llms-full.txt) - AI 可读完整文档",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

@@ -24,6 +24,7 @@ import (
 // @title Go API Starter
 // @version 1.0
 // @description A RESTful API starter with Go, Gin, and GORM
+// @x-logo {"url": "/logo.svg", "altText": "Go API Starter"}
 // @description
 // @description **WebSocket：**
 // @description - `GET /ws` — WebSocket 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证

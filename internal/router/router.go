@@ -72,6 +72,10 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	r.GET("/health", c.HealthHandler().Health)
 	r.GET("/health/ready", c.HealthHandler().Ready)
 
+	// Static files (logo, favicon)
+	r.StaticFile("/logo.svg", "./public/logo.svg")
+	r.StaticFile("/favicon.ico", "./public/favicon.ico")
+
 	// API routes
 	api := r.Group("/api/v1")
 

@@ -32,6 +32,8 @@
 - 🚫 **Token Blacklist** — 登出 / 批量失效（需 Redis）
 - 🔴 **Redis + 内存降级** — Redis 不可用时自动回退到内存缓存
 - ☁️ **OSS 文件管理** — 直传 token、分片上传、秒传（MD5）
+- 🌐 **WebSocket Hub** — 通用长连接管理（心跳、指令/ack、认证）
+- 💬 **微信小程序登录** — code2session + 手机号授权 + 自动注册绑定
 
 ## 🛠️ 技术栈
 
@@ -44,6 +46,7 @@
 | 日志 | [Zap](https://github.com/uber-go/zap) |
 | API 文档 | [swag](https://github.com/swaggo/swag) + [gin-swagger](https://github.com/swaggo/gin-swagger) |
 | 对象存储 | [Aliyun OSS](https://github.com/aliyun/aliyun-oss-go-sdk) |
+| WebSocket | [gorilla/websocket](https://github.com/gorilla/websocket) |
 | 限流 | [golang.org/x/time](https://pkg.go.dev/golang.org/x/time) + Redis 滑动窗口 |
 | 缓存 | [go-redis](https://github.com/redis/go-redis) |
 | 验证器 | [validator](https://github.com/go-playground/validator) |
@@ -111,6 +114,7 @@ go-api-starter/
 ├── cmd/server/                 # 应用入口
 ├── config/config.yaml          # 主配置（可被 env 覆盖）
 ├── docs/                       # Swagger 自动生成
+├── public/                     # 静态文件（logo、favicon）
 ├── internal/
 │   ├── config/                 # 配置加载
 │   ├── container/              # DI 容器
@@ -120,7 +124,8 @@ go-api-starter/
 │   ├── repository/             # 数据访问层
 │   ├── router/                 # 路由注册（按模块）
 │   ├── seed/                   # 权限/管理员种子
-│   └── service/                # 业务逻辑
+│   ├── service/                # 业务逻辑
+│   └── ws/                     # WebSocket Hub（连接管理、协议）
 ├── pkg/
 │   ├── apperrors/              # 应用错误
 │   ├── auth/                   # JWT / Argon2
@@ -152,6 +157,7 @@ go-api-starter/
 | http://localhost:9527/swagger/doc.json | OpenAPI JSON |
 | http://localhost:9527/llms.txt | LLMs.txt（AI 可读接口概览） |
 | http://localhost:9527/llms-full.txt | LLMs-full.txt（AI 可读完整文档） |
+| ws://localhost:9527/ws | WebSocket 长连接入口 |
 
 文档接口由 `DOCS_USER` / `DOCS_PASSWORD` 做 Basic Auth 保护。
 
@@ -177,8 +183,9 @@ go-api-starter/
 |--------|----------|-------------|
 | `POST` | `/api/v1/auth/register` | 注册 |
 | `POST` | `/api/v1/auth/login` | 登录 |
+| `POST` | `/api/v1/auth/wx-login` | 微信小程序登录 |
 | `POST` | `/api/v1/auth/refresh` | 刷新访问令牌 |
-| `POST` | `/api/v1/auth/reset-password/:id` | 管理员重置密码 |
+| `POST` | `/api/v1/auth/reset-password/:uid` | 管理员重置密码 |
 | `POST` | `/api/v1/auth/logout` | 登出（需 Redis） |
 | `POST` | `/api/v1/auth/logout-all` | 登出所有设备（需 Redis） |
 
@@ -188,11 +195,11 @@ go-api-starter/
 |--------|----------|-------------|
 | `GET` | `/api/v1/users/me` | 当前用户信息 |
 | `PUT` | `/api/v1/users/me` | 更新当前用户 |
-| `GET` | `/api/v1/users/:sec_uid` | 查看用户 |
+| `GET` | `/api/v1/users/:uid` | 查看用户 |
 | `POST` | `/api/v1/users` | 创建（需权限） |
 | `GET` | `/api/v1/users` | 列表（需权限） |
-| `PUT` | `/api/v1/users/:sec_uid` | 更新（需权限） |
-| `DELETE` | `/api/v1/users/:sec_uid` | 删除（需权限） |
+| `PUT` | `/api/v1/users/:uid` | 更新（需权限） |
+| `DELETE` | `/api/v1/users/:uid` | 删除（需权限） |
 
 ### 权限（RBAC）
 
@@ -202,7 +209,7 @@ go-api-starter/
 | `GET` / `POST` | `/api/v1/permissions/permissions` | 权限 |
 | `GET` / `POST` | `/api/v1/permissions/roles` | 角色 |
 | `POST` | `/api/v1/permissions/roles/:id/permissions` | 为角色分配权限 |
-| `POST` | `/api/v1/permissions/users/:sec_uid/roles` | 为用户分配角色 |
+| `POST` | `/api/v1/permissions/users/:uid/roles` | 为用户分配角色 |
 | `GET` | `/api/v1/permissions/me/permissions` | 我的权限 |
 
 ### 文件 / OSS
@@ -215,9 +222,33 @@ go-api-starter/
 | `POST` | `/api/v1/file/upload/complete` | 完成上传并落库 |
 | `POST` | `/api/v1/file/upload/abort` | 中止分片上传 |
 | `GET` | `/api/v1/file` | 文件列表 |
-| `GET` | `/api/v1/file/:sec_uid` | 文件详情 |
-| `PUT` | `/api/v1/file/:sec_uid` | 更新（名称 / 可见性） |
-| `DELETE` | `/api/v1/file/:sec_uid` | 删除 |
+| `GET` | `/api/v1/file/:uid` | 文件详情 |
+| `PUT` | `/api/v1/file/:uid` | 更新（名称 / 可见性） |
+| `DELETE` | `/api/v1/file/:uid` | 删除 |
+
+### WebSocket
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/ws` | WebSocket 长连接入口（query `key` 或 header `X-API-Key` 认证） |
+| `GET` | `/api/v1/ws/status` | 查询连接状态 |
+
+#### 协议格式
+
+```json
+{"type": "send_text_msg", "id": "uuid", "data": {"wxid": "xxx", "msg": "hello"}}
+```
+
+- **下行指令**：`send_text_msg`、`get_group_list`、`ping`
+- **上行消息**：`ack`（指令响应）、`review`（审核回调）、`pong`
+
+### 微信小程序登录
+
+`POST /api/v1/auth/wx-login` 一个接口完成登录全流程：
+
+1. 传 `js_code` → 获取 openid → 已有用户直接返回 JWT，新用户返回 `need_bind: true`
+2. 传 `js_code` + `phone_code` → 一步完成注册绑定（推荐）
+3. 传 `open_id` + `phone_code` / `mobile` → 分步绑定（兼容）
 
 ### 上传流程说明
 
@@ -254,6 +285,10 @@ go-api-starter/
 | `ALICLOUD_ACCESS_KEY_SECRET` | OSS AccessKey Secret | — |
 | `ALICLOUD_OSS_UPLOAD_DIR` | 上传目录前缀 | `go_oss` |
 | `OSS_DOMAIN` | 自定义 CDN 域名 | — |
+| `WX_APPID` | 微信小程序 AppID | — |
+| `WX_SECRET` | 微信小程序 AppSecret | — |
+| `WS_KEY` | WebSocket 连接认证 Key | — |
+| `DEFAULT_USER_PASSWORD` | 微信注册用户默认密码 | `123456` |
 
 ### 生产环境强制校验
 
@@ -264,5 +299,7 @@ go-api-starter/
 - OSS endpoint 配置后：AccessKey / Bucket 必须配置
 
 ## 📜 License
+
+> **UID 规范**：所有对外接口统一使用 `uid`（22 字符 URL-safe base64）作为资源标识，不暴露数字自增 ID。
 
 MIT License

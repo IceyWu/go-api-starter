@@ -81,3 +81,12 @@ rate_limit:
   upload_per_minute: 120
   fallback_rps: 100
   fallback_burst: 200
+
+# WeChat Mini-Program
+wechat:
+  appid: ""    # 微信小程序 AppID
+  secret: ""   # 微信小程序 AppSecret
+
+# WebSocket
+ws:
+  key: ""      # /ws/bot 连接认证 Key

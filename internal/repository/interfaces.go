@@ -11,8 +11,10 @@ type UserRepositoryInterface interface {
 	Create(ctx context.Context, user *model.User) error
 	FindAll(ctx context.Context, offset, limit int, sort string) ([]model.User, int64, error)
 	FindByID(ctx context.Context, id uint) (*model.User, error)
+	FindByIDs(ctx context.Context, ids []uint) ([]model.User, error)
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
 	FindByMobile(ctx context.Context, mobile string) (*model.User, error)
+	FindByOpenID(ctx context.Context, openID string) (*model.User, error)
 	FindBySecUID(ctx context.Context, secUID string) (*model.User, error)
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
 	FindByLPID(ctx context.Context, lpID string) (*model.User, error)

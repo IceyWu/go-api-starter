@@ -60,6 +60,16 @@ func (r *UserRepository) FindByID(ctx context.Context, id uint) (*model.User, er
 	return &user, err
 }
 
+// FindByIDs 批量查询用户
+func (r *UserRepository) FindByIDs(ctx context.Context, ids []uint) ([]model.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var users []model.User
+	err := r.db.WithContext(ctx).Where("id IN ?", ids).Find(&users).Error
+	return users, err
+}
+
 // FindByEmail finds a user by email
 func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
 	var user model.User
@@ -82,6 +92,20 @@ func (r *UserRepository) FindByMobile(ctx context.Context, mobile string) (*mode
 		Preload("BackgroundFile").
 		Preload("Roles").
 		Where("mobile = ?", mobile).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrUserNotFound
+	}
+	return &user, err
+}
+
+// FindByOpenID finds a user by WeChat OpenID
+func (r *UserRepository) FindByOpenID(ctx context.Context, openID string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).
+		Preload("AvatarFile").
+		Preload("BackgroundFile").
+		Preload("Roles").
+		Where("open_id = ?", openID).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrUserNotFound
 	}

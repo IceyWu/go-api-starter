@@ -2,6 +2,7 @@ package container
 
 import (
 	"go-api-starter/internal/handler"
+	"go-api-starter/internal/service"
 )
 
 // ========== Handler Getters ==========
@@ -9,6 +10,8 @@ import (
 func (c *Container) AuthHandler() *handler.AuthHandler {
 	c.authHandlerOnce.Do(func() {
 		c.authHandler = handler.NewAuthHandler(c.AuthService())
+		// Wire up optional WechatService
+		c.authHandler.SetWechatService(c.WechatLoginService())
 	})
 	return c.authHandler
 }
@@ -41,4 +44,9 @@ func (c *Container) HealthHandler() *handler.HealthHandler {
 		c.healthHandler = handler.NewHealthHandler(c.db, "1.0.0", c.CacheBackend())
 	})
 	return c.healthHandler
+}
+
+// WechatLoginService returns the WeChat mini-program login service.
+func (c *Container) WechatLoginService() *service.WechatService {
+	return service.NewWechatService(&c.config.Wechat, c.config.App.DefaultUserPassword, c.UserRepository(), c.JWTManager())
 }

@@ -81,6 +81,9 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	registerFileRoutes(api, c, authMw)
 	registerPermissionRoutes(api, c, authMw, permMw)
 
+	// WebSocket route
+	registerWsRoutes(r, c)
+
 	// Documentation routes (protected by Basic Auth)
 	docs.SwaggerInfo.BasePath = "/"
 	docs.SwaggerInfo.Host = ""

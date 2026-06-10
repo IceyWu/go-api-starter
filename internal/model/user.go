@@ -21,6 +21,7 @@ type User struct {
 	Username         *string `json:"username,omitempty" gorm:"size:100;index"`    // 用户账号
 	Mobile           *string `json:"mobile,omitempty" gorm:"size:20;uniqueIndex"` // 手机号，可选
 	Email            *string `json:"email,omitempty" gorm:"size:50;uniqueIndex"`  // 邮箱，可选
+	OpenID           *string `json:"open_id,omitempty" gorm:"size:64;uniqueIndex"` // 微信 OpenID
 	Password         *string `json:"-" gorm:"size:255"`                           // Password hash, not exposed in JSON
 	AvatarFileID     *uint   `json:"-" gorm:"index"`                              // 头像文件ID
 	BackgroundFileID *uint   `json:"-" gorm:"index"`                              // 背景文件ID

@@ -12,8 +12,10 @@ import (
 	"go-api-starter/pkg/response"
 )
 
+
 type AuthHandler struct {
-	authService service.AuthServiceInterface
+	authService   service.AuthServiceInterface
+	wechatService *service.WechatService
 }
 
 // NewAuthHandler creates a new AuthHandler
@@ -21,6 +23,11 @@ func NewAuthHandler(authService service.AuthServiceInterface) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
 	}
+}
+
+// SetWechatService sets the wechat service (optional dependency)
+func (h *AuthHandler) SetWechatService(ws *service.WechatService) {
+	h.wechatService = ws
 }
 
 // Register godoc
@@ -206,4 +213,38 @@ func (h *AuthHandler) LogoutAllDevices(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{"message": "已登出所有设备"})
+}
+
+// WxLogin godoc
+// @Summary 微信小程序登录
+// @Description 微信一键登录/注册接口。传入 js_code + phone_code，自动完成 openid 获取、手机号解析、用户查找或创建、签发 JWT，一步到位
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body model.WxLoginRequest true "微信登录请求"
+// @Success 200 {object} response.Response{data=model.WxLoginResponse}
+// @Failure 400 {object} response.Response
+// @Failure 409 {object} response.Response "手机号已绑定其他微信号"
+// @Failure 500 {object} response.Response
+// @Router /api/v1/auth/wx-login [post]
+func (h *AuthHandler) WxLogin(c *gin.Context) {
+	if h.wechatService == nil {
+		c.Error(apperrors.InternalCode(nil, i18n.ErrWechatNotConfigured))
+		return
+	}
+
+	var req model.WxLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(apperrors.BadRequest(err.Error()))
+		return
+	}
+
+	ctx := c.Request.Context()
+	loginResp, err := h.wechatService.Login(ctx, &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, loginResp)
 }

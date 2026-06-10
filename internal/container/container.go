@@ -13,6 +13,7 @@ import (
 	"go-api-starter/internal/middleware"
 	"go-api-starter/internal/repository"
 	"go-api-starter/internal/service"
+	"go-api-starter/internal/ws"
 	"go-api-starter/pkg/auth"
 	"go-api-starter/pkg/cache"
 )
@@ -92,6 +93,10 @@ type Container struct {
 	// JWT manager
 	jwtManager     *auth.JWTManager
 	jwtManagerOnce sync.Once
+
+	// WebSocket hub
+	wsHub     *ws.Hub
+	wsHubOnce sync.Once
 }
 
 // NewContainer creates a new dependency injection container
@@ -275,6 +280,14 @@ func (c *Container) RateLimiter() *middleware.RedisRateLimiter {
 		c.rateLimiter = middleware.NewRedisRateLimiter(c.CacheBackend(), 100, time.Minute)
 	})
 	return c.rateLimiter
+}
+
+// WsHub returns the WebSocket hub singleton
+func (c *Container) WsHub() *ws.Hub {
+	c.wsHubOnce.Do(func() {
+		c.wsHub = ws.NewHub()
+	})
+	return c.wsHub
 }
 
 // Close closes all resources

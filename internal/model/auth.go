@@ -62,4 +62,23 @@ type SelfResetPasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required,min=6" example:"newpassword123"`
 }
 
+// WxLoginRequest 微信小程序登录请求
+// 第一次传 js_code 换 openid；返回 need_bind=true 时，第二次传 open_id + phone_code 完成绑定
+type WxLoginRequest struct {
+	JsCode    string  `json:"js_code" binding:"omitempty" example:"0a1b2c3d4e"`        // wx.login() 返回的 code（首次必传）
+	OpenID    *string `json:"open_id" binding:"omitempty" example:"oXXXX"`             // 绑定阶段传入
+	Mobile    *string `json:"mobile" binding:"omitempty,len=11" example:"13800138000"` // 绑定手机号（手动输入，可选）
+	PhoneCode string  `json:"phone_code" binding:"omitempty" example:"xxx"`            // getPhoneNumber 按钮返回的 code（推荐方式）
+}
+
+// WxLoginResponse 微信登录响应
+type WxLoginResponse struct {
+	NeedBind     bool          `json:"need_bind"`               // true 表示新用户需要绑定手机号
+	OpenID       *string       `json:"open_id,omitempty"`       // need_bind=true 时返回
+	AccessToken  string        `json:"access_token,omitempty"`  // 登录成功时返回
+	RefreshToken string        `json:"refresh_token,omitempty"` // 登录成功时返回
+	ExpiresIn    int64         `json:"expires_in,omitempty"`    // access_token 过期时间（秒）
+	User         *UserResponse `json:"user,omitempty"`          // 登录成功时返回
+}
+
 

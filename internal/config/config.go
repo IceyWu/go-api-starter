@@ -21,6 +21,19 @@ type Config struct {
 	Redis     RedisConfig     `mapstructure:"redis"`
 	CORS      CORSConfig      `mapstructure:"cors"`
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
+	Wechat    WechatConfig    `mapstructure:"wechat"`
+	WS        WebSocketConfig `mapstructure:"ws"`
+}
+
+// WechatConfig holds WeChat mini-program credentials.
+type WechatConfig struct {
+	AppID  string `mapstructure:"appid"`  // 微信小程序 AppID
+	Secret string `mapstructure:"secret"` // 微信小程序 AppSecret
+}
+
+// WebSocketConfig holds WebSocket server settings.
+type WebSocketConfig struct {
+	Key string `mapstructure:"key"` // 连接认证 Key
 }
 
 // CORSConfig holds CORS middleware configuration.
@@ -44,16 +57,17 @@ type RateLimitConfig struct {
 
 // AppConfig holds basic application settings.
 type AppConfig struct {
-	Name             string `mapstructure:"name"`
-	Env              string `mapstructure:"env"`
-	JWTSecret        string `mapstructure:"jwt_secret"`
-	AccessTokenDays  int    `mapstructure:"access_token_days"`
-	RefreshTokenDays int    `mapstructure:"refresh_token_days"`
-	UsernamePrefix   string `mapstructure:"username_prefix"`
-	AdminEmail       string `mapstructure:"admin_email"`
-	AdminPassword    string `mapstructure:"admin_password"`
-	DocsUser         string `mapstructure:"docs_user"`
-	DocsPassword     string `mapstructure:"docs_password"`
+	Name                string `mapstructure:"name"`
+	Env                 string `mapstructure:"env"`
+	JWTSecret           string `mapstructure:"jwt_secret"`
+	AccessTokenDays     int    `mapstructure:"access_token_days"`
+	RefreshTokenDays    int    `mapstructure:"refresh_token_days"`
+	UsernamePrefix      string `mapstructure:"username_prefix"`
+	AdminEmail          string `mapstructure:"admin_email"`
+	AdminPassword       string `mapstructure:"admin_password"`
+	DocsUser            string `mapstructure:"docs_user"`
+	DocsPassword        string `mapstructure:"docs_password"`
+	DefaultUserPassword string `mapstructure:"default_user_password"`
 }
 
 // ServerConfig holds HTTP server settings.
@@ -206,6 +220,7 @@ func bindEnvVariables() {
 	viper.BindEnv("app.admin_password", "ADMIN_PASSWORD")
 	viper.BindEnv("app.docs_user", "DOCS_USER")
 	viper.BindEnv("app.docs_password", "DOCS_PASSWORD")
+	viper.BindEnv("app.default_user_password", "DEFAULT_USER_PASSWORD")
 
 	viper.BindEnv("server.host", "SERVER_HOST")
 	viper.BindEnv("server.port", "SERVER_PORT")
@@ -243,6 +258,11 @@ func bindEnvVariables() {
 	viper.BindEnv("cors.allow_methods", "CORS_ALLOW_METHODS")
 	viper.BindEnv("cors.allow_headers", "CORS_ALLOW_HEADERS")
 
+	viper.BindEnv("wechat.appid", "WX_APPID")
+	viper.BindEnv("wechat.secret", "WX_SECRET")
+
+	viper.BindEnv("ws.key", "WS_KEY")
+
 	viper.BindEnv("rate_limit.global_per_minute", "RATE_LIMIT_GLOBAL_PER_MINUTE")
 	viper.BindEnv("rate_limit.user_per_minute", "RATE_LIMIT_USER_PER_MINUTE")
 	viper.BindEnv("rate_limit.login_per_minute", "RATE_LIMIT_LOGIN_PER_MINUTE")
@@ -262,6 +282,7 @@ func setDefaults() {
 	viper.SetDefault("app.admin_password", "123456")
 	viper.SetDefault("app.docs_user", "admin")
 	viper.SetDefault("app.docs_password", "admin123")
+	viper.SetDefault("app.default_user_password", "123456")
 
 	viper.SetDefault("cors.allow_origins", []string{"*"})
 	viper.SetDefault("cors.allow_methods", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
@@ -309,6 +330,7 @@ func setDefaults() {
 	viper.SetDefault("redis.cluster_mode", false)
 	viper.SetDefault("redis.enable_fallback", true)
 	viper.SetDefault("redis.enabled", false)
+
 }
 
 // GetConfig returns the global config.

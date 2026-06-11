@@ -22,7 +22,7 @@ const docsTemplate = `<!DOCTYPE html>
     <script src="https://fastly.jsdelivr.net/npm/@scalar/api-reference"></script>
     <script>
       Scalar.createApiReference('#app', {
-        url: '/swagger/doc.json',
+        url: '%s/swagger/doc.json',
         theme: 'elysiajs',
         darkMode: true,
         showSidebar: true,
@@ -45,11 +45,15 @@ func DocsHandler(c *gin.Context) {
 	cfg := config.GetConfig()
 	appName := "Go API Starter"
 	favicon := "/favicon.ico"
+	basePath := ""
 	if cfg != nil && cfg.App.Name != "" {
 		appName = cfg.App.Name
 	}
+	if cfg != nil {
+		basePath = cfg.Server.BasePath
+	}
 
-	html := fmt.Sprintf(docsTemplate, appName, favicon, favicon, appName)
+	html := fmt.Sprintf(docsTemplate, appName, favicon, basePath, favicon, appName)
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	c.String(http.StatusOK, html)
 }

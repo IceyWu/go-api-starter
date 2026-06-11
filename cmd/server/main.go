@@ -43,8 +43,8 @@ import (
 // @description
 // @description | 文件 | 说明 |
 // @description |------|------|
-// @description | 📄 [llms.txt](/llms.txt) | AI 可读接口概览 |
-// @description | 📚 [llms-full.txt](/llms-full.txt) | AI 可读完整文档 |
+// @description | 📄 [llms.txt](llms.txt) | AI 可读接口概览 |
+// @description | 📚 [llms-full.txt](llms-full.txt) | AI 可读完整文档 |
 // @host localhost:9527
 // @BasePath /
 
@@ -129,7 +129,7 @@ func main() {
 	} else {
 		tools = append(tools, banner.ToolInfo{Name: "Redis", Version: "disabled (使用内存缓存)", OK: false})
 	}
-	banner.PrintBanner(cfg.App.Name, cfg.App.Env, cfg.Server.Port, localIPs, tools)
+	banner.PrintBanner(cfg.App.Name, cfg.App.Env, cfg.Server.Port, cfg.Server.BasePath, localIPs, tools)
 
 	// Create HTTP server with timeouts to prevent slow-loris attacks
 	addr := ":" + cfg.Server.Port

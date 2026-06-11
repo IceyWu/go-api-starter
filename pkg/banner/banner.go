@@ -96,7 +96,7 @@ type ToolInfo struct {
 }
 
 // PrintBanner prints the startup banner
-func PrintBanner(appName, env, port string, localIPs []string, tools []ToolInfo) {
+func PrintBanner(appName, env, port, basePath string, localIPs []string, tools []ToolInfo) {
 	useColor := isColorSupported()
 	style := bannerStyle()
 
@@ -131,13 +131,15 @@ func PrintBanner(appName, env, port string, localIPs []string, tools []ToolInfo)
 		primaryIP = localIPs[0]
 	}
 
-	lineAPIBase := "  " + magenta + arrow + reset + " API Base:     " + cyan + "http://" + primaryIP + ":" + port + "/api/v1" + reset
-	lineDocs := "  " + magenta + arrow + reset + " API Docs:     " + cyan + "http://" + primaryIP + ":" + port + "/docs" + reset
-	lineSwagger := "  " + magenta + arrow + reset + " Swagger:      " + cyan + "http://" + primaryIP + ":" + port + "/swagger/index.html" + reset
-	lineOpenAPI := "  " + magenta + arrow + reset + " OpenAPI:      " + cyan + "http://" + primaryIP + ":" + port + "/swagger/doc.json" + reset
-	lineWS := "  " + magenta + arrow + reset + " WebSocket:    " + cyan + "ws://" + primaryIP + ":" + port + "/ws" + reset
-	lineLLMs := "  " + magenta + arrow + reset + " LLMs:         " + cyan + "http://" + primaryIP + ":" + port + "/llms.txt" + reset
-	lineLLMsFull := "  " + magenta + arrow + reset + " LLMs-full:    " + cyan + "http://" + primaryIP + ":" + port + "/llms-full.txt" + reset
+	baseURL := "http://" + primaryIP + ":" + port + basePath
+
+	lineAPIBase := "  " + magenta + arrow + reset + " API Base:     " + cyan + baseURL + "/api/v1" + reset
+	lineDocs := "  " + magenta + arrow + reset + " API Docs:     " + cyan + baseURL + "/docs" + reset
+	lineSwagger := "  " + magenta + arrow + reset + " Swagger:      " + cyan + baseURL + "/swagger/index.html" + reset
+	lineOpenAPI := "  " + magenta + arrow + reset + " OpenAPI:      " + cyan + baseURL + "/swagger/doc.json" + reset
+	lineWS := "  " + magenta + arrow + reset + " WebSocket:    " + cyan + "ws://" + primaryIP + ":" + port + basePath + "/ws" + reset
+	lineLLMs := "  " + magenta + arrow + reset + " LLMs:         " + cyan + baseURL + "/llms.txt" + reset
+	lineLLMsFull := "  " + magenta + arrow + reset + " LLMs-full:    " + cyan + baseURL + "/llms-full.txt" + reset
 
 	sections := [][]string{
 		{lineTitle},

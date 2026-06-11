@@ -70,16 +70,19 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	authMw := middleware.NewAuthMiddleware(c.JWTSecret(), c.AuthService(), c.UserRepository())
 	permMw := middleware.NewPermissionMiddleware(c.PermissionService())
 
+	// Global base path group (configurable via BASE_PATH env var)
+	base := r.Group(cfg.Server.BasePath)
+
 	// Health check routes (no auth)
-	r.GET("/health", c.HealthHandler().Health)
-	r.GET("/health/ready", c.HealthHandler().Ready)
+	base.GET("/health", c.HealthHandler().Health)
+	base.GET("/health/ready", c.HealthHandler().Ready)
 
 	// Static files (logo, favicon)
-	r.StaticFile("/logo.svg", "./public/logo.svg")
-	r.StaticFile("/favicon.ico", "./public/favicon.ico")
+	base.StaticFile("/logo.svg", "./public/logo.svg")
+	base.StaticFile("/favicon.ico", "./public/favicon.ico")
 
 	// API routes
-	api := r.Group("/api/v1")
+	api := base.Group("/api/v1")
 
 	// Register module routes
 	registerAuthRoutes(api, c, authMw)
@@ -89,22 +92,22 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	registerVerificationRoutes(api, c)
 
 	// WebSocket route
-	registerWsRoutes(r, c)
+	registerWsRoutes(base, c)
 
 	// Documentation routes (protected by Basic Auth)
-	docs.SwaggerInfo.BasePath = "/"
+	docs.SwaggerInfo.BasePath = cfg.Server.BasePath + "/"
 	docs.SwaggerInfo.Host = ""
 	docsAuth := gin.BasicAuth(gin.Accounts{
 		cfg.App.DocsUser: cfg.App.DocsPassword,
 	})
-	r.GET("/swagger/*any", docsAuth, ginSwagger.WrapHandler(swaggerFiles.Handler))
-	r.GET("/docs", docsAuth, handler.DocsHandler)
+	base.GET("/swagger/*any", docsAuth, ginSwagger.WrapHandler(swaggerFiles.Handler))
+	base.GET("/docs", docsAuth, handler.DocsHandler)
 
 	// LLMs.txt routes (public, for AI consumption)
 	llmsHandler := llmstxt.NewHandler(docs.SwaggerInfo.ReadDoc(), llmstxt.Config{
 		BaseURL: "", // 空值表示使用请求时的 Host 动态生成
 	})
-	llmsHandler.RegisterRoutes(r)
+	llmsHandler.RegisterRoutes(base)
 
 	return r, permMw, c
 }

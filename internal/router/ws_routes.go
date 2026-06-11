@@ -8,12 +8,12 @@ import (
 )
 
 // registerWsRoutes 注册 WebSocket 路由
-func registerWsRoutes(r *gin.Engine, c *container.Container) {
+func registerWsRoutes(base *gin.RouterGroup, c *container.Container) {
 	apiKey := c.Config().WS.Key
-	r.GET("/ws", ws.Handler(c.WsHub(), apiKey))
+	base.GET("/ws", ws.Handler(c.WsHub(), apiKey))
 
 	// Bot 状态查询
-	r.GET("/api/v1/ws/status", botStatus(c))
+	base.GET("/api/v1/ws/status", botStatus(c))
 }
 
 // botStatus godoc

@@ -85,9 +85,10 @@ type AppConfig struct {
 
 // ServerConfig holds HTTP server settings.
 type ServerConfig struct {
-	Host string `mapstructure:"host"`
-	Port string `mapstructure:"port"`
-	Mode string `mapstructure:"mode"`
+	Host     string `mapstructure:"host"`
+	Port     string `mapstructure:"port"`
+	Mode     string `mapstructure:"mode"`
+	BasePath string `mapstructure:"base_path"`
 }
 
 // DatabaseConfig holds database connection settings.
@@ -238,6 +239,7 @@ func bindEnvVariables() {
 	viper.BindEnv("server.host", "SERVER_HOST")
 	viper.BindEnv("server.port", "SERVER_PORT")
 	viper.BindEnv("server.mode", "SERVER_MODE")
+	viper.BindEnv("server.base_path", "BASE_PATH")
 
 	viper.BindEnv("database.driver", "DB_DRIVER")
 	viper.BindEnv("database.path", "DB_PATH")
@@ -320,6 +322,7 @@ func setDefaults() {
 	viper.SetDefault("server.host", "localhost")
 	viper.SetDefault("server.port", "9527")
 	viper.SetDefault("server.mode", "debug")
+	viper.SetDefault("server.base_path", "")
 
 	viper.SetDefault("database.driver", "sqlite")
 	viper.SetDefault("database.path", "./data.db")

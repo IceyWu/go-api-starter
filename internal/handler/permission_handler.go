@@ -389,7 +389,7 @@ func (h *PermissionHandler) RemoveRolePermissions(c *gin.Context) {
 // GetMyPermissions godoc
 // @Summary 获取当前用户权限
 // @Description 获取当前登录用户的所有权限代码
-// @Tags 用户权限
+// @Tags 用户管理
 // @Produce json
 // @Success 200 {object} response.Response{data=[]string}
 // @Router /api/v1/permissions/me/permissions [get]

@@ -696,17 +696,12 @@ definitions:
 host: localhost:9527
 info:
   contact: {}
-  description: |2-
-
-    **WebSocket：**
-    - `GET /ws` — WebSocket 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证
-    - 消息格式：`{"type":"...", "id":"...", "data":{...}}`
-    - 下行指令：`send_text_msg`、`get_group_list`、`ping`
-    - 上行消息：`ack`、`review`、`pong`
-
-    **LLMs 入口：**
-    - [llms.txt](/llms.txt) - AI 可读接口概览
-    - [llms-full.txt](/llms-full.txt) - AI 可读完整文档
+  description: "\n---\n\n## \U0001F50C WebSocket\n\n| 项目 | 说明 |\n|------|------|\n|
+    入口 | `GET /ws` — 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证 |\n| 消息格式 | `{\"type\":\"...\",
+    \"id\":\"...\", \"data\":{...}}` |\n| ⬇️ 下行指令 | `send_text_msg`、`get_group_list`、`ping`
+    |\n| ⬆️ 上行消息 | `ack`、`review`、`pong` |\n\n---\n\n## \U0001F916 LLMs 入口\n\n| 文件
+    | 说明 |\n|------|------|\n| \U0001F4C4 [llms.txt](/llms.txt) | AI 可读接口概览 |\n| \U0001F4DA
+    [llms-full.txt](/llms-full.txt) | AI 可读完整文档 |"
   title: Go API Starter
   version: "1.0"
   x-logo:

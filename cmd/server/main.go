@@ -23,18 +23,28 @@ import (
 
 // @title Go API Starter
 // @version 1.0
-// @description A RESTful API starter with Go, Gin, and GORM
+// @description 🚀 基于 Go + Gin + GORM 构建的高性能 RESTful API 脚手架
 // @x-logo {"url": "/logo.svg", "altText": "Go API Starter"}
 // @description
-// @description **WebSocket：**
-// @description - `GET /ws` — WebSocket 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证
-// @description - 消息格式：`{"type":"...", "id":"...", "data":{...}}`
-// @description - 下行指令：`send_text_msg`、`get_group_list`、`ping`
-// @description - 上行消息：`ack`、`review`、`pong`
+// @description ---
 // @description
-// @description **LLMs 入口：**
-// @description - [llms.txt](/llms.txt) - AI 可读接口概览
-// @description - [llms-full.txt](/llms-full.txt) - AI 可读完整文档
+// @description ## 🔌 WebSocket
+// @description
+// @description | 项目 | 说明 |
+// @description |------|------|
+// @description | 入口 | `GET /ws` — 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证 |
+// @description | 消息格式 | `{"type":"...", "id":"...", "data":{...}}` |
+// @description | ⬇️ 下行指令 | `send_text_msg`、`get_group_list`、`ping` |
+// @description | ⬆️ 上行消息 | `ack`、`review`、`pong` |
+// @description
+// @description ---
+// @description
+// @description ## 🤖 LLMs 入口
+// @description
+// @description | 文件 | 说明 |
+// @description |------|------|
+// @description | 📄 [llms.txt](/llms.txt) | AI 可读接口概览 |
+// @description | 📚 [llms-full.txt](/llms-full.txt) | AI 可读完整文档 |
 // @host localhost:9527
 // @BasePath /
 
@@ -106,8 +116,8 @@ func main() {
 	}
 
 	// Print banner (empty tools status since there are no external tool dependencies)
-	localIP := netutil.GetLocalIP()
-	banner.PrintBanner(cfg.App.Name, cfg.App.Env, cfg.Server.Port, localIP, nil)
+	localIPs := netutil.GetAllLocalIPs()
+	banner.PrintBanner(cfg.App.Name, cfg.App.Env, cfg.Server.Port, localIPs, nil)
 
 	// Create HTTP server with timeouts to prevent slow-loris attacks
 	addr := ":" + cfg.Server.Port

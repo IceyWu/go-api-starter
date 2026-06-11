@@ -2848,7 +2848,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Go API Starter",
-	Description:      "\n**WebSocket：**\n- `GET /ws` — WebSocket 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证\n- 消息格式：`{\"type\":\"...\", \"id\":\"...\", \"data\":{...}}`\n- 下行指令：`send_text_msg`、`get_group_list`、`ping`\n- 上行消息：`ack`、`review`、`pong`\n\n**LLMs 入口：**\n- [llms.txt](/llms.txt) - AI 可读接口概览\n- [llms-full.txt](/llms-full.txt) - AI 可读完整文档",
+	Description:      "\n---\n\n## 🔌 WebSocket\n\n| 项目 | 说明 |\n|------|------|\n| 入口 | `GET /ws` — 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证 |\n| 消息格式 | `{\"type\":\"...\", \"id\":\"...\", \"data\":{...}}` |\n| ⬇️ 下行指令 | `send_text_msg`、`get_group_list`、`ping` |\n| ⬆️ 上行消息 | `ack`、`review`、`pong` |\n\n---\n\n## 🤖 LLMs 入口\n\n| 文件 | 说明 |\n|------|------|\n| 📄 [llms.txt](/llms.txt) | AI 可读接口概览 |\n| 📚 [llms-full.txt](/llms-full.txt) | AI 可读完整文档 |",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

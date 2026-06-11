@@ -96,7 +96,7 @@ type ToolInfo struct {
 }
 
 // PrintBanner prints the startup banner
-func PrintBanner(appName, env, port, localIP string, tools []ToolInfo) {
+func PrintBanner(appName, env, port string, localIPs []string, tools []ToolInfo) {
 	useColor := isColorSupported()
 	style := bannerStyle()
 
@@ -118,19 +118,31 @@ func PrintBanner(appName, env, port, localIP string, tools []ToolInfo) {
 	lineTitle := "  " + green + "\u2713 " + appName + " started successfully!" + reset
 	lineEnv := "  " + yellow + arrow + reset + " Environment:  " + cyan + env + reset
 	lineLocal := "  " + green + arrow + reset + " Local:        " + cyan + "http://localhost:" + port + reset
-	lineNetwork := "  " + green + arrow + reset + " Network:      " + cyan + "http://" + localIP + ":" + port + reset
-	lineAPIBase := "  " + magenta + arrow + reset + " API Base:     " + cyan + "http://" + localIP + ":" + port + "/api/v1" + reset
-	lineDocs := "  " + magenta + arrow + reset + " API Docs:     " + cyan + "http://" + localIP + ":" + port + "/docs" + reset
-	lineSwagger := "  " + magenta + arrow + reset + " Swagger:      " + cyan + "http://" + localIP + ":" + port + "/swagger/index.html" + reset
-	lineOpenAPI := "  " + magenta + arrow + reset + " OpenAPI:      " + cyan + "http://" + localIP + ":" + port + "/swagger/doc.json" + reset
-	lineWS := "  " + magenta + arrow + reset + " WebSocket:    " + cyan + "ws://" + localIP + ":" + port + "/ws" + reset
-	lineLLMs := "  " + magenta + arrow + reset + " LLMs:         " + cyan + "http://" + localIP + ":" + port + "/llms.txt" + reset
-	lineLLMsFull := "  " + magenta + arrow + reset + " LLMs-full:    " + cyan + "http://" + localIP + ":" + port + "/llms-full.txt" + reset
+
+	// Build network lines for all available IPs
+	var networkLines []string
+	for _, ip := range localIPs {
+		networkLines = append(networkLines, "  "+green+arrow+reset+" Network:      "+cyan+"http://"+ip+":"+port+reset)
+	}
+
+	// Use first IP for service URLs
+	primaryIP := "localhost"
+	if len(localIPs) > 0 {
+		primaryIP = localIPs[0]
+	}
+
+	lineAPIBase := "  " + magenta + arrow + reset + " API Base:     " + cyan + "http://" + primaryIP + ":" + port + "/api/v1" + reset
+	lineDocs := "  " + magenta + arrow + reset + " API Docs:     " + cyan + "http://" + primaryIP + ":" + port + "/docs" + reset
+	lineSwagger := "  " + magenta + arrow + reset + " Swagger:      " + cyan + "http://" + primaryIP + ":" + port + "/swagger/index.html" + reset
+	lineOpenAPI := "  " + magenta + arrow + reset + " OpenAPI:      " + cyan + "http://" + primaryIP + ":" + port + "/swagger/doc.json" + reset
+	lineWS := "  " + magenta + arrow + reset + " WebSocket:    " + cyan + "ws://" + primaryIP + ":" + port + "/ws" + reset
+	lineLLMs := "  " + magenta + arrow + reset + " LLMs:         " + cyan + "http://" + primaryIP + ":" + port + "/llms.txt" + reset
+	lineLLMsFull := "  " + magenta + arrow + reset + " LLMs-full:    " + cyan + "http://" + primaryIP + ":" + port + "/llms-full.txt" + reset
 
 	sections := [][]string{
 		{lineTitle},
 		{lineEnv},
-		{lineLocal, lineNetwork},
+		append([]string{lineLocal}, networkLines...),
 		{lineAPIBase, lineDocs, lineSwagger, lineOpenAPI, lineWS, lineLLMs, lineLLMsFull},
 	}
 

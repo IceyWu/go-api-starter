@@ -115,9 +115,21 @@ func main() {
 		seed.SyncAdminRole(db, cfg.App.AdminEmail)
 	}
 
-	// Print banner (empty tools status since there are no external tool dependencies)
+	// Print banner with service status
 	localIPs := netutil.GetAllLocalIPs()
-	banner.PrintBanner(cfg.App.Name, cfg.App.Env, cfg.Server.Port, localIPs, nil)
+	var tools []banner.ToolInfo
+	if cfg.Redis.Enabled {
+		redisAddr := cfg.Redis.Addr()
+		rc := container.RedisCache()
+		if rc != nil {
+			tools = append(tools, banner.ToolInfo{Name: "Redis", Version: redisAddr, OK: true})
+		} else {
+			tools = append(tools, banner.ToolInfo{Name: "Redis", Version: redisAddr + " (连接失败, 降级内存)", OK: false})
+		}
+	} else {
+		tools = append(tools, banner.ToolInfo{Name: "Redis", Version: "disabled (使用内存缓存)", OK: false})
+	}
+	banner.PrintBanner(cfg.App.Name, cfg.App.Env, cfg.Server.Port, localIPs, tools)
 
 	// Create HTTP server with timeouts to prevent slow-loris attacks
 	addr := ":" + cfg.Server.Port

@@ -151,6 +151,7 @@ func (h *XxxHandler) List(c *gin.Context) {
 |------|------|--------|
 | `APP_ENV` | 运行环境 | `development` |
 | `SERVER_PORT` | 监听端口 | `9527` |
+| `BASE_PATH` | 全局路由前缀（所有端点统一加前缀，如 `/dev`） | 空 |
 | `JWT_SECRET` | JWT 密钥（生产 ≥ 32 字符） | — |
 | `ACCESS_TOKEN_DAYS` | Access Token 有效天数 | `7` |
 | `REFRESH_TOKEN_DAYS` | Refresh Token 有效天数 | `30` |
@@ -219,6 +220,17 @@ func (h *XxxHandler) List(c *gin.Context) {
 |------|------|--------|
 | `DOCS_USER` | Swagger 页面 Basic Auth 用户名 | `admin` |
 | `DOCS_PASSWORD` | Swagger 页面 Basic Auth 密码 | `admin123` |
+
+### 限流（Rate Limit）
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `RATE_LIMIT_GLOBAL_PER_MINUTE` | 全局每分钟请求上限（Redis 模式） | `3000` |
+| `RATE_LIMIT_USER_PER_MINUTE` | 单用户每分钟请求上限（Redis 模式） | `600` |
+| `RATE_LIMIT_LOGIN_PER_MINUTE` | 登录接口每分钟上限（Redis 模式） | `60` |
+| `RATE_LIMIT_UPLOAD_PER_MINUTE` | 上传接口每分钟上限（Redis 模式） | `300` |
+| `RATE_LIMIT_FALLBACK_RPS` | 内存限流每秒速率（无 Redis 时生效） | `500` |
+| `RATE_LIMIT_FALLBACK_BURST` | 内存限流突发上限（无 Redis 时生效） | `1000` |
 
 ## Adding new modules (新增模块注意事项)
 

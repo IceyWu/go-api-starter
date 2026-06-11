@@ -312,12 +312,12 @@ func setDefaults() {
 	viper.SetDefault("cors.allow_methods", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	viper.SetDefault("cors.allow_headers", []string{"Origin", "Content-Type", "Authorization", "X-Request-ID"})
 
-	viper.SetDefault("rate_limit.global_per_minute", 100)
-	viper.SetDefault("rate_limit.user_per_minute", 60)
-	viper.SetDefault("rate_limit.login_per_minute", 10)
-	viper.SetDefault("rate_limit.upload_per_minute", 120)
-	viper.SetDefault("rate_limit.fallback_rps", 100)
-	viper.SetDefault("rate_limit.fallback_burst", 200)
+	viper.SetDefault("rate_limit.global_per_minute", 3000)
+	viper.SetDefault("rate_limit.user_per_minute", 600)
+	viper.SetDefault("rate_limit.login_per_minute", 60)
+	viper.SetDefault("rate_limit.upload_per_minute", 300)
+	viper.SetDefault("rate_limit.fallback_rps", 500)
+	viper.SetDefault("rate_limit.fallback_burst", 1000)
 
 	viper.SetDefault("server.host", "localhost")
 	viper.SetDefault("server.port", "9527")

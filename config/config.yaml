@@ -87,6 +87,17 @@ wechat:
   appid: ""    # 微信小程序 AppID
   secret: ""   # 微信小程序 AppSecret
 
+# Mail Configuration
+mail:
+  enabled: false
+  host: smtp.qq.com
+  port: 587
+  user: ""
+  password: ""
+  from: ""
+  use_tls: true
+  mock_send: true
+
 # WebSocket
 ws:
   key: ""      # /ws/bot 连接认证 Key

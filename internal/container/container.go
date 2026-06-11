@@ -16,6 +16,7 @@ import (
 	"go-api-starter/internal/ws"
 	"go-api-starter/pkg/auth"
 	"go-api-starter/pkg/cache"
+	"go-api-starter/pkg/mail"
 )
 
 // Container is the dependency injection container for the slim starter.
@@ -91,6 +92,16 @@ type Container struct {
 	ossHandlerOnce    sync.Once
 	healthHandler     *handler.HealthHandler
 	healthHandlerOnce sync.Once
+	verifyHandler     *handler.VerificationHandler
+	verifyHandlerOnce sync.Once
+
+	// Mail
+	mailClient     *mail.Client
+	mailClientOnce sync.Once
+
+	// Services (additional)
+	verifyService     *service.VerificationCodeService
+	verifyServiceOnce sync.Once
 
 	// JWT manager
 	jwtManager     *auth.JWTManager

@@ -12,10 +12,12 @@ import (
 type AuthServiceInterface interface {
 	Register(ctx context.Context, req *model.RegisterRequest) (*model.LoginResponse, error)
 	Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error)
+	LoginByCode(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error)
 	RefreshToken(ctx context.Context, refreshToken string) (string, error)
 	AccessTokenExpiresIn() int64
 	GetCurrentUser(ctx context.Context, userID uint) (*model.User, error)
 	ResetPassword(ctx context.Context, userID uint, req *model.ResetPasswordRequest) error
+	SelfResetPassword(ctx context.Context, req *model.SelfResetPasswordRequest) error
 	Logout(ctx context.Context, token string) error
 	LogoutAllDevices(ctx context.Context, userID uint) error
 	IsTokenBlacklisted(ctx context.Context, token string) (bool, error)

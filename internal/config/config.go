@@ -21,8 +21,21 @@ type Config struct {
 	Redis     RedisConfig     `mapstructure:"redis"`
 	CORS      CORSConfig      `mapstructure:"cors"`
 	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
+	Mail      MailConfig      `mapstructure:"mail"`
 	Wechat    WechatConfig    `mapstructure:"wechat"`
 	WS        WebSocketConfig `mapstructure:"ws"`
+}
+
+// MailConfig holds mail server configuration.
+type MailConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+	UseTLS   bool   `mapstructure:"use_tls"`
+	Enabled  bool   `mapstructure:"enabled"`
+	MockSend bool   `mapstructure:"mock_send"`
 }
 
 // WechatConfig holds WeChat mini-program credentials.
@@ -263,6 +276,15 @@ func bindEnvVariables() {
 
 	viper.BindEnv("ws.key", "WS_KEY")
 
+	viper.BindEnv("mail.enabled", "MAIL_ENABLED")
+	viper.BindEnv("mail.host", "MAIL_HOST")
+	viper.BindEnv("mail.port", "MAIL_PORT")
+	viper.BindEnv("mail.user", "MAIL_USER")
+	viper.BindEnv("mail.password", "MAIL_PASS")
+	viper.BindEnv("mail.from", "MAIL_FROM")
+	viper.BindEnv("mail.use_tls", "MAIL_USE_TLS")
+	viper.BindEnv("mail.mock_send", "MAIL_MOCK_SEND")
+
 	viper.BindEnv("rate_limit.global_per_minute", "RATE_LIMIT_GLOBAL_PER_MINUTE")
 	viper.BindEnv("rate_limit.user_per_minute", "RATE_LIMIT_USER_PER_MINUTE")
 	viper.BindEnv("rate_limit.login_per_minute", "RATE_LIMIT_LOGIN_PER_MINUTE")
@@ -330,6 +352,15 @@ func setDefaults() {
 	viper.SetDefault("redis.cluster_mode", false)
 	viper.SetDefault("redis.enable_fallback", true)
 	viper.SetDefault("redis.enabled", false)
+
+	viper.SetDefault("mail.enabled", false)
+	viper.SetDefault("mail.host", "smtp.qq.com")
+	viper.SetDefault("mail.port", 587)
+	viper.SetDefault("mail.user", "")
+	viper.SetDefault("mail.password", "")
+	viper.SetDefault("mail.from", "")
+	viper.SetDefault("mail.use_tls", true)
+	viper.SetDefault("mail.mock_send", true)
 
 }
 

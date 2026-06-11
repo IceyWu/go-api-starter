@@ -45,6 +45,21 @@ definitions:
       status:
         type: string
     type: object
+  handler.SendCodeRequest:
+    properties:
+      email:
+        type: string
+      purpose:
+        enum:
+        - register
+        - login
+        - reset_password
+        - bind_email
+        type: string
+    required:
+    - email
+    - purpose
+    type: object
   handler.UploadCompleteRequest:
     properties:
       file_name:
@@ -86,6 +101,24 @@ definitions:
     - file_name
     - file_size
     - md5
+    type: object
+  handler.VerifyCodeRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+      purpose:
+        enum:
+        - register
+        - login
+        - reset_password
+        - bind_email
+        type: string
+    required:
+    - code
+    - email
+    - purpose
     type: object
   model.AvatarFileResponse:
     properties:
@@ -441,6 +474,24 @@ definitions:
     required:
     - permission_codes
     type: object
+  model.SelfResetPasswordRequest:
+    properties:
+      account:
+        description: 账号：邮箱或手机号
+        example: john@example.com
+        type: string
+      code:
+        example: "123456"
+        type: string
+      new_password:
+        example: newpassword123
+        minLength: 6
+        type: string
+    required:
+    - account
+    - code
+    - new_password
+    type: object
   model.SpaceWithCount:
     properties:
       description:
@@ -712,7 +763,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 使用手机号或邮箱和密码登录
+      description: 使用手机号或邮箱和密码登录，或使用验证码登录（login_type=code）
       parameters:
       - description: 登录请求数据
         in: body
@@ -820,7 +871,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: 使用邮箱或手机号 + 密码注册一个新用户，注册成功后自动返回登录令牌
+      description: 注册一个新的用户账号（需要邮箱或手机号验证码），注册成功后自动返回登录令牌
       parameters:
       - description: 注册请求数据
         in: body
@@ -886,6 +937,36 @@ paths:
       security:
       - BearerAuth: []
       summary: 重置用户密码（管理员）
+      tags:
+      - 认证
+  /api/v1/auth/self-reset-password:
+    post:
+      consumes:
+      - application/json
+      description: 用户通过邮箱验证码重置自己的密码（无需登录）
+      parameters:
+      - description: 自助重置密码请求数据
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.SelfResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 用户自助重置密码
       tags:
       - 认证
   /api/v1/auth/wx-login:
@@ -1782,6 +1863,62 @@ paths:
       summary: 更新当前用户信息
       tags:
       - 用户管理
+  /api/v1/verification/send:
+    post:
+      consumes:
+      - application/json
+      description: 发送邮箱验证码
+      parameters:
+      - description: 发送验证码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.SendCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 发送验证码
+      tags:
+      - 验证码
+  /api/v1/verification/verify:
+    post:
+      consumes:
+      - application/json
+      description: 验证邮箱验证码
+      parameters:
+      - description: 验证验证码请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.VerifyCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 验证验证码
+      tags:
+      - 验证码
   /api/v1/ws/status:
     get:
       description: 返回当前 WebSocket 客户端是否已连接

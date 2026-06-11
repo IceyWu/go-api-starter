@@ -86,6 +86,7 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	registerUserRoutes(api, c, authMw, permMw)
 	registerFileRoutes(api, c, authMw)
 	registerPermissionRoutes(api, c, authMw, permMw)
+	registerVerificationRoutes(api, c)
 
 	// WebSocket route
 	registerWsRoutes(r, c)

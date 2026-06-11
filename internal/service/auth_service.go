@@ -3,6 +3,7 @@
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"go-api-starter/internal/model"
@@ -243,4 +244,74 @@ func (s *AuthService) ValidateToken(tokenString string) (uint, error) {
 		return 0, apperrors.UnauthorizedCode(i18n.ErrInvalidToken)
 	}
 	return claims.UserID, nil
+}
+
+// LoginByCode authenticates a user by verification code (no password required)
+func (s *AuthService) LoginByCode(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error) {
+	if req.Mobile == nil && req.Email == nil {
+		return nil, apperrors.BadRequestCode(i18n.ErrMobileOrEmailRequired)
+	}
+
+	var user *model.User
+	var err error
+
+	if req.Mobile != nil {
+		user, err = s.userRepo.FindByMobileForAuth(ctx, *req.Mobile)
+	} else if req.Email != nil {
+		user, err = s.userRepo.FindByEmailForAuth(ctx, *req.Email)
+	}
+
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, apperrors.UnauthorizedCode(i18n.ErrAccountNotFound)
+		}
+		return nil, apperrors.InternalCode(err, i18n.ErrQueryUserFailed)
+	}
+
+	if user.Freezed {
+		return nil, apperrors.ForbiddenCode(i18n.ErrAccountFrozen)
+	}
+
+	accessToken, refreshToken, err := s.jwtManager.GenerateTokenPair(user.ID)
+	if err != nil {
+		return nil, apperrors.InternalCode(err, i18n.ErrGenerateTokenFailed)
+	}
+
+	return &model.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    s.jwtManager.AccessTokenExpiresIn(),
+		User:         user.ToResponse(),
+	}, nil
+}
+
+// SelfResetPassword allows a user to reset their own password using verification code
+func (s *AuthService) SelfResetPassword(ctx context.Context, req *model.SelfResetPasswordRequest) error {
+	var user *model.User
+	var err error
+
+	// Find user by account (email or mobile)
+	if strings.Contains(req.Account, "@") {
+		user, err = s.userRepo.FindByEmailForAuth(ctx, req.Account)
+	} else {
+		user, err = s.userRepo.FindByMobileForAuth(ctx, req.Account)
+	}
+
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return apperrors.NotFoundCode(i18n.ErrAccountNotFound)
+		}
+		return apperrors.InternalCode(err, i18n.ErrQueryUserFailed)
+	}
+
+	hashedPassword, err := s.passwordHasher.HashPassword(req.NewPassword)
+	if err != nil {
+		return apperrors.InternalCode(err, i18n.ErrHashPasswordFailed)
+	}
+
+	user.Password = &hashedPassword
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return apperrors.InternalCode(err, i18n.ErrResetPasswordFailed)
+	}
+	return nil
 }

@@ -13,6 +13,7 @@ import (
 type AuthHandler struct {
 	authService   service.AuthServiceInterface
 	userService   service.UserServiceInterface
+	verifyService *service.VerificationCodeService
 	wechatService *service.WechatService
 }
 
@@ -29,9 +30,14 @@ func (h *AuthHandler) SetWechatService(ws *service.WechatService) {
 	h.wechatService = ws
 }
 
+// SetVerifyService sets the verification code service (optional dependency)
+func (h *AuthHandler) SetVerifyService(vs *service.VerificationCodeService) {
+	h.verifyService = vs
+}
+
 // Register godoc
 // @Summary 注册新用户
-// @Description 使用邮箱或手机号 + 密码注册一个新用户，注册成功后自动返回登录令牌
+// @Description 注册一个新的用户账号（需要邮箱或手机号验证码），注册成功后自动返回登录令牌
 // @Tags 认证
 // @Accept json
 // @Produce json
@@ -53,6 +59,23 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+
+	// Verify the code
+	if h.verifyService != nil {
+		var identifier string
+		if req.Mobile != nil {
+			identifier = *req.Mobile
+		} else if req.Email != nil {
+			identifier = *req.Email
+		}
+
+		valid, err := h.verifyService.VerifyCode(ctx, identifier, "register", req.Code)
+		if err != nil || !valid {
+			c.Error(apperrors.BadRequestCode(i18n.ErrCodeExpired))
+			return
+		}
+	}
+
 	loginResp, err := h.authService.Register(ctx, &req)
 	if err != nil {
 		c.Error(err)
@@ -64,7 +87,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 // Login godoc
 // @Summary 用户登录
-// @Description 使用手机号或邮箱和密码登录
+// @Description 使用手机号或邮箱和密码登录，或使用验证码登录（login_type=code）
 // @Tags 认证
 // @Accept json
 // @Produce json
@@ -83,12 +106,38 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// 将 account 字段解析到 email 或 mobile
 	req.ResolveAccount()
 
+	ctx := c.Request.Context()
+
+	// 验证码登录
+	if req.LoginType == "code" {
+		if req.Code == "" {
+			c.Error(apperrors.BadRequestCode(i18n.ErrCodeRequired))
+			return
+		}
+		// 校验验证码
+		if h.verifyService != nil {
+			valid, err := h.verifyService.VerifyCode(ctx, req.Account, "login", req.Code)
+			if err != nil || !valid {
+				c.Error(apperrors.BadRequestCode(i18n.ErrCodeExpired))
+				return
+			}
+		}
+		// 通过验证码登录（不需要密码）
+		loginResp, err := h.authService.LoginByCode(ctx, &req)
+		if err != nil {
+			c.Error(err)
+			return
+		}
+		response.Success(c, loginResp)
+		return
+	}
+
+	// 密码登录
 	if req.Password == "" {
 		c.Error(apperrors.BadRequestCode(i18n.ErrPasswordRequired))
 		return
 	}
 
-	ctx := c.Request.Context()
 	loginResp, err := h.authService.Login(ctx, &req)
 	if err != nil {
 		c.Error(err)
@@ -163,6 +212,43 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 	}
 
 	if err := h.authService.ResetPassword(ctx, user.ID, &req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	response.Success(c, gin.H{"message": "密码重置成功"})
+}
+
+// SelfResetPassword godoc
+// @Summary 用户自助重置密码
+// @Description 用户通过邮箱验证码重置自己的密码（无需登录）
+// @Tags 认证
+// @Accept json
+// @Produce json
+// @Param request body model.SelfResetPasswordRequest true "自助重置密码请求数据"
+// @Success 200 {object} response.Response
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/auth/self-reset-password [post]
+func (h *AuthHandler) SelfResetPassword(c *gin.Context) {
+	var req model.SelfResetPasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(apperrors.BadRequest(err.Error()))
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	// 校验验证码
+	if h.verifyService != nil {
+		valid, err := h.verifyService.VerifyCode(ctx, req.Account, "reset_password", req.Code)
+		if err != nil || !valid {
+			c.Error(apperrors.BadRequestCode(i18n.ErrCodeExpired))
+			return
+		}
+	}
+
+	if err := h.authService.SelfResetPassword(ctx, &req); err != nil {
 		c.Error(err)
 		return
 	}

@@ -21,7 +21,7 @@ const docTemplate = `{
     "paths": {
         "/api/v1/auth/login": {
             "post": {
-                "description": "使用手机号或邮箱和密码登录",
+                "description": "使用手机号或邮箱和密码登录，或使用验证码登录（login_type=code）",
                 "consumes": [
                     "application/json"
                 ],
@@ -199,7 +199,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/register": {
             "post": {
-                "description": "使用邮箱或手机号 + 密码注册一个新用户，注册成功后自动返回登录令牌",
+                "description": "注册一个新的用户账号（需要邮箱或手机号验证码），注册成功后自动返回登录令牌",
                 "consumes": [
                     "application/json"
                 ],
@@ -288,6 +288,52 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/model.ResetPasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/self-reset-password": {
+            "post": {
+                "description": "用户通过邮箱验证码重置自己的密码（无需登录）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "认证"
+                ],
+                "summary": "用户自助重置密码",
+                "parameters": [
+                    {
+                        "description": "自助重置密码请求数据",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.SelfResetPasswordRequest"
                         }
                     }
                 ],
@@ -1769,6 +1815,92 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/verification/send": {
+            "post": {
+                "description": "发送邮箱验证码",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "验证码"
+                ],
+                "summary": "发送验证码",
+                "parameters": [
+                    {
+                        "description": "发送验证码请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.SendCodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/verification/verify": {
+            "post": {
+                "description": "验证邮箱验证码",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "验证码"
+                ],
+                "summary": "验证验证码",
+                "parameters": [
+                    {
+                        "description": "验证验证码请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.VerifyCodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ws/status": {
             "get": {
                 "description": "返回当前 WebSocket 客户端是否已连接",
@@ -1906,6 +2038,27 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.SendCodeRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "purpose"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "purpose": {
+                    "type": "string",
+                    "enum": [
+                        "register",
+                        "login",
+                        "reset_password",
+                        "bind_email"
+                    ]
+                }
+            }
+        },
         "handler.UploadCompleteRequest": {
             "type": "object",
             "required": [
@@ -1963,6 +2116,31 @@ const docTemplate = `{
                 },
                 "md5": {
                     "type": "string"
+                }
+            }
+        },
+        "handler.VerifyCodeRequest": {
+            "type": "object",
+            "required": [
+                "code",
+                "email",
+                "purpose"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "purpose": {
+                    "type": "string",
+                    "enum": [
+                        "register",
+                        "login",
+                        "reset_password",
+                        "bind_email"
+                    ]
                 }
             }
         },
@@ -2475,6 +2653,30 @@ const docTemplate = `{
                         "USER_CREATE",
                         "USER_READ"
                     ]
+                }
+            }
+        },
+        "model.SelfResetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "account",
+                "code",
+                "new_password"
+            ],
+            "properties": {
+                "account": {
+                    "description": "账号：邮箱或手机号",
+                    "type": "string",
+                    "example": "john@example.com"
+                },
+                "code": {
+                    "type": "string",
+                    "example": "123456"
+                },
+                "new_password": {
+                    "type": "string",
+                    "minLength": 6,
+                    "example": "newpassword123"
                 }
             }
         },

@@ -3,6 +3,7 @@ package container
 import (
 	"go-api-starter/internal/handler"
 	"go-api-starter/internal/service"
+	"go-api-starter/pkg/mail"
 )
 
 // ========== Handler Getters ==========
@@ -12,6 +13,8 @@ func (c *Container) AuthHandler() *handler.AuthHandler {
 		c.authHandler = handler.NewAuthHandler(c.AuthService(), c.UserService())
 		// Wire up optional WechatService
 		c.authHandler.SetWechatService(c.WechatLoginService())
+		// Wire up optional VerificationCodeService
+		c.authHandler.SetVerifyService(c.VerificationCodeService())
 	})
 	return c.authHandler
 }
@@ -44,6 +47,41 @@ func (c *Container) HealthHandler() *handler.HealthHandler {
 		c.healthHandler = handler.NewHealthHandler(c.db, "1.0.0", c.CacheBackend())
 	})
 	return c.healthHandler
+}
+
+func (c *Container) VerificationHandler() *handler.VerificationHandler {
+	c.verifyHandlerOnce.Do(func() {
+		c.verifyHandler = handler.NewVerificationHandler(c.VerificationCodeService())
+	})
+	return c.verifyHandler
+}
+
+// ========== Mail ==========
+
+func (c *Container) MailClient() *mail.Client {
+	c.mailClientOnce.Do(func() {
+		if c.config.Mail.Enabled {
+			c.mailClient = mail.NewClient(&mail.Config{
+				Host:     c.config.Mail.Host,
+				Port:     c.config.Mail.Port,
+				User:     c.config.Mail.User,
+				Password: c.config.Mail.Password,
+				From:     c.config.Mail.From,
+				UseTLS:   c.config.Mail.UseTLS,
+				MockSend: c.config.Mail.MockSend,
+			})
+		}
+	})
+	return c.mailClient
+}
+
+func (c *Container) VerificationCodeService() *service.VerificationCodeService {
+	c.verifyServiceOnce.Do(func() {
+		c.verifyService = service.NewVerificationCodeService(
+			c.CacheBackend(), c.MailClient(), c.config.App.Name,
+		)
+	})
+	return c.verifyService
 }
 
 // WechatLoginService returns the WeChat mini-program login service (singleton).

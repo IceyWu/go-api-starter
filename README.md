@@ -1,305 +1,69 @@
 # 🚀 Go API Starter
 
-<p align="center">
-  <strong>一个生产就绪的 Go RESTful API 启动模板</strong>
-</p>
-
-<p align="center">
-  <a href="#特性">特性</a> •
-  <a href="#快速开始">快速开始</a> •
-  <a href="#项目结构">项目结构</a> •
-  <a href="#api-文档">API 文档</a> •
-  <a href="#配置说明">配置说明</a>
-</p>
-
----
+一个生产就绪的 Go RESTful API 脚手架。
 
 ## ✨ 特性
 
-- 🏗️ **清晰的项目结构** — 清晰分层：model / repository / service / handler / router，配套 DI container
-- 🔥 **Gin** — 高性能 HTTP Web 框架
-- 📦 **GORM** — ORM，默认 SQLite（零配置），可切换 MySQL
-- 📝 **Swagger** — 自动生成的 OpenAPI 文档 + Scalar UI
-- ⚙️ **Viper + godotenv** — 多环境配置（yaml + `.env.dev` / `.env.prod`）
-- 📊 **Zap** — 结构化日志
-- 🔍 **Request ID** — 请求追踪
-- 🛡️ **CORS / Gzip / pprof** — 开箱即用
-- ⏱️ **多级限流** — 单机 token bucket + Redis 分布式滑动窗口
-- 🎯 **Graceful Shutdown** — 优雅停机
-- 💊 **Health Checks** — `/health` + `/health/ready`
-- 🔐 **JWT + Argon2** — access / refresh token 双令牌
-- 🗝️ **RBAC** — 权限空间 + 位图权限 + 角色体系，含路由级权限收集
-- 🚫 **Token Blacklist** — 登出 / 批量失效（需 Redis）
-- 🔴 **Redis + 内存降级** — Redis 不可用时自动回退到内存缓存
-- ☁️ **OSS 文件管理** — 直传 token、分片上传、秒传（MD5）
-- 🌐 **WebSocket Hub** — 通用长连接管理（心跳、指令/ack、认证）
-- 💬 **微信小程序登录** — code2session + 手机号授权 + 自动注册绑定
-
-## 🛠️ 技术栈
-
-| 组件 | 技术 |
-|------|------|
-| Web 框架 | [Gin](https://github.com/gin-gonic/gin) |
-| ORM | [GORM](https://gorm.io/) |
-| 数据库 | SQLite / MySQL |
-| 配置 | [Viper](https://github.com/spf13/viper) + [godotenv](https://github.com/joho/godotenv) |
-| 日志 | [Zap](https://github.com/uber-go/zap) |
-| API 文档 | [swag](https://github.com/swaggo/swag) + [gin-swagger](https://github.com/swaggo/gin-swagger) |
-| 对象存储 | [Aliyun OSS](https://github.com/aliyun/aliyun-oss-go-sdk) |
-| WebSocket | [gorilla/websocket](https://github.com/gorilla/websocket) |
-| 限流 | [golang.org/x/time](https://pkg.go.dev/golang.org/x/time) + Redis 滑动窗口 |
-| 缓存 | [go-redis](https://github.com/redis/go-redis) |
-| 验证器 | [validator](https://github.com/go-playground/validator) |
+- 🏗️ 清晰分层（model / repository / service / handler / router）+ DI container
+- 🔐 JWT + Argon2 双令牌认证，Token Blacklist
+- 🗝️ 位图 RBAC 权限体系（权限空间 + 角色 + 路由级自动收集）
+- 📧 邮箱验证码（注册/登录/重置密码）
+- ☁️ OSS 文件管理（直传、分片、秒传）
+- 🌐 WebSocket Hub（心跳、指令/ack、认证）
+- 💬 微信小程序一键登录
+- ⏱️ 多级限流（单机 + Redis 分布式）
+- 🔴 Redis + 内存自动降级
+- 📝 Swagger + Scalar UI + LLMs.txt
 
 ## 🚀 快速开始
 
-### 环境要求
-
-- Go 1.21+
-- 可选：MySQL 8.0+（默认使用 SQLite）
-- 可选：Redis 6+（默认使用内存缓存）
-
-### 安装运行
-
 ```bash
-# 克隆项目
-git clone https://github.com/yourname/go-api-starter.git
+git clone https://github.com/IceyWu/go-api-starter
 cd go-api-starter
 
-# 安装依赖
 go mod tidy
+cp .env.example .env.dev
 
-# 复制环境变量配置文件
-cp .env.example .env.dev  # Linux / macOS
-# copy .env.example .env.dev   # Windows
-
-# 开发模式运行
 make dev
 ```
 
-### Makefile 常用命令
-
-```bash
-make build      # 生成 swagger 并编译
-make dev        # 开发模式（加载 .env.dev）
-make prod       # 生产模式（加载 .env.prod）
-make test       # 跑测试
-make swagger    # 重新生成 swagger 文档
-make clean      # 清理构建产物
-make fmt        # 格式化
-make lint       # golangci-lint
-```
-
-### 启动成功
-
-```
-+-----------------------------------------------------------+
-|  [*] go-api-starter started successfully!                 |
-+-----------------------------------------------------------+
-|  > Environment:  development                              |
-+-----------------------------------------------------------+
-|  > Local:        http://localhost:9527                    |
-|  > Network:      http://192.168.x.x:9527                  |
-+-----------------------------------------------------------+
-|  > API Base:     http://localhost:9527/api/v1             |
-|  > API Docs:     http://localhost:9527/docs               |
-|  > Swagger:      http://localhost:9527/swagger/index.html |
-+-----------------------------------------------------------+
-```
-
-## 📁 项目结构
-
-```
-go-api-starter/
-├── cmd/server/                 # 应用入口
-├── config/config.yaml          # 主配置（可被 env 覆盖）
-├── docs/                       # Swagger 自动生成
-├── public/                     # 静态文件（logo、favicon）
-├── internal/
-│   ├── config/                 # 配置加载
-│   ├── container/              # DI 容器
-│   ├── handler/                # HTTP 处理器
-│   ├── middleware/             # Gin 中间件
-│   ├── model/                  # 数据模型 + DTO
-│   ├── repository/             # 数据访问层
-│   ├── router/                 # 路由注册（按模块）
-│   ├── seed/                   # 权限/管理员种子
-│   ├── service/                # 业务逻辑
-│   └── ws/                     # WebSocket Hub（连接管理、协议）
-├── pkg/
-│   ├── apperrors/              # 应用错误
-│   ├── auth/                   # JWT / Argon2
-│   ├── banner/                 # 启动横幅
-│   ├── cache/                  # Redis / 内存 / Fallback
-│   ├── database/               # GORM 初始化
-│   ├── i18n/                   # 错误码字典
-│   ├── logger/                 # Zap 封装
-│   ├── migration/              # AutoMigrate 封装
-│   ├── netutil/                # 本机 IP
-│   ├── oss/                    # OSS 客户端 + 分片签名
-│   ├── response/               # 统一响应 + 分页
-│   └── utils/                  # 通用工具
-├── migrations/                 # 手写 SQL 迁移（预留）
-├── .env.example
-├── go.mod
-├── Makefile
-└── README.md
-```
-
-## 📖 API 文档
-
-启动服务后访问：
+## 📖 文档
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost:9527/docs | Scalar UI |
-| http://localhost:9527/swagger/index.html | Swagger UI |
-| http://localhost:9527/swagger/doc.json | OpenAPI JSON |
-| http://localhost:9527/llms.txt | LLMs.txt（AI 可读接口概览） |
-| http://localhost:9527/llms-full.txt | LLMs-full.txt（AI 可读完整文档） |
-| ws://localhost:9527/ws | WebSocket 长连接入口 |
+| `/docs` | Scalar API 文档 |
+| `/swagger/doc.json` | OpenAPI JSON |
+| `/llms.txt` | AI 可读接口概览 |
+| `/llms-full.txt` | AI 可读完整文档 |
+| `/ws` | WebSocket 入口 |
 
-文档接口由 `DOCS_USER` / `DOCS_PASSWORD` 做 Basic Auth 保护。
+## 🔌 核心 API
 
-### LLMs.txt
+| 模块 | 端点 | 说明 |
+|------|------|------|
+| 认证 | `POST /api/v1/auth/register` | 注册（需验证码） |
+| | `POST /api/v1/auth/login` | 登录 |
+| | `POST /api/v1/auth/wx-login` | 微信登录 |
+| | `POST /api/v1/auth/self-reset-password` | 自助重置密码 |
+| 验证码 | `POST /api/v1/verification/send` | 发送验证码 |
+| | `POST /api/v1/verification/verify` | 校验验证码 |
+| 用户 | `GET/PUT /api/v1/users/me` | 当前用户 |
+| | `CRUD /api/v1/users/:uid` | 用户管理 |
+| 权限 | `/api/v1/permissions/*` | 空间/权限/角色 CRUD |
+| 文件 | `POST /api/v1/file/upload/init` | 上传初始化 |
+| | `POST /api/v1/file/upload/complete` | 完成上传 |
+| WebSocket | `GET /ws` | 长连接 |
 
-项目内置了 [llms.txt](https://llmstxt.org/) 支持，服务启动时根据 Swagger spec 自动生成，无需手动维护。
+## ⚙️ 配置
 
-- `/llms.txt` — 轻量入口，AI 快速了解接口概览
-- `/llms-full.txt` — 完整 Markdown 文档，包含参数、响应示例，AI 可据此调用接口
+配置优先级：环境变量 > `.env.dev` / `.env.prod` > `config/config.yaml`
 
-## 🔌 API 端点
+通过 `APP_ENV` 决定加载哪个 env 文件。完整变量及说明见 [AGENTS.md](./AGENTS.md#environment-variables)，快速示例见 [.env.example](.env.example)。
 
-### 基础
+## 🤖 AI Agents
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/health` | 健康检查 |
-| `GET` | `/health/ready` | 就绪检查 |
-
-### 认证
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/auth/register` | 注册 |
-| `POST` | `/api/v1/auth/login` | 登录 |
-| `POST` | `/api/v1/auth/wx-login` | 微信小程序登录 |
-| `POST` | `/api/v1/auth/refresh` | 刷新访问令牌 |
-| `POST` | `/api/v1/auth/reset-password/:uid` | 管理员重置密码 |
-| `POST` | `/api/v1/auth/logout` | 登出（需 Redis） |
-| `POST` | `/api/v1/auth/logout-all` | 登出所有设备（需 Redis） |
-
-### 用户
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/users/me` | 当前用户信息 |
-| `PUT` | `/api/v1/users/me` | 更新当前用户 |
-| `GET` | `/api/v1/users/:uid` | 查看用户 |
-| `POST` | `/api/v1/users` | 创建（需权限） |
-| `GET` | `/api/v1/users` | 列表（需权限） |
-| `PUT` | `/api/v1/users/:uid` | 更新（需权限） |
-| `DELETE` | `/api/v1/users/:uid` | 删除（需权限） |
-
-### 权限（RBAC）
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` / `POST` | `/api/v1/permissions/spaces` | 权限空间 |
-| `GET` / `POST` | `/api/v1/permissions/permissions` | 权限 |
-| `GET` / `POST` | `/api/v1/permissions/roles` | 角色 |
-| `POST` | `/api/v1/permissions/roles/:id/permissions` | 为角色分配权限 |
-| `POST` | `/api/v1/permissions/users/:uid/roles` | 为用户分配角色 |
-| `GET` | `/api/v1/permissions/me/permissions` | 我的权限 |
-
-### 文件 / OSS
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/v1/file/public/upload` | 公开上传（无需鉴权） |
-| `POST` | `/api/v1/file/upload/init` | 初始化上传（秒传 / 普通 / 分片自动判断） |
-| `POST` | `/api/v1/file/upload/urls` | 分片上传签名 |
-| `POST` | `/api/v1/file/upload/complete` | 完成上传并落库 |
-| `POST` | `/api/v1/file/upload/abort` | 中止分片上传 |
-| `GET` | `/api/v1/file` | 文件列表 |
-| `GET` | `/api/v1/file/:uid` | 文件详情 |
-| `PUT` | `/api/v1/file/:uid` | 更新（名称 / 可见性） |
-| `DELETE` | `/api/v1/file/:uid` | 删除 |
-
-### WebSocket
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/ws` | WebSocket 长连接入口（query `key` 或 header `X-API-Key` 认证） |
-| `GET` | `/api/v1/ws/status` | 查询连接状态 |
-
-#### 协议格式
-
-```json
-{"type": "send_text_msg", "id": "uuid", "data": {"wxid": "xxx", "msg": "hello"}}
-```
-
-- **下行指令**：`send_text_msg`、`get_group_list`、`ping`
-- **上行消息**：`ack`（指令响应）、`review`（审核回调）、`pong`
-
-### 微信小程序登录
-
-`POST /api/v1/auth/wx-login` 一个接口完成登录全流程：
-
-1. 传 `js_code` → 获取 openid → 已有用户直接返回 JWT，新用户返回 `need_bind: true`
-2. 传 `js_code` + `phone_code` → 一步完成注册绑定（推荐）
-3. 传 `open_id` + `phone_code` / `mobile` → 分步绑定（兼容）
-
-### 上传流程说明
-
-1. 前端计算文件 MD5，调用 `/file/upload/init`
-   - 已存在则直接返回文件（秒传）
-   - 小于 5MB 返回 `simple` 模式 + OSS 直传 token
-   - 大于等于 5MB 返回 `multipart` 模式 + uploadID/key/host 等
-2. 按模式上传：
-   - `simple`：直接用 token POST 到 OSS
-   - `multipart`：调用 `/file/upload/urls` 拿分片签名，PUT 到 OSS；需要续传时同 uploadID 再次调用 `init` 即可拿到已上传分片
-3. 调用 `/file/upload/complete` 完成（普通上传传 key+md5，分片上传额外传 upload_id + parts）
-
-## ⚙️ 配置说明
-
-配置文件 `config/config.yaml`，环境变量优先级最高。支持 `.env.dev` / `.env.prod`，通过 `APP_ENV` 决定加载哪个。
-
-### 常用环境变量
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `APP_ENV` | 环境 | `development` |
-| `SERVER_PORT` | 端口 | `9527` |
-| `DB_DRIVER` | `sqlite` / `mysql` / `postgres` | `sqlite` |
-| `DB_PATH` | SQLite 路径 | `./data.db` |
-| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | MySQL/PG 连接 | — |
-| `JWT_SECRET` | JWT 密钥（生产必须改） | — |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | 自动创建管理员账号 | — |
-| `DOCS_USER` / `DOCS_PASSWORD` | Swagger 页面 Basic Auth | `admin` / `admin123` |
-| `REDIS_ENABLED` | 是否启用 Redis | `false` |
-| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_DB` | Redis 连接 | `localhost:6379` |
-| `ALICLOUD_OSS_ENDPOINT` | OSS endpoint | — |
-| `ALICLOUD_OSS_BUCKET` | OSS bucket | — |
-| `ALICLOUD_ACCESS_KEY_ID` | OSS AccessKey ID | — |
-| `ALICLOUD_ACCESS_KEY_SECRET` | OSS AccessKey Secret | — |
-| `ALICLOUD_OSS_UPLOAD_DIR` | 上传目录前缀 | `go_oss` |
-| `OSS_DOMAIN` | 自定义 CDN 域名 | — |
-| `WX_APPID` | 微信小程序 AppID | — |
-| `WX_SECRET` | 微信小程序 AppSecret | — |
-| `WS_KEY` | WebSocket 连接认证 Key | — |
-| `DEFAULT_USER_PASSWORD` | 微信注册用户默认密码 | `123456` |
-
-### 生产环境强制校验
-
-`APP_ENV=production` 时，以下配置必须满足：
-
-- `JWT_SECRET` 非空、非默认值、至少 32 字符
-- 非 SQLite 时：数据库密码和主机必须显式配置
-- OSS endpoint 配置后：AccessKey / Bucket 必须配置
+项目包含 [AGENTS.md](./AGENTS.md)，为 AI 编码代理提供构建命令、代码规范和架构上下文。
 
 ## 📜 License
 
-> **UID 规范**：所有对外接口统一使用 `uid`（22 字符 URL-safe base64）作为资源标识，不暴露数字自增 ID。
-
-MIT License
+MIT

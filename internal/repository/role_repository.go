@@ -77,9 +77,9 @@ func (r *RoleRepository) Update(ctx context.Context, role *model.Role) error {
 	return r.db.WithContext(ctx).Save(role).Error
 }
 
-// Delete soft deletes a role
+// Delete hard deletes a role
 func (r *RoleRepository) Delete(ctx context.Context, id uint) error {
-	result := r.db.WithContext(ctx).Delete(&model.Role{}, id)
+	result := r.db.WithContext(ctx).Unscoped().Delete(&model.Role{}, id)
 	if result.RowsAffected == 0 {
 		return ErrRoleNotFound
 	}

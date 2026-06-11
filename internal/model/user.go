@@ -38,10 +38,9 @@ type User struct {
 	Company   *string        `json:"company,omitempty"`
 	Signature *string        `json:"signature,omitempty"`
 	Website   *string        `json:"website,omitempty"`
-	Freezed   bool           `json:"freezed" gorm:"default:false;index"` // 是否冻结
-	CreatedAt time.Time      `json:"created_at" gorm:"index"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+	Freezed   bool      `json:"freezed" gorm:"default:false;index"` // 是否冻结
+	CreatedAt time.Time `json:"created_at" gorm:"index"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // BeforeCreate 创建前自动生成 UID、Username 和 LPID

@@ -72,9 +72,9 @@ func (r *FileRepository) Update(ctx context.Context, file *model.File) error {
 	return r.db.WithContext(ctx).Save(file).Error
 }
 
-// Delete soft deletes a file by ID
+// Delete hard deletes a file by ID
 func (r *FileRepository) Delete(ctx context.Context, id uint) error {
-	result := r.db.WithContext(ctx).Delete(&model.File{}, id)
+	result := r.db.WithContext(ctx).Unscoped().Delete(&model.File{}, id)
 	if result.RowsAffected == 0 {
 		return ErrFileNotFound
 	}

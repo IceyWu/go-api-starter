@@ -27,17 +27,17 @@ func Logger() gin.HandlerFunc {
 		latency := time.Since(start)
 		status := c.Writer.Status()
 
-		// Format: METHOD PATH STATUS LATENCY
-		statusColor := "\033[32m" // green
-		if status >= 400 {
-			statusColor = "\033[33m" // yellow
+		if logger.Log != nil {
+			// Structured logging for production-friendly log collection
+			logger.Log.Infow("request",
+				"method", method,
+				"path", path,
+				"status", status,
+				"latency_ms", latency.Milliseconds(),
+				"client_ip", c.ClientIP(),
+				"request_id", GetRequestID(c),
+			)
 		}
-		if status >= 500 {
-			statusColor = "\033[31m" // red
-		}
-
-		logger.Log.Infof("%s%-7s\033[0m %s %s%d\033[0m %v",
-			"\033[36m", method, path, statusColor, status, latency)
 	}
 }
 

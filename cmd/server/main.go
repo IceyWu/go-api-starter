@@ -94,7 +94,7 @@ func main() {
 	}
 
 	// Setup router
-	r, permMw, _ := router.Setup(db)
+	r, permMw, container := router.Setup(db)
 
 	// Seed permissions defined in route registrations
 	seed.SyncPermissions(db, permMw.CollectedCodes())
@@ -109,9 +109,16 @@ func main() {
 	localIP := netutil.GetLocalIP()
 	banner.PrintBanner(cfg.App.Name, cfg.App.Env, cfg.Server.Port, localIP, nil)
 
-	// Create HTTP server
+	// Create HTTP server with timeouts to prevent slow-loris attacks
 	addr := ":" + cfg.Server.Port
-	srv := &http.Server{Addr: addr, Handler: r}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 
 	go func() {
 		logger.Log.Infof("Server starting on %s", addr)
@@ -127,12 +134,26 @@ func main() {
 
 	logger.Log.Info("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// 1. Shutdown HTTP server (stop accepting new requests, wait for in-flight)
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
+		log.Printf("HTTP server forced to shutdown: %v", err)
 	}
 
-	logger.Log.Info("Server exited")
+	// 2. Close DI container (Redis, memory cache, etc.)
+	if err := container.Close(); err != nil {
+		log.Printf("Container close error: %v", err)
+	}
+
+	// 3. Close database connection pool
+	sqlDB, err := db.DB()
+	if err == nil {
+		if err := sqlDB.Close(); err != nil {
+			log.Printf("Database close error: %v", err)
+		}
+	}
+
+	logger.Log.Info("Server exited gracefully")
 }

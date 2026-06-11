@@ -88,9 +88,9 @@ func (r *PermissionRepository) Update(ctx context.Context, permission *model.Per
 	return r.db.WithContext(ctx).Save(permission).Error
 }
 
-// SoftDelete soft deletes a permission
-func (r *PermissionRepository) SoftDelete(ctx context.Context, id uint) error {
-	result := r.db.WithContext(ctx).Delete(&model.Permission{}, id)
+// Delete hard deletes a permission
+func (r *PermissionRepository) Delete(ctx context.Context, id uint) error {
+	result := r.db.WithContext(ctx).Unscoped().Delete(&model.Permission{}, id)
 	if result.RowsAffected == 0 {
 		return ErrPermissionNotFound
 	}

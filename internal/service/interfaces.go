@@ -64,7 +64,7 @@ type PermissionServiceInterface interface {
 	// Permission check operations
 	GetUserPermissions(ctx context.Context, userID uint) ([]string, error)
 	HasPermission(ctx context.Context, userID uint, code string) (bool, error)
-	CheckUserPermission(userID uint, permissionCode string) (bool, error)
+	CheckUserPermission(ctx context.Context, userID uint, permissionCode string) (bool, error)
 }
 
 // OSSServiceInterface defines the interface for OSS service operations

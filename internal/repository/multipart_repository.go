@@ -43,7 +43,7 @@ func (r *MultipartRepository) UpdateUploadStatus(uploadID string, status model.M
 
 // DeleteUpload deletes upload record
 func (r *MultipartRepository) DeleteUpload(uploadID string) error {
-	return r.db.Where("upload_id = ?", uploadID).Delete(&model.MultipartUpload{}).Error
+	return r.db.Unscoped().Where("upload_id = ?", uploadID).Delete(&model.MultipartUpload{}).Error
 }
 
 // SavePart saves an uploaded part record

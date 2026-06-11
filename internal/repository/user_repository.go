@@ -151,11 +151,31 @@ func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	return r.db.WithContext(ctx).Save(user).Error
 }
 
-// Delete soft deletes a user by ID
+// Delete hard deletes a user by ID
 func (r *UserRepository) Delete(ctx context.Context, id uint) error {
-	result := r.db.WithContext(ctx).Delete(&model.User{}, id)
+	result := r.db.WithContext(ctx).Unscoped().Delete(&model.User{}, id)
 	if result.RowsAffected == 0 {
 		return ErrUserNotFound
 	}
 	return result.Error
+}
+
+// FindByEmailForAuth finds a user by email without preloading relations (optimized for auth flows)
+func (r *UserRepository) FindByEmailForAuth(ctx context.Context, email string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrUserNotFound
+	}
+	return &user, err
+}
+
+// FindByMobileForAuth finds a user by mobile without preloading relations (optimized for auth flows)
+func (r *UserRepository) FindByMobileForAuth(ctx context.Context, mobile string) (*model.User, error) {
+	var user model.User
+	err := r.db.WithContext(ctx).Where("mobile = ?", mobile).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrUserNotFound
+	}
+	return &user, err
 }

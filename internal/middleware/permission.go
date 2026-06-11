@@ -44,7 +44,8 @@ func (m *PermissionMiddleware) RequirePermission(permissionCode string) gin.Hand
 			return
 		}
 
-		hasPermission, err := m.permService.CheckUserPermission(userID, permissionCode)
+		ctx := c.Request.Context()
+		hasPermission, err := m.permService.CheckUserPermission(ctx, userID, permissionCode)
 		if err != nil {
 			response.InternalError(c, "权限检查失败")
 			c.Abort()

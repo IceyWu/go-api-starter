@@ -20,6 +20,10 @@ type UserRepositoryInterface interface {
 	FindByLPID(ctx context.Context, lpID string) (*model.User, error)
 	Update(ctx context.Context, user *model.User) error
 	Delete(ctx context.Context, id uint) error
+	// FindByEmailForAuth finds user by email without preloading relations (optimized for auth)
+	FindByEmailForAuth(ctx context.Context, email string) (*model.User, error)
+	// FindByMobileForAuth finds user by mobile without preloading relations (optimized for auth)
+	FindByMobileForAuth(ctx context.Context, mobile string) (*model.User, error)
 }
 
 // PermissionRepositoryInterface defines the interface for permission data operations
@@ -31,7 +35,7 @@ type PermissionRepositoryInterface interface {
 	FindBySpaceID(ctx context.Context, spaceID uint) ([]model.Permission, error)
 	GetMaxPositionInSpace(ctx context.Context, spaceID uint) (int, error)
 	Update(ctx context.Context, permission *model.Permission) error
-	SoftDelete(ctx context.Context, id uint) error
+	Delete(ctx context.Context, id uint) error
 	Exists(ctx context.Context, code string) (bool, error)
 	FindByCodes(ctx context.Context, codes []string) ([]model.Permission, error)
 	CountBySpaceID(ctx context.Context, spaceID uint) (int64, error)

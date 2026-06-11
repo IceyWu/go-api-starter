@@ -57,6 +57,8 @@ type Container struct {
 	fileServiceOnce    sync.Once
 	tokenBlacklist     service.TokenBlacklist
 	tokenBlacklistOnce sync.Once
+	wechatService      *service.WechatService
+	wechatServiceOnce  sync.Once
 
 	// Permission components
 	permManager     *service.BitPermissionManager
@@ -170,12 +172,12 @@ func (c *Container) PermissionChecker() *service.PermissionChecker {
 func (c *Container) BitPermissionManager() *service.BitPermissionManager {
 	c.permManagerOnce.Do(func() {
 		c.permManager = service.NewBitPermissionManager(
-			c.PermissionSpaceRepository().(*repository.PermissionSpaceRepository),
-			c.PermissionRepository().(*repository.PermissionRepository),
-			c.RoleRepository().(*repository.RoleRepository),
-			c.UserRoleRepository().(*repository.UserRoleRepository),
-			c.RolePermissionRepository().(*repository.RolePermissionRepository),
-			c.UserPermissionCacheRepository().(*repository.UserPermissionCacheRepository),
+			c.PermissionSpaceRepository(),
+			c.PermissionRepository(),
+			c.RoleRepository(),
+			c.UserRoleRepository(),
+			c.RolePermissionRepository(),
+			c.UserPermissionCacheRepository(),
 		)
 	})
 	return c.permManager

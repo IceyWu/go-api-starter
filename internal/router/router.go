@@ -30,6 +30,8 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	// Core middleware
 	r.Use(middleware.Recovery())
 	r.Use(middleware.RequestID())
+	r.Use(middleware.BodyLimit(10 << 20)) // 10MB default body limit
+	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.Logger())
 	r.Use(middleware.ErrorHandler())
 

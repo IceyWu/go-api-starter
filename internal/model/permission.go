@@ -2,51 +2,46 @@ package model
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // PermissionSpace 权限空间
 type PermissionSpace struct {
-	ID          uint           `json:"id" gorm:"primaryKey"`
-	Name        string         `json:"name" gorm:"size:100;uniqueIndex;not null"`
-	Description string         `json:"description" gorm:"type:text"`
-	IsActive    bool           `json:"is_active" gorm:"default:true;index"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
+	ID          uint      `json:"id" gorm:"primaryKey"`
+	Name        string    `json:"name" gorm:"size:100;uniqueIndex;not null"`
+	Description string    `json:"description" gorm:"type:text"`
+	IsActive    bool      `json:"is_active" gorm:"default:true;index"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 
 	Permissions []Permission `json:"permissions,omitempty" gorm:"foreignKey:SpaceID"`
 }
 
 // Permission 权限定义
 type Permission struct {
-	ID          uint           `json:"id" gorm:"primaryKey"`
-	Code        string         `json:"code" gorm:"size:50;uniqueIndex;not null"`
-	Name        string         `json:"name" gorm:"size:100;not null"`
-	Description string         `json:"description" gorm:"type:text"`
-	SpaceID     uint           `json:"space_id" gorm:"not null;index"`
-	Position    uint8          `json:"position" gorm:"not null"`          // 0-63
-	Value       uint64         `json:"value" gorm:"not null"`             // 2^position
-	Module      string         `json:"module" gorm:"size:100;index"`
-	IsActive    bool           `json:"is_active" gorm:"default:true;index"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
+	ID          uint      `json:"id" gorm:"primaryKey"`
+	Code        string    `json:"code" gorm:"size:50;uniqueIndex;not null"`
+	Name        string    `json:"name" gorm:"size:100;not null"`
+	Description string    `json:"description" gorm:"type:text"`
+	SpaceID     uint      `json:"space_id" gorm:"not null;index"`
+	Position    uint8     `json:"position" gorm:"not null"`          // 0-63
+	Value       uint64    `json:"value" gorm:"not null"`             // 2^position
+	Module      string    `json:"module" gorm:"size:100;index"`
+	IsActive    bool      `json:"is_active" gorm:"default:true;index"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 
 	Space *PermissionSpace `json:"space,omitempty" gorm:"foreignKey:SpaceID"`
 }
 
 // Role 角色
 type Role struct {
-	ID          uint           `json:"id" gorm:"primaryKey"`
-	Name        string         `json:"name" gorm:"size:100;uniqueIndex;not null"`
-	Description string         `json:"description" gorm:"type:text"`
-	IsActive    bool           `json:"is_active" gorm:"default:true;index"`
-	IsSystem    bool           `json:"is_system" gorm:"default:false;index"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
+	ID          uint      `json:"id" gorm:"primaryKey"`
+	Name        string    `json:"name" gorm:"size:100;uniqueIndex;not null"`
+	Description string    `json:"description" gorm:"type:text"`
+	IsActive    bool      `json:"is_active" gorm:"default:true;index"`
+	IsSystem    bool      `json:"is_system" gorm:"default:false;index"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 
 	RolePermissions []RolePermission `json:"role_permissions,omitempty" gorm:"foreignKey:RoleID"`
 }

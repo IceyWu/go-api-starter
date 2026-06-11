@@ -3,8 +3,6 @@ package model
 import (
 	"fmt"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // MultipartUpload represents an ongoing multipart upload task
@@ -19,10 +17,9 @@ type MultipartUpload struct {
 	TotalParts  int                   `gorm:"not null" json:"total_parts"`
 	ChunkSize   int64                 `gorm:"not null" json:"chunk_size"`
 	UserID      uint                  `gorm:"index" json:"user_id"`
-	Status      MultipartUploadStatus `gorm:"type:varchar(20);default:initiated;index" json:"status"`
-	CreatedAt   time.Time             `json:"created_at"`
-	UpdatedAt   time.Time             `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt        `gorm:"index" json:"-"`
+	Status    MultipartUploadStatus `gorm:"type:varchar(20);default:initiated;index" json:"status"`
+	CreatedAt time.Time             `json:"created_at"`
+	UpdatedAt time.Time             `json:"updated_at"`
 }
 
 func (MultipartUpload) TableName() string {

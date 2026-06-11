@@ -27,7 +27,7 @@ type OSSService struct {
 	multipartRepo repository.MultipartRepositoryInterface
 	config        *config.OSSConfig
 	appEnv        string
-	uidCache   sync.Map // userID -> uid cache
+	uidCache      sync.Map // userID -> uid cache
 }
 
 // NewOSSService creates a new OSSService
@@ -212,7 +212,7 @@ func (s *OSSService) DeleteFile(uid string) error {
 		}
 	}
 
-	if err := s.db.Delete(file).Error; err != nil {
+	if err := s.db.Unscoped().Delete(file).Error; err != nil {
 		return apperrors.Internal(err, "failed to delete file")
 	}
 	return nil

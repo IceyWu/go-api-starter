@@ -65,7 +65,7 @@ func (r *PermissionSpaceRepository) FindAllWithCount(ctx context.Context) ([]mod
 	err := r.db.WithContext(ctx).
 		Model(&model.PermissionSpace{}).
 		Select("permission_spaces.id, permission_spaces.name, permission_spaces.description, permission_spaces.is_active, COUNT(permissions.id) as permission_count").
-		Joins("LEFT JOIN permissions ON permissions.space_id = permission_spaces.id AND permissions.deleted_at IS NULL").
+		Joins("LEFT JOIN permissions ON permissions.space_id = permission_spaces.id").
 		Group("permission_spaces.id").
 		Order("permission_spaces.id ASC").
 		Scan(&results).Error

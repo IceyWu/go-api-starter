@@ -130,8 +130,7 @@ func (s *PermissionService) HasPermission(ctx context.Context, userID uint, code
 }
 
 // CheckUserPermission checks if a user has a specific permission
-func (s *PermissionService) CheckUserPermission(userID uint, permissionCode string) (bool, error) {
-	ctx := context.Background()
+func (s *PermissionService) CheckUserPermission(ctx context.Context, userID uint, permissionCode string) (bool, error) {
 	return s.HasPermission(ctx, userID, permissionCode)
 }
 

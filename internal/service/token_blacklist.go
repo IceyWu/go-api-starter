@@ -54,11 +54,6 @@ func (b *RedisTokenBlacklist) buildTokenKey(tokenHash string) string {
 	return tokenBlacklistPrefix + tokenHash
 }
 
-// buildUserTokensKey builds a cache key for user's tokens
-func (b *RedisTokenBlacklist) buildUserTokensKey(userID uint) string {
-	return fmt.Sprintf("%s%d", userTokensPrefix, userID)
-}
-
 
 // Add adds a token to the blacklist with the given expiration
 func (b *RedisTokenBlacklist) Add(ctx context.Context, token string, expiration time.Duration) error {
@@ -74,78 +69,44 @@ func (b *RedisTokenBlacklist) IsBlacklisted(ctx context.Context, token string) (
 	return b.cache.Exists(ctx, key)
 }
 
-// AddUserToken associates a token with a user for batch invalidation
+// AddUserToken associates a token with a user for batch invalidation.
+// Uses a timestamp-based approach: stores each token hash with its own key
+// and maintains a counter for the user's invalidation generation.
 func (b *RedisTokenBlacklist) AddUserToken(ctx context.Context, userID uint, token string, expiration time.Duration) error {
 	tokenHash := hashToken(token)
 
-	// Store the token hash in user's token set
-	userKey := b.buildUserTokensKey(userID)
-	data, err := b.cache.Get(ctx, userKey)
-	if err != nil && err != cache.ErrKeyNotFound {
-		return err
-	}
-
-	// Append token hash to existing list (simple approach using comma-separated values)
-	var tokens string
-	if len(data) > 0 {
-		tokens = string(data) + "," + tokenHash
-	} else {
-		tokens = tokenHash
-	}
-
-	return b.cache.Set(ctx, userKey, []byte(tokens), userTokensTTL)
+	// Store individual token entry with user association
+	tokenUserKey := fmt.Sprintf("%s%d:%s", userTokensPrefix, userID, tokenHash)
+	return b.cache.Set(ctx, tokenUserKey, []byte("1"), expiration)
 }
 
-// InvalidateUserTokens invalidates all tokens for a user
+// InvalidateUserTokens invalidates all tokens for a user by setting a
+// "invalidate_before" timestamp. Any token issued before this time is invalid.
 func (b *RedisTokenBlacklist) InvalidateUserTokens(ctx context.Context, userID uint) error {
-	userKey := b.buildUserTokensKey(userID)
-	data, err := b.cache.Get(ctx, userKey)
+	// Set user invalidation timestamp — all tokens before this are invalid
+	invalidateKey := b.buildUserInvalidateKey(userID)
+	nowBytes := []byte(fmt.Sprintf("%d", time.Now().Unix()))
+	return b.cache.Set(ctx, invalidateKey, nowBytes, userTokensTTL)
+}
+
+// IsUserTokenInvalidated checks if user's tokens have been bulk-invalidated
+// after the given issued-at time. Returns true if the token should be rejected.
+func (b *RedisTokenBlacklist) IsUserTokenInvalidated(ctx context.Context, userID uint, issuedAt int64) (bool, error) {
+	invalidateKey := b.buildUserInvalidateKey(userID)
+	data, err := b.cache.Get(ctx, invalidateKey)
 	if err == cache.ErrKeyNotFound {
-		return nil // No tokens to invalidate
+		return false, nil
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	// Parse token hashes and blacklist each one
-	tokens := string(data)
-	if tokens == "" {
-		return nil
-	}
-
-	// Split by comma and blacklist each token
-	for _, tokenHash := range splitTokens(tokens) {
-		if tokenHash == "" {
-			continue
-		}
-		key := b.buildTokenKey(tokenHash)
-		// Use a long TTL since we don't know the original expiration
-		if err := b.cache.Set(ctx, key, []byte("1"), userTokensTTL); err != nil {
-			return err
-		}
-	}
-
-	// Clear the user's token list
-	return b.cache.Delete(ctx, userKey)
+	var invalidateBefore int64
+	fmt.Sscanf(string(data), "%d", &invalidateBefore)
+	return issuedAt <= invalidateBefore, nil
 }
 
-// splitTokens splits a comma-separated string of tokens
-func splitTokens(s string) []string {
-	if s == "" {
-		return nil
-	}
-	var result []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == ',' {
-			if i > start {
-				result = append(result, s[start:i])
-			}
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		result = append(result, s[start:])
-	}
-	return result
+// buildUserInvalidateKey builds the cache key for user token invalidation timestamp
+func (b *RedisTokenBlacklist) buildUserInvalidateKey(userID uint) string {
+	return fmt.Sprintf("%sinvalidate:%d", userTokensPrefix, userID)
 }

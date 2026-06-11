@@ -37,9 +37,9 @@ func (s *AuthService) Register(ctx context.Context, req *model.RegisterRequest) 
 		return nil, apperrors.BadRequestCode(i18n.ErrMobileOrEmailRequired)
 	}
 
-	// Check if mobile already exists
+	// Check if mobile already exists (lightweight query, no preloads needed)
 	if req.Mobile != nil {
-		existingUser, err := s.userRepo.FindByMobile(ctx, *req.Mobile)
+		existingUser, err := s.userRepo.FindByMobileForAuth(ctx, *req.Mobile)
 		if err != nil && !errors.Is(err, repository.ErrUserNotFound) {
 			return nil, apperrors.InternalCode(err, i18n.ErrQueryUserFailed)
 		}
@@ -48,9 +48,9 @@ func (s *AuthService) Register(ctx context.Context, req *model.RegisterRequest) 
 		}
 	}
 
-	// Check if email already exists
+	// Check if email already exists (lightweight query, no preloads needed)
 	if req.Email != nil {
-		existingUser, err := s.userRepo.FindByEmail(ctx, *req.Email)
+		existingUser, err := s.userRepo.FindByEmailForAuth(ctx, *req.Email)
 		if err != nil && !errors.Is(err, repository.ErrUserNotFound) {
 			return nil, apperrors.InternalCode(err, i18n.ErrQueryUserFailed)
 		}
@@ -101,11 +101,11 @@ func (s *AuthService) Login(ctx context.Context, req *model.LoginRequest) (*mode
 	var user *model.User
 	var err error
 
-	// Find user by mobile or email
+	// Find user by mobile or email (lightweight query without preloading relations)
 	if req.Mobile != nil {
-		user, err = s.userRepo.FindByMobile(ctx, *req.Mobile)
+		user, err = s.userRepo.FindByMobileForAuth(ctx, *req.Mobile)
 	} else if req.Email != nil {
-		user, err = s.userRepo.FindByEmail(ctx, *req.Email)
+		user, err = s.userRepo.FindByEmailForAuth(ctx, *req.Email)
 	}
 
 	if err != nil {

@@ -46,7 +46,10 @@ func (c *Container) HealthHandler() *handler.HealthHandler {
 	return c.healthHandler
 }
 
-// WechatLoginService returns the WeChat mini-program login service.
+// WechatLoginService returns the WeChat mini-program login service (singleton).
 func (c *Container) WechatLoginService() *service.WechatService {
-	return service.NewWechatService(&c.config.Wechat, c.config.App.DefaultUserPassword, c.UserRepository(), c.JWTManager())
+	c.wechatServiceOnce.Do(func() {
+		c.wechatService = service.NewWechatService(&c.config.Wechat, c.config.App.DefaultUserPassword, c.UserRepository(), c.JWTManager())
+	})
+	return c.wechatService
 }

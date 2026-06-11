@@ -39,6 +39,7 @@ func (e ValidationErrors) HasErrors() bool {
 
 // Validate validates the configuration and returns any validation errors
 // In production environment, certain security requirements must be met
+// In development environment, critical misconfigurations still raise warnings
 func (c *Config) Validate() ValidationErrors {
 	var errors ValidationErrors
 
@@ -104,6 +105,16 @@ func (c *Config) Validate() ValidationErrors {
 					Message: "OSS bucket name must be configured when OSS is enabled in production",
 				})
 			}
+		}
+	}
+
+	// Development environment: warn about critical security misconfigurations
+	if c.App.Env == "development" || c.App.Env == "dev" {
+		if c.App.JWTSecret == "" || c.App.JWTSecret == "your-secret-key-change-in-production" {
+			errors = append(errors, ValidationError{
+				Field:   "app.jwt_secret",
+				Message: "JWT secret is using default value (set JWT_SECRET env var to suppress this warning)",
+			})
 		}
 	}
 

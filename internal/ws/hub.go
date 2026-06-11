@@ -22,6 +22,9 @@ type Hub struct {
 	mu   sync.RWMutex
 	conn *websocket.Conn
 
+	// Write serialization — WebSocket connections don't support concurrent writes
+	writeMu sync.Mutex
+
 	// pending 存放等待 ack 的请求
 	pendingMu sync.Mutex
 	pending   map[string]chan *AckData
@@ -106,10 +109,10 @@ func (h *Hub) Send(msgType string, data interface{}) (*AckData, error) {
 		h.pendingMu.Unlock()
 	}()
 
-	// 发送
-	h.mu.RLock()
+	// 发送（使用 writeMu 序列化写操作）
+	h.writeMu.Lock()
 	err = conn.WriteJSON(msg)
-	h.mu.RUnlock()
+	h.writeMu.Unlock()
 	if err != nil {
 		return nil, fmt.Errorf("发送失败: %w", err)
 	}
@@ -148,9 +151,9 @@ func (h *Hub) SendNoWait(msgType string, data interface{}) error {
 		Data: dataBytes,
 	}
 
-	h.mu.RLock()
+	h.writeMu.Lock()
 	err = conn.WriteJSON(msg)
-	h.mu.RUnlock()
+	h.writeMu.Unlock()
 	return err
 }
 
@@ -247,13 +250,13 @@ func (h *Hub) pingLoop(conn *websocket.Conn) {
 			return // 连接已被替换
 		}
 
-		h.mu.RLock()
+		h.writeMu.Lock()
 		err := conn.WriteJSON(Message{
 			Type: TypePing,
 			ID:   uuid.New().String(),
 			Data: json.RawMessage("{}"),
 		})
-		h.mu.RUnlock()
+		h.writeMu.Unlock()
 
 		if err != nil {
 			return

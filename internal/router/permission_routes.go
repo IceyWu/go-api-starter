@@ -16,6 +16,8 @@ func registerPermissionRoutes(api *gin.RouterGroup, c *container.Container, auth
 		// Permission spaces
 		permissions.POST("/spaces", permMw.RequirePermission("role.manage"), h.CreateSpace)
 		permissions.GET("/spaces", h.GetAllSpaces)
+		permissions.PUT("/spaces/:id", permMw.RequirePermission("role.manage"), h.UpdateSpace)
+		permissions.DELETE("/spaces/:id", permMw.RequirePermission("role.manage"), h.DeleteSpace)
 
 		// Permissions
 		permissions.POST("/permissions", permMw.RequirePermission("role.manage"), h.CreatePermission)

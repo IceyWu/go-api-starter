@@ -54,6 +54,41 @@ func (m *BitPermissionManager) GetAllSpaces(ctx context.Context) ([]model.SpaceW
 	return m.spaceRepo.FindAllWithCount(ctx)
 }
 
+func (m *BitPermissionManager) UpdateSpace(ctx context.Context, id uint, req *model.UpdateSpaceRequest) (*model.PermissionSpace, error) {
+	space, err := m.spaceRepo.FindByID(ctx, id)
+	if errors.Is(err, repository.ErrPermissionSpaceNotFound) {
+		return nil, ErrPermissionSpaceNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Name != "" && req.Name != space.Name {
+		if exists, _ := m.spaceRepo.Exists(ctx, req.Name); exists {
+			return nil, ErrPermissionSpaceNameExists
+		}
+		space.Name = req.Name
+	}
+	if req.Description != "" {
+		space.Description = req.Description
+	}
+	if req.IsActive != nil {
+		space.IsActive = *req.IsActive
+	}
+
+	if err := m.spaceRepo.Update(ctx, space); err != nil {
+		return nil, err
+	}
+	return space, nil
+}
+
+func (m *BitPermissionManager) DeleteSpace(ctx context.Context, id uint) error {
+	if _, err := m.spaceRepo.FindByID(ctx, id); errors.Is(err, repository.ErrPermissionSpaceNotFound) {
+		return ErrPermissionSpaceNotFound
+	}
+	return m.spaceRepo.Delete(ctx, id)
+}
+
 func (m *BitPermissionManager) GetSpaceByID(ctx context.Context, id uint) (*model.PermissionSpace, error) {
 	space, err := m.spaceRepo.FindByID(ctx, id)
 	if errors.Is(err, repository.ErrPermissionSpaceNotFound) {

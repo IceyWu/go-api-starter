@@ -1480,6 +1480,98 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/permissions/spaces/{id}": {
+            "put": {
+                "description": "根据ID更新权限空间",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "权限空间"
+                ],
+                "summary": "更新权限空间",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "权限空间ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "权限空间数据",
+                        "name": "space",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/model.UpdateSpaceRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.PermissionSpace"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "根据ID删除权限空间",
+                "tags": [
+                    "权限空间"
+                ],
+                "summary": "删除权限空间",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "权限空间ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/users": {
             "get": {
                 "description": "获取分页的用户列表",
@@ -2750,6 +2842,26 @@ const docTemplate = `{
                     "maxLength": 100,
                     "minLength": 2,
                     "example": "admin"
+                }
+            }
+        },
+        "model.UpdateSpaceRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 500,
+                    "example": "用户管理权限空间"
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2,
+                    "example": "user"
                 }
             }
         },

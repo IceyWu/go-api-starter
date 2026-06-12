@@ -32,6 +32,16 @@ func (s *PermissionService) GetAllSpaces(ctx context.Context) ([]model.SpaceWith
 	return s.manager.GetAllSpaces(ctx)
 }
 
+// UpdateSpace updates a permission space
+func (s *PermissionService) UpdateSpace(ctx context.Context, id uint, req *model.UpdateSpaceRequest) (*model.PermissionSpace, error) {
+	return s.manager.UpdateSpace(ctx, id, req)
+}
+
+// DeleteSpace deletes a permission space
+func (s *PermissionService) DeleteSpace(ctx context.Context, id uint) error {
+	return s.manager.DeleteSpace(ctx, id)
+}
+
 // CreatePermission creates a new permission
 func (s *PermissionService) CreatePermission(ctx context.Context, req *model.CreatePermissionRequest) (*model.Permission, error) {
 	return s.manager.CreatePermission(ctx, req.Code, req.Name, req.Description, req.SpaceID, req.Module)

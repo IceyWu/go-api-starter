@@ -62,6 +62,7 @@ type PermissionSpaceRepositoryInterface interface {
 	FindAllWithCount(ctx context.Context) ([]model.SpaceWithCount, error)
 	Exists(ctx context.Context, name string) (bool, error)
 	Update(ctx context.Context, space *model.PermissionSpace) error
+	Delete(ctx context.Context, id uint) error
 }
 
 // UserRoleRepositoryInterface defines the interface for user role data operations

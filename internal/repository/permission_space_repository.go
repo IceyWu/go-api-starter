@@ -83,3 +83,8 @@ func (r *PermissionSpaceRepository) Exists(ctx context.Context, name string) (bo
 func (r *PermissionSpaceRepository) Update(ctx context.Context, space *model.PermissionSpace) error {
 	return r.db.WithContext(ctx).Save(space).Error
 }
+
+// Delete deletes a permission space by ID (hard delete)
+func (r *PermissionSpaceRepository) Delete(ctx context.Context, id uint) error {
+	return r.db.WithContext(ctx).Unscoped().Delete(&model.PermissionSpace{}, id).Error
+}

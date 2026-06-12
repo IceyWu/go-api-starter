@@ -38,6 +38,8 @@ type PermissionServiceInterface interface {
 	// Space operations
 	CreateSpace(ctx context.Context, req *model.CreateSpaceRequest) (*model.PermissionSpace, error)
 	GetAllSpaces(ctx context.Context) ([]model.SpaceWithCount, error)
+	UpdateSpace(ctx context.Context, id uint, req *model.UpdateSpaceRequest) (*model.PermissionSpace, error)
+	DeleteSpace(ctx context.Context, id uint) error
 
 	// Permission operations
 	CreatePermission(ctx context.Context, req *model.CreatePermissionRequest) (*model.Permission, error)

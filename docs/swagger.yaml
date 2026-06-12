@@ -544,6 +544,21 @@ definitions:
         minLength: 2
         type: string
     type: object
+  model.UpdateSpaceRequest:
+    properties:
+      description:
+        example: 用户管理权限空间
+        maxLength: 500
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      name:
+        example: user
+        maxLength: 100
+        minLength: 2
+        type: string
+    type: object
   model.UpdateUserRequest:
     properties:
       avatar_uid:
@@ -1658,6 +1673,64 @@ paths:
           schema:
             $ref: '#/definitions/response.Response'
       summary: 创建权限空间
+      tags:
+      - 权限空间
+  /api/v1/permissions/spaces/{id}:
+    delete:
+      description: 根据ID删除权限空间
+      parameters:
+      - description: 权限空间ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 删除权限空间
+      tags:
+      - 权限空间
+    put:
+      consumes:
+      - application/json
+      description: 根据ID更新权限空间
+      parameters:
+      - description: 权限空间ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 权限空间数据
+        in: body
+        name: space
+        required: true
+        schema:
+          $ref: '#/definitions/model.UpdateSpaceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.PermissionSpace'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: 更新权限空间
       tags:
       - 权限空间
   /api/v1/users:

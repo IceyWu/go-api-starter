@@ -133,6 +133,13 @@ type CreateSpaceRequest struct {
 	Description string `json:"description" binding:"max=500" example:"用户管理权限空间"`
 }
 
+// UpdateSpaceRequest 更新权限空间请求
+type UpdateSpaceRequest struct {
+	Name        string `json:"name" binding:"omitempty,min=2,max=100" example:"user"`
+	Description string `json:"description" binding:"max=500" example:"用户管理权限空间"`
+	IsActive    *bool  `json:"is_active" example:"true"`
+}
+
 // CreatePermissionRequest 创建权限请求
 type CreatePermissionRequest struct {
 	Code        string `json:"code" binding:"required,min=2,max=50" example:"USER_CREATE"`

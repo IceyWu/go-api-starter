@@ -68,6 +68,58 @@ func (h *PermissionHandler) GetAllSpaces(c *gin.Context) {
 	response.Success(c, spaces)
 }
 
+// UpdateSpace godoc
+// @Summary 更新权限空间
+// @Description 根据ID更新权限空间
+// @Tags 权限空间
+// @Accept json
+// @Produce json
+// @Param id path int true "权限空间ID"
+// @Param space body model.UpdateSpaceRequest true "权限空间数据"
+// @Success 200 {object} response.Response{data=model.PermissionSpace}
+// @Failure 400 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/permissions/spaces/{id} [put]
+func (h *PermissionHandler) UpdateSpace(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
+		return
+	}
+	var req model.UpdateSpaceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
+		return
+	}
+	space, err := h.service.UpdateSpace(c.Request.Context(), uint(id), &req)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	response.Success(c, space)
+}
+
+// DeleteSpace godoc
+// @Summary 删除权限空间
+// @Description 根据ID删除权限空间
+// @Tags 权限空间
+// @Param id path int true "权限空间ID"
+// @Success 204
+// @Failure 404 {object} response.Response
+// @Router /api/v1/permissions/spaces/{id} [delete]
+func (h *PermissionHandler) DeleteSpace(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	if err != nil {
+		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
+		return
+	}
+	if err := h.service.DeleteSpace(c.Request.Context(), uint(id)); err != nil {
+		c.Error(err)
+		return
+	}
+	response.NoContent(c)
+}
+
 // ====================
 // 权限管理 (Permission Management)
 // ====================

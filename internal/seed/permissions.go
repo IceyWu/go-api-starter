@@ -15,26 +15,74 @@ import (
 // 如果 code 不在这里，会自动用 code 本身作为 name
 var permMeta = map[string][2]string{
 	// [0]=中文名称  [1]=描述
+	// 用户模块
 	"user.create": {"创建用户", "允许创建新用户"},
 	"user.read":   {"查看用户", "允许查看用户列表和详情"},
 	"user.update": {"编辑用户", "允许编辑用户信息"},
 	"user.delete": {"删除用户", "允许删除用户"},
-	"role.manage": {"角色管理", "允许管理角色、权限和用户角色分配"},
+	// 角色模块
+	"role.create": {"创建角色", "允许创建新角色"},
+	"role.read":   {"查看角色", "允许查看角色列表和详情"},
+	"role.update": {"编辑角色", "允许编辑角色信息和权限分配"},
+	"role.delete": {"删除角色", "允许删除角色"},
+	// 权限模块
+	"permission.create": {"创建权限", "允许创建新权限和权限空间"},
+	"permission.read":   {"查看权限", "允许查看权限列表和权限空间"},
+	"permission.update": {"编辑权限", "允许编辑权限和权限空间信息"},
+	"permission.delete": {"删除权限", "允许删除权限和权限空间"},
+	// 文件模块
 	"file.upload": {"上传文件", "允许上传和编辑文件"},
 	"file.delete": {"删除文件", "允许删除文件"},
 }
 
 // moduleToSpace 将 module 映射到权限空间
 var moduleToSpace = map[string]string{
-	"user": "system",
-	"role": "system",
-	"file": "content",
+	"user":       "system",
+	"role":       "system",
+	"permission": "system",
+	"file":       "content",
+}
+
+// presetCodes 预设权限码（包含路由未保护但业务需要的码）
+// 路由中 RequirePermission 收集的码 + 这里的预设码 = 完整的系统权限码
+var presetCodes = []string{
+	// 用户模块
+	"user.create",
+	"user.read",
+	"user.update",
+	"user.delete",
+	// 角色模块
+	"role.create",
+	"role.read",
+	"role.update",
+	"role.delete",
+	// 权限模块
+	"permission.create",
+	"permission.read",
+	"permission.update",
+	"permission.delete",
+	// 文件模块
+	"file.upload",
+	"file.delete",
 }
 
 // SyncPermissions 根据路由中实际使用的权限 code 自动同步到数据库
 // codes 来自 PermissionMiddleware.CollectedCodes()，是路由注册时自动收集的
 func SyncPermissions(db *gorm.DB, codes []string) {
-	if len(codes) == 0 {
+	// 合并路由收集的 + 预设的，去重
+	mergedSet := make(map[string]struct{})
+	for _, c := range codes {
+		mergedSet[c] = struct{}{}
+	}
+	for _, c := range presetCodes {
+		mergedSet[c] = struct{}{}
+	}
+	allCodes := make([]string, 0, len(mergedSet))
+	for c := range mergedSet {
+		allCodes = append(allCodes, c)
+	}
+
+	if len(allCodes) == 0 {
 		return
 	}
 	ctx := context.Background()
@@ -49,7 +97,7 @@ func SyncPermissions(db *gorm.DB, codes []string) {
 
 	// 过滤出需要新建的 code
 	var newCodes []string
-	for _, code := range codes {
+	for _, code := range allCodes {
 		if _, exists := existingSet[code]; !exists {
 			newCodes = append(newCodes, code)
 		}

@@ -112,8 +112,9 @@ func main() {
 	// Seed default admin user and role if configured
 	if cfg.App.AdminEmail != "" {
 		seed.SyncAdminUser(db, cfg.App.AdminEmail, cfg.App.AdminPassword)
-		seed.SyncAdminRole(db, cfg.App.AdminEmail)
 	}
+	// 始终确保 admin 角色拥有所有权限
+	seed.SyncAdminRole(db, cfg.App.AdminEmail)
 
 	// Print banner with service status
 	localIPs := netutil.GetAllLocalIPs()

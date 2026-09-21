@@ -23,7 +23,7 @@ jobs:
           cache: true
 
       - name: Install Task
-        uses: go-task/setup-task@v0
+        uses: go-task/setup-task@v1
 
       - name: Install sqlc
         run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1

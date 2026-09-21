@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"os"
@@ -61,21 +62,27 @@ func RunWorker() error {
 		return fmt.Errorf("Alibaba Cloud MPS is not configured")
 	}
 
-	stop := make(chan struct{})
+	workerCtx, cancelWorker := context.WithCancel(context.Background())
+	defer cancelWorker()
 	poller := service.NewMPSTaskPoller(
 		manager,
 		transcoder,
 		service.NewWebhookNotifier(),
 		time.Duration(cfg.Transcoding.MPSPollIntervalSec)*time.Second,
 	)
-	go poller.Start(stop)
+	workerDone := make(chan struct{})
+	go func() {
+		defer close(workerDone)
+		poller.Start(workerCtx)
+	}()
 	logger.Log.Info("Alibaba Cloud MPS worker started")
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(quit)
 	<-quit
-	close(stop)
+	cancelWorker()
+	<-workerDone
 	logger.Log.Info("Alibaba Cloud MPS worker stopped")
 	return nil
 }

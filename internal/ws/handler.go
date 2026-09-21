@@ -2,10 +2,10 @@ package ws
 
 import (
 	"crypto/subtle"
-	"log"
 	"net/http"
 
 	"github.com/coder/websocket"
+	"go-api-starter/internal/platform/logger"
 	"go-api-starter/internal/transport"
 )
 
@@ -28,7 +28,7 @@ func Handler(hub *Hub, apiKey string) transport.HandlerFunc {
 			InsecureSkipVerify: true, // wechat_hook 内部通信，允许所有来源
 		})
 		if err != nil {
-			log.Printf("[WS Handler] 升级失败: %v", err)
+			logger.Log.Warn("websocket upgrade failed", "error", err)
 			return
 		}
 

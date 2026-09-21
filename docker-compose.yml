@@ -1,0 +1,72 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: devroot
+      MYSQL_DATABASE: go_api_starter
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -pdevroot"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build: .
+    command: ["/bin/sh", "-c", "/app/migrate && exec /app/server"]
+    environment:
+      APP_ENV: development
+      GO_API_SERVER__HOST: 0.0.0.0
+      GO_API_SERVER__PORT: "8080"
+      GO_API_DATABASE__DRIVER: mysql
+      GO_API_DATABASE__HOST: mysql
+      GO_API_DATABASE__PORT: "3306"
+      GO_API_DATABASE__USERNAME: root
+      GO_API_DATABASE__PASSWORD: devroot
+      GO_API_DATABASE__DBNAME: go_api_starter
+      GO_API_REDIS__ENABLED: "true"
+      GO_API_REDIS__HOST: redis
+      GO_API_REDIS__PORT: "6379"
+      GO_API_APP__JWT_SECRET: local-docker-secret-change-me-please
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  worker:
+    profiles: ["worker"]
+    build: .
+    command: ["/app/worker"]
+    environment:
+      APP_ENV: development
+      GO_API_DATABASE__DRIVER: mysql
+      GO_API_DATABASE__HOST: mysql
+      GO_API_DATABASE__PORT: "3306"
+      GO_API_DATABASE__USERNAME: root
+      GO_API_DATABASE__PASSWORD: devroot
+      GO_API_DATABASE__DBNAME: go_api_starter
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql-data:

@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -11,6 +10,7 @@ import (
 	_ "github.com/glebarez/go-sqlite" // CGO-free SQLite driver
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+	"go-api-starter/internal/platform/logger"
 )
 
 // Config holds database configuration
@@ -47,13 +47,13 @@ func Init(cfg *Config) (*sqlx.DB, error) {
 			cfg.Charset,
 		)
 		driver = "mysql"
-		log.Printf("Connecting to MySQL: %s@%s:%d/%s", cfg.Username, cfg.Host, cfg.Port, cfg.DBName)
+		logger.Log.Info("connecting to MySQL", "host", cfg.Host, "port", cfg.Port, "database", cfg.DBName)
 	case "sqlite":
 		fallthrough
 	default:
 		driver = "sqlite"
 		dsn = cfg.Path
-		log.Printf("Connecting to SQLite: %s", cfg.Path)
+		logger.Log.Info("connecting to SQLite", "path", cfg.Path)
 	}
 
 	stdDB, err := sql.Open(driver, dsn)
@@ -85,8 +85,7 @@ func Init(cfg *Config) (*sqlx.DB, error) {
 	db := sqlx.NewDb(stdDB, driver)
 	db.MapperFunc(toSnake)
 
-	log.Printf("Database connected successfully!")
-	log.Printf("Connection pool: MaxIdle=%d, MaxOpen=%d", maxIdle, maxOpen)
+	logger.Log.Info("database connected successfully", "max_idle_conns", maxIdle, "max_open_conns", maxOpen)
 	return db, nil
 }
 
@@ -118,6 +117,6 @@ func createMySQLDatabase(cfg *Config) error {
 		return fmt.Errorf("failed to create database: %v", err)
 	}
 
-	log.Printf("Database '%s' is ready", cfg.DBName)
+	logger.Log.Info("database is ready", "database", cfg.DBName)
 	return nil
 }

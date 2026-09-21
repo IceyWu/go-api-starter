@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+	"go-api-starter/internal/platform/logger"
 )
 
 var (
@@ -69,7 +69,7 @@ func (h *Hub) Register(conn *websocket.Conn) {
 		old.CloseNow()
 	}
 
-	log.Println("[WS Hub] wechat_hook 已连接")
+	logger.Log.Info("wechat_hook connected")
 	go h.readPump(conn)
 	go h.pingLoop(conn)
 }
@@ -85,7 +85,7 @@ func (h *Hub) Send(msgType string, data interface{}) (*AckData, error) {
 	}
 
 	id := uuid.New().String()
-	log.Printf("[WS Hub] 发送指令: type=%s id=%s", msgType, id[:8])
+	logger.Log.Info("websocket command sent", "type", msgType, "id", id[:8])
 
 	dataBytes, err := json.Marshal(data)
 	if err != nil {
@@ -126,10 +126,10 @@ func (h *Hub) Send(msgType string, data interface{}) (*AckData, error) {
 	// 等待 ack
 	select {
 	case ack := <-ackCh:
-		log.Printf("[WS Hub] 收到 ack: type=%s success=%v", msgType, ack.Success)
+		logger.Log.Info("websocket ack received", "type", msgType, "success", ack.Success)
 		return ack, nil
 	case <-time.After(h.ackTimeout):
-		log.Printf("[WS Hub] 指令超时: type=%s id=%s", msgType, id[:8])
+		logger.Log.Warn("websocket command timed out", "type", msgType, "id", id[:8])
 		return nil, ErrTimeout
 	}
 }
@@ -177,19 +177,19 @@ func (h *Hub) readPump(conn *websocket.Conn) {
 		}
 		h.mu.Unlock()
 		conn.CloseNow()
-		log.Println("[WS Hub] wechat_hook 连接断开")
+		logger.Log.Info("wechat_hook disconnected")
 	}()
 
 	for {
 		_, data, err := conn.Read(context.Background())
 		if err != nil {
-			log.Printf("[WS Hub] 读取结束: %v", err)
+			logger.Log.Warn("websocket read ended", "error", err)
 			return
 		}
 
 		var msg Message
 		if err := json.Unmarshal(data, &msg); err != nil {
-			log.Printf("[WS Hub] 解析消息失败: %v", err)
+			logger.Log.Warn("websocket message decode failed", "error", err)
 			continue
 		}
 
@@ -201,7 +201,7 @@ func (h *Hub) readPump(conn *websocket.Conn) {
 		case TypePong:
 			// 心跳回复，已通过 SetReadDeadline 处理
 		default:
-			log.Printf("[WS Hub] 未知消息类型: %s", msg.Type)
+			logger.Log.Warn("unknown websocket message type", "type", msg.Type)
 		}
 	}
 }
@@ -210,7 +210,7 @@ func (h *Hub) readPump(conn *websocket.Conn) {
 func (h *Hub) handleAck(msg Message) {
 	var ack AckData
 	if err := json.Unmarshal(msg.Data, &ack); err != nil {
-		log.Printf("[WS Hub] 解析 ack 失败: %v", err)
+		logger.Log.Warn("websocket ack decode failed", "error", err)
 		return
 	}
 
@@ -232,7 +232,7 @@ func (h *Hub) handleAck(msg Message) {
 func (h *Hub) handleReview(msg Message) {
 	var data ReviewData
 	if err := json.Unmarshal(msg.Data, &data); err != nil {
-		log.Printf("[WS Hub] 解析 review 失败: %v", err)
+		logger.Log.Warn("websocket review decode failed", "error", err)
 		return
 	}
 

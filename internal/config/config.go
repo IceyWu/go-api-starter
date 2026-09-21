@@ -89,10 +89,16 @@ type AppConfig struct {
 
 // ServerConfig holds HTTP server settings.
 type ServerConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     string `mapstructure:"port"`
-	Mode     string `mapstructure:"mode"`
-	BasePath string `mapstructure:"base_path"`
+	Host              string        `mapstructure:"host"`
+	Port              string        `mapstructure:"port"`
+	Mode              string        `mapstructure:"mode"`
+	BasePath          string        `mapstructure:"base_path"`
+	ReadHeaderTimeout time.Duration `mapstructure:"read_header_timeout"`
+	ReadTimeout       time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout      time.Duration `mapstructure:"write_timeout"`
+	IdleTimeout       time.Duration `mapstructure:"idle_timeout"`
+	ShutdownTimeout   time.Duration `mapstructure:"shutdown_timeout"`
+	MaxHeaderBytes    int           `mapstructure:"max_header_bytes"`
 }
 
 // DatabaseConfig holds database connection settings.

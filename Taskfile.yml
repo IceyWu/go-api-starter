@@ -71,6 +71,11 @@ tasks:
     cmds:
       - go test -v ./{{.PACKAGE}}
 
+  test-integration:
+    desc: Run integration tests that require external services
+    cmds:
+      - go test -tags=integration -v ./...
+
   clean:
     desc: Remove build artifacts and local database files
     cmds:
@@ -103,7 +108,7 @@ tasks:
   security:
     desc: Scan Go dependencies for known vulnerabilities
     cmds:
-      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
 
   atlas-validate:
     desc: Validate Atlas migration directories
@@ -145,6 +150,17 @@ tasks:
       GOARCH: amd64
     cmds:
       - go build -ldflags="-s -w" -o bin/server ./cmd/server
+
+  build-linux-all:
+    desc: Build all Linux production binaries
+    env:
+      CGO_ENABLED: '0'
+      GOOS: linux
+      GOARCH: amd64
+    cmds:
+      - go build -ldflags="-s -w" -o bin/server ./cmd/server
+      - go build -ldflags="-s -w" -o bin/migrate ./cmd/migrate
+      - go build -ldflags="-s -w" -o bin/worker ./cmd/worker
 
   build-windows:
     desc: Build a stripped Windows production binary

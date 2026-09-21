@@ -3,7 +3,6 @@ package container
 import (
 	"github.com/jmoiron/sqlx"
 	"io"
-	"log"
 	"log/slog"
 	"sync"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"go-api-starter/internal/middleware"
 	"go-api-starter/internal/platform/auth"
 	"go-api-starter/internal/platform/cache"
+	"go-api-starter/internal/platform/logger"
 	"go-api-starter/internal/platform/mail"
 	"go-api-starter/internal/repository"
 	"go-api-starter/internal/service"
@@ -237,7 +237,7 @@ func (c *Container) RedisCache() *cache.RedisCache {
 			var err error
 			c.redisCache, err = cache.NewRedisCache(&c.config.Redis)
 			if err != nil {
-				log.Printf("Failed to connect to Redis: %v", err)
+				logger.Log.Warn("failed to connect to Redis", "error", err)
 			}
 		}
 	})

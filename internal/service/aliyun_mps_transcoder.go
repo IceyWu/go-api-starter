@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -300,24 +301,24 @@ func NewMPSTaskPoller(taskManager *TaskManager, transcoder CloudTranscoder, webh
 	return &MPSTaskPoller{taskManager: taskManager, transcoder: transcoder, webhook: webhook, pollInterval: interval}
 }
 
-func (p *MPSTaskPoller) Start(ctxDone <-chan struct{}) {
+func (p *MPSTaskPoller) Start(ctx context.Context) {
 	if p == nil || p.taskManager == nil || p.transcoder == nil {
 		return
 	}
-	p.PollOnce()
+	p.PollOnce(ctx)
 	ticker := time.NewTicker(p.pollInterval)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			p.PollOnce()
-		case <-ctxDone:
+			p.PollOnce(ctx)
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (p *MPSTaskPoller) PollOnce() {
+func (p *MPSTaskPoller) PollOnce(ctx context.Context) {
 	tasks, err := p.taskManager.ListPendingCloudTasks()
 	if err != nil {
 		logger.Log.Warnf("failed to list pending MPS tasks: %v", err)
@@ -372,7 +373,7 @@ func (p *MPSTaskPoller) PollOnce() {
 		}
 		if task.WebhookURL != "" && p.webhook != nil {
 			go func(taskID, webhookURL, finalStatus string, finalResults []model.TranscodingResult) {
-				if err := p.webhook.NotifyWebhook(webhookURL, WebhookPayload{TaskID: taskID, Status: finalStatus, Results: finalResults}); err != nil {
+				if err := p.webhook.NotifyWebhook(ctx, webhookURL, WebhookPayload{TaskID: taskID, Status: finalStatus, Results: finalResults}); err != nil {
 					logger.Log.Warnf("failed to send MPS webhook for task %s: %v", taskID, err)
 				}
 			}(task.TaskID, task.WebhookURL, status, results)

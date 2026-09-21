@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -76,14 +75,7 @@ func Run() error {
 	}
 	banner.PrintBanner(cfg.App.Name, cfg.App.Env, cfg.Server.Port, cfg.Server.BasePath, localIPs, tools)
 
-	srv := &http.Server{
-		Addr:              ":" + cfg.Server.Port,
-		Handler:           r,
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      60 * time.Second,
-		IdleTimeout:       120 * time.Second,
-	}
+	srv := newHTTPServer(cfg, r)
 	serverErr := make(chan error, 1)
 	go func() {
 		logger.Log.Infof("Server starting on %s", srv.Addr)
@@ -105,19 +97,58 @@ func Run() error {
 	}
 
 	logger.Log.Info("Shutting down server...")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), serverShutdownTimeout(cfg))
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("HTTP server forced to shutdown: %v", err)
+		logger.Log.Error("HTTP server forced to shutdown", "error", err)
 	}
 	if err := container.Close(); err != nil {
-		log.Printf("Container close error: %v", err)
+		logger.Log.Error("container close error", "error", err)
 	}
 	if err := closeDB(db); err != nil {
-		log.Printf("Database close error: %v", err)
+		logger.Log.Error("database close error", "error", err)
 	}
 	logger.Log.Info("Server exited gracefully")
 	return nil
+}
+
+const (
+	defaultReadHeaderTimeout = 10 * time.Second
+	defaultReadTimeout       = 30 * time.Second
+	defaultWriteTimeout      = 60 * time.Second
+	defaultIdleTimeout       = 120 * time.Second
+	defaultShutdownTimeout   = 10 * time.Second
+	defaultMaxHeaderBytes    = 1 << 20
+)
+
+func newHTTPServer(cfg *config.Config, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              ":" + cfg.Server.Port,
+		Handler:           handler,
+		ReadHeaderTimeout: durationOrDefault(cfg.Server.ReadHeaderTimeout, defaultReadHeaderTimeout),
+		ReadTimeout:       durationOrDefault(cfg.Server.ReadTimeout, defaultReadTimeout),
+		WriteTimeout:      durationOrDefault(cfg.Server.WriteTimeout, defaultWriteTimeout),
+		IdleTimeout:       durationOrDefault(cfg.Server.IdleTimeout, defaultIdleTimeout),
+		MaxHeaderBytes:    intOrDefault(cfg.Server.MaxHeaderBytes, defaultMaxHeaderBytes),
+	}
+}
+
+func serverShutdownTimeout(cfg *config.Config) time.Duration {
+	return durationOrDefault(cfg.Server.ShutdownTimeout, defaultShutdownTimeout)
+}
+
+func durationOrDefault(value, fallback time.Duration) time.Duration {
+	if value <= 0 {
+		return fallback
+	}
+	return value
+}
+
+func intOrDefault(value, fallback int) int {
+	if value <= 0 {
+		return fallback
+	}
+	return value
 }
 
 func closeDB(db interface{ Close() error }) error {

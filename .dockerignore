@@ -1,0 +1,9 @@
+.git
+.github
+.env*
+bin
+data
+logs
+*.db
+Dockerfile*
+docker-compose*.yml

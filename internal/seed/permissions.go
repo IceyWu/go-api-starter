@@ -5,7 +5,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/platform/auth"
-	"log"
+	"go-api-starter/internal/platform/logger"
 	"strings"
 	"time"
 )
@@ -46,7 +46,7 @@ func SyncPermissions(db *sqlx.DB, codes []string) {
 		}
 		_, _ = db.ExecContext(ctx, "INSERT INTO permissions(code,name,description,space_id,position,value,module,is_active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)", code, meta[0], meta[1], sid, count, 1<<count, module, true, modelTime(), modelTime())
 	}
-	log.Printf("[seed] permissions synchronized")
+	logger.Log.Info("permissions synchronized", "component", "seed")
 }
 func SyncAdminUser(db *sqlx.DB, email, password string) {
 	if email == "" {
@@ -62,7 +62,7 @@ func SyncAdminUser(db *sqlx.DB, email, password string) {
 	}
 	_, e = db.Exec("INSERT INTO users(uid,lp_id,username,email,password,sex,freezed,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)", model.GenerateUID(), model.GenerateLPID(), model.GenerateUsername(), email, hash, 0, false, modelTime(), modelTime())
 	if e != nil {
-		log.Printf("[seed] admin create failed: %v", e)
+		logger.Log.Warn("admin create failed", "component", "seed", "error", e)
 	}
 }
 func SyncAdminRole(db *sqlx.DB, email string) {

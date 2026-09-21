@@ -22,7 +22,7 @@ git clone https://github.com/IceyWu/go-api-starter
 cd go-api-starter
 
 # 安装并使用 Task（项目命令统一由 Taskfile 管理）
-go install github.com/go-task/task/v3/cmd/task@latest
+go install github.com/go-task/task/v3/cmd/task@v3.53.1
 task deps
 
 task dev
@@ -39,6 +39,20 @@ task worker
 ```
 
 CI 会自动执行 `task check`、`task security`、Atlas migration 校验和 Linux 构建。生产环境必须通过环境变量覆盖 JWT、文档账号、管理员密码、默认用户密码、CORS 来源及外部服务凭据。
+
+### Docker Compose
+
+本地可直接使用 Docker Compose 启动 MySQL、Redis 和 API，并自动执行 Atlas 迁移：
+
+```bash
+docker compose up --build api
+```
+
+API 健康检查地址为 `http://localhost:8080/health/ready`。需要运行 MPS Worker 时使用：
+
+```bash
+docker compose --profile worker up --build
+```
 
 ## 📖 文档
 

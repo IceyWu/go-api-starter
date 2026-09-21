@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	_ "github.com/glebarez/go-sqlite"
@@ -38,6 +39,10 @@ func TestSetupRegistersPublicDocumentationAndSystemRoutes(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = stdDB.Close() })
 	db := sqlx.NewDb(stdDB, "sqlite")
+	schema, err := os.ReadFile("../../db/schema.sql")
+	require.NoError(t, err)
+	_, err = db.Exec(string(schema))
+	require.NoError(t, err)
 	r, _, _ := Setup(db)
 
 	tests := []struct {
@@ -49,6 +54,9 @@ func TestSetupRegistersPublicDocumentationAndSystemRoutes(t *testing.T) {
 		{name: "system ping", method: http.MethodGet, path: "/api/v1/system/ping", status: http.StatusOK},
 		{name: "openapi", method: http.MethodGet, path: "/openapi.json", status: http.StatusOK},
 		{name: "llms", method: http.MethodGet, path: "/llms.txt", status: http.StatusOK},
+		{name: "health", method: http.MethodGet, path: "/health", status: http.StatusOK},
+		{name: "readiness", method: http.MethodGet, path: "/health/ready", status: http.StatusOK},
+		{name: "metrics", method: http.MethodGet, path: "/metrics", status: http.StatusOK},
 	}
 
 	for _, tt := range tests {

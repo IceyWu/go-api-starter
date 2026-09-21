@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/platform/response"
@@ -110,8 +110,8 @@ func (m *AuthMiddleware) InvalidateUserFreezeCache(userID uint) {
 }
 
 // RequireAuth validates JWT token and sets userID in context
-func (m *AuthMiddleware) RequireAuth() httpx.HandlerFunc {
-	return func(c *httpx.Context) {
+func (m *AuthMiddleware) RequireAuth() transport.HandlerFunc {
+	return func(c *transport.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			response.Unauthorized(c, "缺少认证令牌")
@@ -193,8 +193,8 @@ func (m *AuthMiddleware) RequireAuth() httpx.HandlerFunc {
 }
 
 // OptionalAuth tries to parse JWT token and set userID if present, but does not block the request
-func (m *AuthMiddleware) OptionalAuth() httpx.HandlerFunc {
-	return func(c *httpx.Context) {
+func (m *AuthMiddleware) OptionalAuth() transport.HandlerFunc {
+	return func(c *transport.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.Next()

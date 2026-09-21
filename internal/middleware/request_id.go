@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"github.com/google/uuid"
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 const (
@@ -36,7 +36,7 @@ func generateUUID() string {
 }
 
 // RequestIDWithConfig returns a RequestID middleware with custom config
-func RequestIDWithConfig(config RequestIDConfig) httpx.HandlerFunc {
+func RequestIDWithConfig(config RequestIDConfig) transport.HandlerFunc {
 	if config.Generator == nil {
 		config.Generator = generateUUID
 	}
@@ -44,7 +44,7 @@ func RequestIDWithConfig(config RequestIDConfig) httpx.HandlerFunc {
 		config.HeaderName = RequestIDHeader
 	}
 
-	return func(c *httpx.Context) {
+	return func(c *transport.Context) {
 		// Try to get request ID from header
 		requestID := c.GetHeader(config.HeaderName)
 
@@ -64,7 +64,7 @@ func RequestIDWithConfig(config RequestIDConfig) httpx.HandlerFunc {
 }
 
 // GetRequestID retrieves the request ID from context
-func GetRequestID(c *httpx.Context) string {
+func GetRequestID(c *transport.Context) string {
 	if id, exists := c.Get(RequestIDKey); exists {
 		if requestID, ok := id.(string); ok {
 			return requestID
@@ -74,6 +74,6 @@ func GetRequestID(c *httpx.Context) string {
 }
 
 // GetRequestIDFromHeader retrieves the request ID from request header
-func GetRequestIDFromHeader(c *httpx.Context) string {
+func GetRequestIDFromHeader(c *transport.Context) string {
 	return c.GetHeader(RequestIDHeader)
 }

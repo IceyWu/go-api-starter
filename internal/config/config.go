@@ -97,17 +97,18 @@ type ServerConfig struct {
 
 // DatabaseConfig holds database connection settings.
 type DatabaseConfig struct {
-	Driver          string `mapstructure:"driver"`
-	Path            string `mapstructure:"path"`
-	Host            string `mapstructure:"host"`
-	Port            int    `mapstructure:"port"`
-	Username        string `mapstructure:"username"`
-	Password        string `mapstructure:"password"`
-	DBName          string `mapstructure:"dbname"`
-	Charset         string `mapstructure:"charset"`
-	MaxIdleConns    int    `mapstructure:"max_idle_conns"`
-	MaxOpenConns    int    `mapstructure:"max_open_conns"`
-	ConnMaxLifetime int    `mapstructure:"conn_max_lifetime"` // seconds
+	Driver               string `mapstructure:"driver"`
+	Path                 string `mapstructure:"path"`
+	AllowDirtyMigrations bool   `mapstructure:"allow_dirty_migrations"`
+	Host                 string `mapstructure:"host"`
+	Port                 int    `mapstructure:"port"`
+	Username             string `mapstructure:"username"`
+	Password             string `mapstructure:"password"`
+	DBName               string `mapstructure:"dbname"`
+	Charset              string `mapstructure:"charset"`
+	MaxIdleConns         int    `mapstructure:"max_idle_conns"`
+	MaxOpenConns         int    `mapstructure:"max_open_conns"`
+	ConnMaxLifetime      int    `mapstructure:"conn_max_lifetime"` // seconds
 }
 
 // LogConfig holds logger settings.

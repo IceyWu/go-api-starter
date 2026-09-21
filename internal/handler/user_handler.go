@@ -1,7 +1,7 @@
 package handler
 
 import (
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/platform/apperrors"
@@ -30,7 +30,7 @@ func NewUserHandler(svc service.UserServiceInterface) *UserHandler {
 // @Failure 400 {object} response.Response
 // @Failure 409 {object} response.Response
 // @Router /api/v1/users [post]
-func (h *UserHandler) Create(c *httpx.Context) {
+func (h *UserHandler) Create(c *transport.Context) {
 	ctx := c.Request.Context()
 
 	var req model.CreateUserRequest
@@ -58,7 +58,7 @@ func (h *UserHandler) Create(c *httpx.Context) {
 // @Param sort query string false "排序，例如 created_at,desc"
 // @Success 200 {object} response.Response
 // @Router /api/v1/users [get]
-func (h *UserHandler) List(c *httpx.Context) {
+func (h *UserHandler) List(c *transport.Context) {
 	ctx := c.Request.Context()
 
 	p, ok := BindPagination(c)
@@ -83,7 +83,7 @@ func (h *UserHandler) List(c *httpx.Context) {
 // @Success 200 {object} response.Response{data=model.UserResponse}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/users/{uid} [get]
-func (h *UserHandler) Get(c *httpx.Context) {
+func (h *UserHandler) Get(c *transport.Context) {
 	ctx := c.Request.Context()
 
 	uid, ok := GetUID(c)
@@ -111,7 +111,7 @@ func (h *UserHandler) Get(c *httpx.Context) {
 // @Failure 400 {object} response.Response
 // @Failure 404 {object} response.Response
 // @Router /api/v1/users/{uid} [put]
-func (h *UserHandler) Update(c *httpx.Context) {
+func (h *UserHandler) Update(c *transport.Context) {
 	ctx := c.Request.Context()
 
 	uid, ok := GetUID(c)
@@ -147,7 +147,7 @@ func (h *UserHandler) Update(c *httpx.Context) {
 // @Success 204 "删除成功"
 // @Failure 404 {object} response.Response
 // @Router /api/v1/users/{uid} [delete]
-func (h *UserHandler) Delete(c *httpx.Context) {
+func (h *UserHandler) Delete(c *transport.Context) {
 	ctx := c.Request.Context()
 
 	uid, ok := GetUID(c)
@@ -176,7 +176,7 @@ func (h *UserHandler) Delete(c *httpx.Context) {
 // @Success 200 {object} response.Response{data=model.UserResponse}
 // @Failure 401 {object} response.Response
 // @Router /api/v1/users/me [get]
-func (h *UserHandler) GetMe(c *httpx.Context) {
+func (h *UserHandler) GetMe(c *transport.Context) {
 	ctx := c.Request.Context()
 
 	userID, ok := GetUserID(c)
@@ -203,7 +203,7 @@ func (h *UserHandler) GetMe(c *httpx.Context) {
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Router /api/v1/users/me [put]
-func (h *UserHandler) UpdateMe(c *httpx.Context) {
+func (h *UserHandler) UpdateMe(c *transport.Context) {
 	ctx := c.Request.Context()
 
 	userID, ok := GetUserID(c)

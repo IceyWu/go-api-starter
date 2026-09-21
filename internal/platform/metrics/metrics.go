@@ -7,7 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 // Metrics contains the application HTTP metrics. A private registry keeps
@@ -39,8 +39,8 @@ func New() *Metrics {
 	return m
 }
 
-func (m *Metrics) Middleware() httpx.HandlerFunc {
-	return func(c *httpx.Context) {
+func (m *Metrics) Middleware() transport.HandlerFunc {
+	return func(c *transport.Context) {
 		started := time.Now()
 		c.Next()
 

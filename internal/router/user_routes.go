@@ -1,13 +1,13 @@
 package router
 
 import (
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/middleware"
 )
 
-func registerUserRoutes(api *httpx.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware, permMw *middleware.PermissionMiddleware) {
+func registerUserRoutes(api *transport.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware, permMw *middleware.PermissionMiddleware) {
 	userH := c.UserHandler()
 
 	users := api.Group("/users")

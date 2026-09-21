@@ -23,6 +23,7 @@ common:
 
   database:
     charset: utf8mb4
+    allow_dirty_migrations: false
     max_idle_conns: 10
     max_open_conns: 100
     conn_max_lifetime: 3600
@@ -75,7 +76,8 @@ common:
 
   cors:
     allow_origins:
-      - "*"
+      - "http://localhost:3000"
+      - "http://127.0.0.1:3000"
     allow_methods:
       - GET
       - POST
@@ -124,6 +126,7 @@ development:
   database:
     driver: sqlite
     path: ./data.db
+    allow_dirty_migrations: true
     host: localhost
     port: 3306
     username: root

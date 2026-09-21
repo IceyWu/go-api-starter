@@ -197,7 +197,7 @@ func GenerateLLMsTxt(spec *SwaggerSpec, cfg Config) string {
 	sb.WriteString(fmt.Sprintf("Base URL: %s\n\n", cfg.BaseURL))
 
 	sb.WriteString("## 文档\n\n")
-	sb.WriteString(fmt.Sprintf("- <a href=\"%s/swagger/doc.json\" target=\"_blank\" rel=\"noopener noreferrer\">OpenAPI Spec</a>: 机器可读的完整接口定义（推荐 AI 直接使用）\n", cfg.BaseURL))
+	sb.WriteString(fmt.Sprintf("- <a href=\"%s/openapi.json\" target=\"_blank\" rel=\"noopener noreferrer\">OpenAPI Spec</a>: 机器可读的完整接口定义（推荐 AI 直接使用）\n", cfg.BaseURL))
 	sb.WriteString(fmt.Sprintf("- <a href=\"%s/docs\" target=\"_blank\" rel=\"noopener noreferrer\">接口文档</a>: 可视化接口文档\n", cfg.BaseURL))
 	sb.WriteString(fmt.Sprintf("- <a href=\"%s/llms-full.txt\" target=\"_blank\" rel=\"noopener noreferrer\">完整文档</a>: Markdown 格式的详细接口说明\n\n", cfg.BaseURL))
 

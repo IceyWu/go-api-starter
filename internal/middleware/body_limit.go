@@ -5,7 +5,7 @@ import (
 
 	"go-api-starter/internal/platform/response"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 const (
@@ -15,12 +15,12 @@ const (
 
 // BodyLimit returns a middleware that limits the request body size.
 // If the body exceeds maxBytes, the request is rejected with 413 Payload Too Large.
-func BodyLimit(maxBytes int64) httpx.HandlerFunc {
+func BodyLimit(maxBytes int64) transport.HandlerFunc {
 	if maxBytes <= 0 {
 		maxBytes = DefaultBodyLimit
 	}
 
-	return func(c *httpx.Context) {
+	return func(c *transport.Context) {
 		if c.Request.ContentLength > maxBytes {
 			c.JSON(http.StatusRequestEntityTooLarge, response.ErrorResponse{
 				Code:    http.StatusRequestEntityTooLarge,

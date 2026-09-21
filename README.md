@@ -30,7 +30,7 @@ task dev
 
 常用校验命令：`task test`、`task check`、`task sqlc`、`task migrate`。
 
-生产环境需要先安装 Atlas，并单独运行 API 和 MPS Worker：
+生产环境需要先安装 Atlas，执行迁移并单独运行 API 和 MPS Worker：
 
 ```bash
 task migrate
@@ -38,12 +38,15 @@ task prod
 task worker
 ```
 
+CI 会自动执行 `task check`、`task security`、Atlas migration 校验和 Linux 构建。生产环境必须通过环境变量覆盖 JWT、文档账号、管理员密码、默认用户密码、CORS 来源及外部服务凭据。
+
 ## 📖 文档
 
 | 地址 | 说明 |
 |------|------|
 | `/docs` | Scalar API 文档 |
-| `/swagger/doc.json` | OpenAPI JSON |
+| `/openapi.json` | Complete OpenAPI JSON (Basic Auth) |
+| `/huma-openapi.json` | Huma generated operation document |
 | `/llms.txt` | AI 可读接口概览 |
 | `/llms-full.txt` | AI 可读完整文档 |
 | `/ws` | WebSocket 入口 |

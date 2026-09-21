@@ -11,7 +11,7 @@ import (
 	"go-api-starter/internal/platform/cache"
 	"go-api-starter/internal/platform/response"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 // HealthHandler handles health check requests
@@ -57,7 +57,7 @@ type ReadinessResponse struct {
 // @Produce json
 // @Success 200 {object} HealthResponse
 // @Router /health [get]
-func (h *HealthHandler) Health(c *httpx.Context) {
+func (h *HealthHandler) Health(c *transport.Context) {
 	response.Success(c, HealthResponse{
 		Status:    "ok",
 		Version:   h.version,
@@ -74,7 +74,7 @@ func (h *HealthHandler) Health(c *httpx.Context) {
 // @Success 200 {object} ReadinessResponse "服务已就绪"
 // @Failure 503 {object} response.Response "服务未就绪"
 // @Router /health/ready [get]
-func (h *HealthHandler) Ready(c *httpx.Context) {
+func (h *HealthHandler) Ready(c *transport.Context) {
 	checks := make(map[string]string)
 	allHealthy := true
 

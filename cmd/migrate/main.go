@@ -20,6 +20,9 @@ func main() {
 		"--dir", "file://"+dir,
 		"--url", databaseURL(cfg),
 	)
+	if cfg.Database.AllowDirtyMigrations {
+		cmd.Args = append(cmd.Args, "--allow-dirty")
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

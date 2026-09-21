@@ -6,18 +6,18 @@ import (
 	"go-api-starter/internal/platform/logger"
 	"go-api-starter/internal/platform/response"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 // RequestID returns a request ID middleware
 // It reads X-Request-ID from header if present, otherwise generates a new UUID
-func RequestID() httpx.HandlerFunc {
+func RequestID() transport.HandlerFunc {
 	return RequestIDWithConfig(DefaultRequestIDConfig())
 }
 
 // Logger returns a logging middleware using zap
-func Logger() httpx.HandlerFunc {
-	return func(c *httpx.Context) {
+func Logger() transport.HandlerFunc {
+	return func(c *transport.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
 		method := c.Request.Method
@@ -42,8 +42,8 @@ func Logger() httpx.HandlerFunc {
 }
 
 // Recovery returns a recovery middleware that handles panics
-func Recovery() httpx.HandlerFunc {
-	return httpx.CustomRecovery(func(c *httpx.Context, recovered interface{}) {
+func Recovery() transport.HandlerFunc {
+	return transport.CustomRecovery(func(c *transport.Context, recovered interface{}) {
 		requestID := GetRequestID(c)
 		logger.Log.Errorw("Panic recovered",
 			"request_id", requestID,

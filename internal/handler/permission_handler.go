@@ -9,7 +9,7 @@ import (
 	"go-api-starter/internal/platform/response"
 	"go-api-starter/internal/service"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 // PermissionHandler handles permission HTTP requests
@@ -38,7 +38,7 @@ func NewPermissionHandler(svc service.PermissionServiceInterface, userSvc servic
 // @Failure 400 {object} response.Response
 // @Failure 409 {object} response.Response
 // @Router /api/v1/permissions/spaces [post]
-func (h *PermissionHandler) CreateSpace(c *httpx.Context) {
+func (h *PermissionHandler) CreateSpace(c *transport.Context) {
 	var req model.CreateSpaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
@@ -59,7 +59,7 @@ func (h *PermissionHandler) CreateSpace(c *httpx.Context) {
 // @Produce json
 // @Success 200 {object} response.Response{data=[]model.SpaceWithCount}
 // @Router /api/v1/permissions/spaces [get]
-func (h *PermissionHandler) GetAllSpaces(c *httpx.Context) {
+func (h *PermissionHandler) GetAllSpaces(c *transport.Context) {
 	spaces, err := h.service.GetAllSpaces(c.Request.Context())
 	if err != nil {
 		c.Error(err)
@@ -80,7 +80,7 @@ func (h *PermissionHandler) GetAllSpaces(c *httpx.Context) {
 // @Failure 400 {object} response.Response
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/spaces/{id} [put]
-func (h *PermissionHandler) UpdateSpace(c *httpx.Context) {
+func (h *PermissionHandler) UpdateSpace(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
@@ -107,7 +107,7 @@ func (h *PermissionHandler) UpdateSpace(c *httpx.Context) {
 // @Success 204
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/spaces/{id} [delete]
-func (h *PermissionHandler) DeleteSpace(c *httpx.Context) {
+func (h *PermissionHandler) DeleteSpace(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
@@ -134,7 +134,7 @@ func (h *PermissionHandler) DeleteSpace(c *httpx.Context) {
 // @Success 201 {object} response.Response{data=model.Permission}
 // @Failure 400 {object} response.Response
 // @Router /api/v1/permissions/permissions [post]
-func (h *PermissionHandler) CreatePermission(c *httpx.Context) {
+func (h *PermissionHandler) CreatePermission(c *transport.Context) {
 	var req model.CreatePermissionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
@@ -155,7 +155,7 @@ func (h *PermissionHandler) CreatePermission(c *httpx.Context) {
 // @Produce json
 // @Success 200 {object} response.Response{data=[]model.PermissionDetail}
 // @Router /api/v1/permissions/permissions [get]
-func (h *PermissionHandler) GetAllPermissions(c *httpx.Context) {
+func (h *PermissionHandler) GetAllPermissions(c *transport.Context) {
 	perms, err := h.service.GetAllPermissions(c.Request.Context())
 	if err != nil {
 		c.Error(err)
@@ -173,7 +173,7 @@ func (h *PermissionHandler) GetAllPermissions(c *httpx.Context) {
 // @Success 200 {object} response.Response{data=model.PermissionDetail}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/permissions/{id} [get]
-func (h *PermissionHandler) GetPermission(c *httpx.Context) {
+func (h *PermissionHandler) GetPermission(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidPermissionID))
@@ -198,7 +198,7 @@ func (h *PermissionHandler) GetPermission(c *httpx.Context) {
 // @Success 200 {object} response.Response{data=model.Permission}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/permissions/{id} [put]
-func (h *PermissionHandler) UpdatePermission(c *httpx.Context) {
+func (h *PermissionHandler) UpdatePermission(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidPermissionID))
@@ -225,7 +225,7 @@ func (h *PermissionHandler) UpdatePermission(c *httpx.Context) {
 // @Success 204
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/permissions/{id} [delete]
-func (h *PermissionHandler) DeletePermission(c *httpx.Context) {
+func (h *PermissionHandler) DeletePermission(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidPermissionID))
@@ -252,7 +252,7 @@ func (h *PermissionHandler) DeletePermission(c *httpx.Context) {
 // @Success 201 {object} response.Response{data=model.Role}
 // @Failure 400 {object} response.Response
 // @Router /api/v1/permissions/roles [post]
-func (h *PermissionHandler) CreateRole(c *httpx.Context) {
+func (h *PermissionHandler) CreateRole(c *transport.Context) {
 	var req model.CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrParamInvalid))
@@ -273,7 +273,7 @@ func (h *PermissionHandler) CreateRole(c *httpx.Context) {
 // @Produce json
 // @Success 200 {object} response.Response{data=[]model.Role}
 // @Router /api/v1/permissions/roles [get]
-func (h *PermissionHandler) GetAllRoles(c *httpx.Context) {
+func (h *PermissionHandler) GetAllRoles(c *transport.Context) {
 	roles, err := h.service.GetAllRoles(c.Request.Context())
 	if err != nil {
 		c.Error(err)
@@ -291,7 +291,7 @@ func (h *PermissionHandler) GetAllRoles(c *httpx.Context) {
 // @Success 200 {object} response.Response{data=model.RoleDetail}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/roles/{id} [get]
-func (h *PermissionHandler) GetRole(c *httpx.Context) {
+func (h *PermissionHandler) GetRole(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
@@ -316,7 +316,7 @@ func (h *PermissionHandler) GetRole(c *httpx.Context) {
 // @Success 200 {object} response.Response{data=model.Role}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/roles/{id} [put]
-func (h *PermissionHandler) UpdateRole(c *httpx.Context) {
+func (h *PermissionHandler) UpdateRole(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
@@ -343,7 +343,7 @@ func (h *PermissionHandler) UpdateRole(c *httpx.Context) {
 // @Success 204
 // @Failure 404 {object} response.Response
 // @Router /api/v1/permissions/roles/{id} [delete]
-func (h *PermissionHandler) DeleteRole(c *httpx.Context) {
+func (h *PermissionHandler) DeleteRole(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
@@ -364,7 +364,7 @@ func (h *PermissionHandler) DeleteRole(c *httpx.Context) {
 // @Param id path int true "角色ID"
 // @Success 200 {object} response.Response{data=[]string}
 // @Router /api/v1/permissions/roles/{id}/permissions [get]
-func (h *PermissionHandler) GetRolePermissions(c *httpx.Context) {
+func (h *PermissionHandler) GetRolePermissions(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
@@ -388,7 +388,7 @@ func (h *PermissionHandler) GetRolePermissions(c *httpx.Context) {
 // @Param permissions body model.RolePermissionsRequest true "权限代码列表"
 // @Success 200 {object} response.Response
 // @Router /api/v1/permissions/roles/{id}/permissions [post]
-func (h *PermissionHandler) AddRolePermissions(c *httpx.Context) {
+func (h *PermissionHandler) AddRolePermissions(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
@@ -416,7 +416,7 @@ func (h *PermissionHandler) AddRolePermissions(c *httpx.Context) {
 // @Param permissions body model.RolePermissionsRequest true "权限代码列表"
 // @Success 200 {object} response.Response
 // @Router /api/v1/permissions/roles/{id}/permissions [delete]
-func (h *PermissionHandler) RemoveRolePermissions(c *httpx.Context) {
+func (h *PermissionHandler) RemoveRolePermissions(c *transport.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidRoleID))
@@ -445,7 +445,7 @@ func (h *PermissionHandler) RemoveRolePermissions(c *httpx.Context) {
 // @Produce json
 // @Success 200 {object} response.Response{data=[]string}
 // @Router /api/v1/permissions/me/permissions [get]
-func (h *PermissionHandler) GetMyPermissions(c *httpx.Context) {
+func (h *PermissionHandler) GetMyPermissions(c *transport.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
 		return
@@ -463,7 +463,7 @@ func (h *PermissionHandler) GetMyPermissions(c *httpx.Context) {
 // ====================
 
 // GetUserRolesByUID 通过 uid 获取用户角色
-func (h *PermissionHandler) GetUserRolesByUID(c *httpx.Context) {
+func (h *PermissionHandler) GetUserRolesByUID(c *transport.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -482,7 +482,7 @@ func (h *PermissionHandler) GetUserRolesByUID(c *httpx.Context) {
 }
 
 // AssignUserRoleByUID 通过 uid 分配角色
-func (h *PermissionHandler) AssignUserRoleByUID(c *httpx.Context) {
+func (h *PermissionHandler) AssignUserRoleByUID(c *transport.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -505,7 +505,7 @@ func (h *PermissionHandler) AssignUserRoleByUID(c *httpx.Context) {
 }
 
 // RemoveUserRoleByUID 通过 uid 移除角色
-func (h *PermissionHandler) RemoveUserRoleByUID(c *httpx.Context) {
+func (h *PermissionHandler) RemoveUserRoleByUID(c *transport.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return

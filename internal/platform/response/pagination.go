@@ -4,7 +4,7 @@ import (
 	"math"
 	"strings"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 // Pagination 分页请求参数
@@ -175,6 +175,6 @@ func NewPageResult[T any](list []T, total int64, page, pageSize int) *PageResult
 }
 
 // SuccessWithPage 返回分页成功响应
-func SuccessWithPage[T any](c *httpx.Context, list []T, total int64, p *Pagination) {
+func SuccessWithPage[T any](c *transport.Context, list []T, total int64, p *Pagination) {
 	Success(c, NewPageResult(list, total, p.GetPage(), p.GetPageSize()))
 }

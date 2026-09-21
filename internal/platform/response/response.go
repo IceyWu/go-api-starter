@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 // Response represents unified API response
@@ -25,7 +25,7 @@ type ErrorResponse struct {
 }
 
 // jsonWithNull 自定义 JSON 编码，确保 nil 指针也会被序列化为 null
-func jsonWithNull(c *httpx.Context, code int, obj any) {
+func jsonWithNull(c *transport.Context, code int, obj any) {
 	buf := &bytes.Buffer{}
 	encoder := json.NewEncoder(buf)
 	encoder.SetEscapeHTML(false)
@@ -43,7 +43,7 @@ func jsonWithNull(c *httpx.Context, code int, obj any) {
 }
 
 // Success sends a success response with data
-func Success(c *httpx.Context, data any) {
+func Success(c *transport.Context, data any) {
 	jsonWithNull(c, http.StatusOK, Response{
 		Code:    http.StatusOK,
 		Message: "success",
@@ -52,7 +52,7 @@ func Success(c *httpx.Context, data any) {
 }
 
 // Created sends a created response with data
-func Created(c *httpx.Context, data any) {
+func Created(c *transport.Context, data any) {
 	jsonWithNull(c, http.StatusCreated, Response{
 		Code:    http.StatusCreated,
 		Message: "created",
@@ -61,12 +61,12 @@ func Created(c *httpx.Context, data any) {
 }
 
 // NoContent sends a no content response
-func NoContent(c *httpx.Context) {
+func NoContent(c *transport.Context) {
 	c.Status(http.StatusNoContent)
 }
 
 // Error sends an error response
-func Error(c *httpx.Context, code int, message string) {
+func Error(c *transport.Context, code int, message string) {
 	jsonWithNull(c, code, ErrorResponse{
 		Code:    code,
 		Message: message,
@@ -75,7 +75,7 @@ func Error(c *httpx.Context, code int, message string) {
 }
 
 // ErrorWithDetails sends an error response with additional details
-func ErrorWithDetails(c *httpx.Context, code int, message string, errorMsg string, details any) {
+func ErrorWithDetails(c *transport.Context, code int, message string, errorMsg string, details any) {
 	jsonWithNull(c, code, ErrorResponse{
 		Code:    code,
 		Message: message,
@@ -85,36 +85,36 @@ func ErrorWithDetails(c *httpx.Context, code int, message string, errorMsg strin
 }
 
 // BadRequest sends a 400 error response
-func BadRequest(c *httpx.Context, message string) {
+func BadRequest(c *transport.Context, message string) {
 	Error(c, http.StatusBadRequest, message)
 }
 
 // NotFound sends a 404 error response
-func NotFound(c *httpx.Context, message string) {
+func NotFound(c *transport.Context, message string) {
 	Error(c, http.StatusNotFound, message)
 }
 
 // InternalError sends a 500 error response
-func InternalError(c *httpx.Context, message string) {
+func InternalError(c *transport.Context, message string) {
 	Error(c, http.StatusInternalServerError, message)
 }
 
 // Unauthorized sends a 401 error response
-func Unauthorized(c *httpx.Context, message string) {
+func Unauthorized(c *transport.Context, message string) {
 	Error(c, http.StatusUnauthorized, message)
 }
 
 // Forbidden sends a 403 error response
-func Forbidden(c *httpx.Context, message string) {
+func Forbidden(c *transport.Context, message string) {
 	Error(c, http.StatusForbidden, message)
 }
 
 // Conflict sends a 409 error response
-func Conflict(c *httpx.Context, message string) {
+func Conflict(c *transport.Context, message string) {
 	Error(c, http.StatusConflict, message)
 }
 
 // UnprocessableEntity sends a 422 error response
-func UnprocessableEntity(c *httpx.Context, message string) {
+func UnprocessableEntity(c *transport.Context, message string) {
 	Error(c, http.StatusUnprocessableEntity, message)
 }

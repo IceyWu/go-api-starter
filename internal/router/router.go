@@ -9,7 +9,7 @@ import (
 	"net/http/pprof"
 	"time"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 	"golang.org/x/time/rate"
 
 	"go-api-starter/docs"
@@ -22,9 +22,14 @@ import (
 )
 
 // Setup configures and returns the router, permission middleware, and DI container.
-func Setup(db *sqlx.DB) (*httpx.Engine, *middleware.PermissionMiddleware, *container.Container) {
-	r := httpx.New()
-	humaAPI := humachi.New(r.Chi(), huma.DefaultConfig("go-api-starter", "2.0.0"))
+func Setup(db *sqlx.DB) (*transport.Engine, *middleware.PermissionMiddleware, *container.Container) {
+	r := transport.New()
+	humaConfig := huma.DefaultConfig("go-api-starter", "2.0.0")
+	// The public OpenAPI document is the complete checked-in contract below.
+	// Keep Huma's generated diagnostic document separate to avoid exposing a
+	// partial spec while legacy operations are being migrated to typed Huma ops.
+	humaConfig.OpenAPIPath = "/huma-openapi"
+	humaAPI := humachi.New(r.Chi(), humaConfig)
 	huma.Register(humaAPI, huma.Operation{
 		OperationID: "system-ping",
 		Method:      http.MethodGet,
@@ -59,8 +64,8 @@ func Setup(db *sqlx.DB) (*httpx.Engine, *middleware.PermissionMiddleware, *conta
 	r.Use(httpMetrics.Middleware())
 
 	// Compression and CORS are implemented by the internal transport adapter.
-	r.Use(httpx.Gzip())
-	r.Use(httpx.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowMethods, cfg.CORS.AllowHeaders))
+	r.Use(transport.Gzip())
+	r.Use(transport.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowMethods, cfg.CORS.AllowHeaders))
 
 	// Rate limiting
 	if cfg.Redis.Enabled {
@@ -76,11 +81,11 @@ func Setup(db *sqlx.DB) (*httpx.Engine, *middleware.PermissionMiddleware, *conta
 
 	// pprof in development
 	if cfg != nil && cfg.App.Env == "development" {
-		r.GET("/debug/pprof/", httpx.WrapH(http.HandlerFunc(pprof.Index)))
-		r.GET("/debug/pprof/cmdline", httpx.WrapH(http.HandlerFunc(pprof.Cmdline)))
-		r.GET("/debug/pprof/profile", httpx.WrapH(http.HandlerFunc(pprof.Profile)))
-		r.GET("/debug/pprof/symbol", httpx.WrapH(http.HandlerFunc(pprof.Symbol)))
-		r.GET("/debug/pprof/trace", httpx.WrapH(http.HandlerFunc(pprof.Trace)))
+		r.GET("/debug/pprof/", transport.WrapH(http.HandlerFunc(pprof.Index)))
+		r.GET("/debug/pprof/cmdline", transport.WrapH(http.HandlerFunc(pprof.Cmdline)))
+		r.GET("/debug/pprof/profile", transport.WrapH(http.HandlerFunc(pprof.Profile)))
+		r.GET("/debug/pprof/symbol", transport.WrapH(http.HandlerFunc(pprof.Symbol)))
+		r.GET("/debug/pprof/trace", transport.WrapH(http.HandlerFunc(pprof.Trace)))
 	}
 
 	// Build shared middleware
@@ -93,7 +98,7 @@ func Setup(db *sqlx.DB) (*httpx.Engine, *middleware.PermissionMiddleware, *conta
 	// Health check routes (no auth)
 	base.GET("/health", c.HealthHandler().Health)
 	base.GET("/health/ready", c.HealthHandler().Ready)
-	base.GET("/metrics", httpx.WrapH(httpMetrics.Handler()))
+	base.GET("/metrics", transport.WrapH(httpMetrics.Handler()))
 
 	// Static files (logo, favicon)
 	base.StaticFile("/logo.svg", "./public/logo.svg")
@@ -113,12 +118,19 @@ func Setup(db *sqlx.DB) (*httpx.Engine, *middleware.PermissionMiddleware, *conta
 	registerWsRoutes(base, c)
 
 	// Documentation routes (protected by Basic Auth)
-	docsAuth := httpx.BasicAuth(httpx.Accounts{
+	docsAuth := transport.BasicAuth(transport.Accounts{
 		cfg.App.DocsUser: cfg.App.DocsPassword,
 	})
-	base.GET("/swagger/doc.json", docsAuth, func(c *httpx.Context) {
-		c.Data(200, "application/json; charset=utf-8", []byte(docs.ReadDoc()))
-	})
+	openAPIDoc := func(c *transport.Context) {
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		c.Data(200, "application/json; charset=utf-8", []byte(docs.ReadDocForRequest(c.Request.Host, cfg.Server.BasePath, scheme)))
+	}
+	base.GET("/openapi.json", openAPIDoc)
+	// Backward-compatible alias for existing clients.
+	base.GET("/swagger/doc.json", docsAuth, openAPIDoc)
 	base.GET("/docs", docsAuth, handler.DocsHandler)
 
 	// LLMs.txt routes (public, for AI consumption)

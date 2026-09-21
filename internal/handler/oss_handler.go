@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 
 	"go-api-starter/internal/config"
 	"go-api-starter/internal/model"
@@ -57,7 +57,7 @@ type UploadInitRequest struct {
 // @Success 200 {object} response.Response
 // @Failure 400 {object} response.Response
 // @Router /api/v1/file/upload/init [post]
-func (h *OSSHandler) UploadInit(c *httpx.Context) {
+func (h *OSSHandler) UploadInit(c *transport.Context) {
 	var req UploadInitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
@@ -70,7 +70,7 @@ func (h *OSSHandler) UploadInit(c *httpx.Context) {
 	if req.MD5 != "" {
 		file, exists := h.service.CheckFileExists(req.MD5, userID)
 		if exists {
-			response.Success(c, httpx.H{
+			response.Success(c, transport.H{
 				"exists": true,
 				"file":   file,
 			})
@@ -87,7 +87,7 @@ func (h *OSSHandler) UploadInit(c *httpx.Context) {
 			c.Error(err)
 			return
 		}
-		response.Success(c, httpx.H{
+		response.Success(c, transport.H{
 			"exists": false,
 			"mode":   "simple",
 			"token":  token,
@@ -106,7 +106,7 @@ func (h *OSSHandler) UploadInit(c *httpx.Context) {
 		return
 	}
 
-	response.Success(c, httpx.H{
+	response.Success(c, transport.H{
 		"exists":         false,
 		"mode":           "multipart",
 		"upload_id":      result.UploadID,
@@ -140,7 +140,7 @@ type UploadCompleteRequest struct {
 // @Success 200 {object} response.Response{data=model.File}
 // @Failure 400 {object} response.Response
 // @Router /api/v1/file/upload/complete [post]
-func (h *OSSHandler) UploadComplete(c *httpx.Context) {
+func (h *OSSHandler) UploadComplete(c *transport.Context) {
 	var req UploadCompleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
@@ -192,7 +192,7 @@ func (h *OSSHandler) UploadComplete(c *httpx.Context) {
 // @Success 200 {object} response.Response{data=model.File}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/file/{uid} [get]
-func (h *OSSHandler) GetFile(c *httpx.Context) {
+func (h *OSSHandler) GetFile(c *transport.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -217,7 +217,7 @@ func (h *OSSHandler) GetFile(c *httpx.Context) {
 // @Param is_private query bool false "是否仅返回私密文件（需认证）"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file [get]
-func (h *OSSHandler) ListFiles(c *httpx.Context) {
+func (h *OSSHandler) ListFiles(c *transport.Context) {
 	p, ok := BindPagination(c)
 	if !ok {
 		return
@@ -270,7 +270,7 @@ func (h *OSSHandler) ListFiles(c *httpx.Context) {
 // @Param uid path string true "文件 UID"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file/{uid} [delete]
-func (h *OSSHandler) DeleteFile(c *httpx.Context) {
+func (h *OSSHandler) DeleteFile(c *transport.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -292,7 +292,7 @@ func (h *OSSHandler) DeleteFile(c *httpx.Context) {
 // @Param request body model.UpdateFileRequest true "更新请求"
 // @Success 200 {object} response.Response{data=model.File}
 // @Router /api/v1/file/{uid} [put]
-func (h *OSSHandler) UpdateFile(c *httpx.Context) {
+func (h *OSSHandler) UpdateFile(c *transport.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -345,7 +345,7 @@ type GetPartURLRequest struct {
 // @Param request body GetPartURLRequest true "请求参数"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file/upload/urls [post]
-func (h *OSSHandler) GetPartUploadURLs(c *httpx.Context) {
+func (h *OSSHandler) GetPartUploadURLs(c *transport.Context) {
 	var req GetPartURLRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
@@ -356,7 +356,7 @@ func (h *OSSHandler) GetPartUploadURLs(c *httpx.Context) {
 		c.Error(err)
 		return
 	}
-	response.Success(c, httpx.H{"urls": urls})
+	response.Success(c, transport.H{"urls": urls})
 }
 
 // AbortMultipartRequest represents the request to abort a multipart upload
@@ -374,7 +374,7 @@ type AbortMultipartRequest struct {
 // @Param request body AbortMultipartRequest true "取消请求"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file/upload/abort [post]
-func (h *OSSHandler) AbortMultipart(c *httpx.Context) {
+func (h *OSSHandler) AbortMultipart(c *transport.Context) {
 	var req AbortMultipartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
@@ -398,7 +398,7 @@ func (h *OSSHandler) AbortMultipart(c *httpx.Context) {
 // @Param file formData file true "要上传的文件"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file/public/upload [post]
-func (h *OSSHandler) PublicUpload(c *httpx.Context) {
+func (h *OSSHandler) PublicUpload(c *transport.Context) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		c.Error(apperrors.BadRequest("file is required: " + err.Error()))
@@ -436,7 +436,7 @@ func (h *OSSHandler) PublicUpload(c *httpx.Context) {
 		return
 	}
 
-	response.Success(c, httpx.H{
+	response.Success(c, transport.H{
 		"key":  result.Key,
 		"url":  result.URL,
 		"name": fileHeader.Filename,

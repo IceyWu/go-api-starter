@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 
 	"go-api-starter/internal/config"
 )
@@ -37,7 +37,7 @@ const docsTemplate = `<!DOCTYPE html>
       }, true);
 
       Scalar.createApiReference('#app', {
-        url: '%s/swagger/doc.json',
+        url: '%s/openapi.json',
         theme: 'elysiajs',
         darkMode: true,
         showSidebar: true,
@@ -56,7 +56,7 @@ const docsTemplate = `<!DOCTYPE html>
 // DocsHandler serves the Scalar API documentation UI.
 // Logo and title are read from the OpenAPI info.title (set via swagger annotations).
 // To display a logo in the sidebar, add x-logo to your OpenAPI info via swagger doc customization.
-func DocsHandler(c *httpx.Context) {
+func DocsHandler(c *transport.Context) {
 	cfg := config.GetConfig()
 	appName := "Go API Starter"
 	favicon := "/favicon.ico"

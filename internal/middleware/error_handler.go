@@ -8,13 +8,13 @@ import (
 	"go-api-starter/internal/platform/logger"
 	"go-api-starter/internal/platform/response"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 // ErrorHandler returns a middleware that handles errors set in context
 // It should be placed early in the middleware chain to catch all errors
-func ErrorHandler() httpx.HandlerFunc {
-	return func(c *httpx.Context) {
+func ErrorHandler() transport.HandlerFunc {
+	return func(c *transport.Context) {
 		c.Next()
 
 		// Check for errors set in context
@@ -26,7 +26,7 @@ func ErrorHandler() httpx.HandlerFunc {
 }
 
 // handleError processes the error and sends appropriate HTTP response
-func handleError(c *httpx.Context, err error) {
+func handleError(c *transport.Context, err error) {
 	var appErr *apperrors.AppError
 	if errors.As(err, &appErr) {
 		if logger.Log != nil && appErr.HTTPStatus >= 500 {

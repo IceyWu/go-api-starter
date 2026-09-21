@@ -5,7 +5,7 @@ import (
 	"go-api-starter/internal/service"
 	"sync"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 type PermissionMiddleware struct {
@@ -23,13 +23,13 @@ func NewPermissionMiddleware(permService service.PermissionServiceInterface) *Pe
 
 // RequirePermission checks if the user has the required permission.
 // It also collects the permission code for auto-seeding.
-func (m *PermissionMiddleware) RequirePermission(permissionCode string) httpx.HandlerFunc {
+func (m *PermissionMiddleware) RequirePermission(permissionCode string) transport.HandlerFunc {
 	// 路由注册阶段自动收集 code
 	m.mu.Lock()
 	m.collectedCodes[permissionCode] = struct{}{}
 	m.mu.Unlock()
 
-	return func(c *httpx.Context) {
+	return func(c *transport.Context) {
 		userIDVal, exists := c.Get("userID")
 		if !exists {
 			response.Unauthorized(c, "用户未认证")

@@ -1,6 +1,6 @@
 module go-api-starter
 
-go 1.26.0
+go 1.26.6
 
 require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.107

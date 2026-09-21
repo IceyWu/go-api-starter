@@ -38,6 +38,8 @@ task build
 - `task fmt` / `task vet`：单独执行格式化或静态检查
 - `task sqlc`：生成类型安全 SQL 代码
 - `task migrate`：执行 Atlas 数据库迁移
+- `task atlas-validate`：校验 SQLite/MySQL Atlas migration
+- `task security`：执行 Go 依赖漏洞扫描
 - `task dev` / `task prod` / `task worker`：运行对应进程
 
 新增项目命令时，先在 `Taskfile.yml` 中增加任务，再通过 `task <name>` 调用，不直接把 Go 命令作为文档或操作入口。
@@ -63,7 +65,8 @@ task lint
 
 - 单包测试使用 `task test-package PACKAGE=<package>`；项目完整验证必须使用 `task test` 或 `task check`
 - 修改代码后务必确保 `task build` 或 `task check` 通过
-- 当前 OpenAPI 文档由 Huma 和仓库内静态文档共同提供，不再使用 `swag init`
+- `/openapi.json` 是完整业务 OpenAPI 契约；`/huma-openapi.json` 仅用于查看当前已注册的 Huma typed operations
+- 当前 HTTP 处理器通过 `internal/transport` 的 Chi transport helpers 运行，不再使用 Gin/Gin-compatible 命名
 
 ## Code style
 
@@ -88,12 +91,13 @@ internal/container/         → DI 容器（sync.Once 懒加载）
 internal/model/             → SQL 模型 + Request/Response DTO
 internal/repository/        → 数据访问层（接口 + 实现）
 internal/service/           → 业务逻辑层（接口 + 实现）
-internal/handler/           → HTTP 处理器（HTTP 适配器）
+internal/handler/           → HTTP 处理器
 internal/router/            → 路由注册（按模块分文件）
 internal/middleware/        → HTTP 中间件
 internal/ws/                → WebSocket Hub
 internal/seed/              → 权限/管理员种子数据
 internal/platform/          → 应用私有基础设施（数据库、缓存、OSS、日志、指标等）
+internal/transport/         → Chi HTTP transport helpers and response writers
 ```
 
 ## Key conventions

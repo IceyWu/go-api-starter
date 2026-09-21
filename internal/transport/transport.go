@@ -1,7 +1,6 @@
-// Package httpx provides the small request/response surface used by the
-// application while routing is implemented by chi. It is intentionally
-// internal and exists only to make the transport migration mechanical.
-package httpx
+// Package transport provides the application's Chi-compatible HTTP transport
+// helpers, request context, response writers, and middleware adapters.
+package transport
 
 import (
 	"bufio"

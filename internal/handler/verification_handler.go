@@ -1,7 +1,7 @@
 package handler
 
 import (
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 
 	"go-api-starter/internal/platform/apperrors"
 	"go-api-starter/internal/platform/i18n"
@@ -45,7 +45,7 @@ func NewVerificationHandler(verifyService *service.VerificationCodeService) *Ver
 // @Failure 400 {object} response.Response
 // @Failure 429 {object} response.Response
 // @Router /api/v1/verification/send [post]
-func (h *VerificationHandler) SendCode(c *httpx.Context) {
+func (h *VerificationHandler) SendCode(c *transport.Context) {
 	var req SendCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest(err.Error()))
@@ -58,7 +58,7 @@ func (h *VerificationHandler) SendCode(c *httpx.Context) {
 		return
 	}
 
-	response.Success(c, httpx.H{"message": "验证码已发送"})
+	response.Success(c, transport.H{"message": "验证码已发送"})
 }
 
 // VerifyCode godoc
@@ -71,7 +71,7 @@ func (h *VerificationHandler) SendCode(c *httpx.Context) {
 // @Success 200 {object} response.Response
 // @Failure 400 {object} response.Response
 // @Router /api/v1/verification/verify [post]
-func (h *VerificationHandler) VerifyCode(c *httpx.Context) {
+func (h *VerificationHandler) VerifyCode(c *transport.Context) {
 	var req VerifyCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest(err.Error()))
@@ -90,5 +90,5 @@ func (h *VerificationHandler) VerifyCode(c *httpx.Context) {
 		return
 	}
 
-	response.Success(c, httpx.H{"message": "验证成功", "valid": true})
+	response.Success(c, transport.H{"message": "验证成功", "valid": true})
 }

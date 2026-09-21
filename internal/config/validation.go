@@ -63,6 +63,32 @@ func (c *Config) Validate() ValidationErrors {
 			})
 		}
 
+		if c.App.DocsUser == "" || c.App.DocsPassword == "" {
+			errors = append(errors, ValidationError{
+				Field:   "app.docs_user/app.docs_password",
+				Message: "documentation credentials must be configured in production",
+			})
+		} else if c.App.DocsPassword == "admin123" || c.App.DocsPassword == "password" {
+			errors = append(errors, ValidationError{
+				Field:   "app.docs_password",
+				Message: "documentation password must be changed from default value in production",
+			})
+		}
+
+		if c.App.AdminPassword == "" || c.App.AdminPassword == "123456" || c.App.AdminPassword == "password" {
+			errors = append(errors, ValidationError{
+				Field:   "app.admin_password",
+				Message: "admin password must be changed from default value in production",
+			})
+		}
+
+		if c.App.DefaultUserPassword == "" || c.App.DefaultUserPassword == "123456" || c.App.DefaultUserPassword == "password" {
+			errors = append(errors, ValidationError{
+				Field:   "app.default_user_password",
+				Message: "default user password must be changed from default value in production",
+			})
+		}
+
 		// Database validation for non-SQLite databases
 		if c.Database.Driver != "sqlite" {
 			if c.Database.Password == "" {
@@ -119,6 +145,13 @@ func (c *Config) Validate() ValidationErrors {
 				Message: "MPS pipeline ID must be configured in production",
 			})
 		}
+
+		if len(c.CORS.AllowOrigins) == 0 || containsWildcard(c.CORS.AllowOrigins) {
+			errors = append(errors, ValidationError{
+				Field:   "cors.allow_origins",
+				Message: "wildcard CORS origins are not allowed in production",
+			})
+		}
 	}
 
 	// Development environment: warn about critical security misconfigurations
@@ -140,6 +173,15 @@ func (c *Config) Validate() ValidationErrors {
 	}
 
 	return errors
+}
+
+func containsWildcard(values []string) bool {
+	for _, value := range values {
+		if strings.TrimSpace(value) == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 // MustValidate validates the configuration and panics if there are errors

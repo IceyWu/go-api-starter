@@ -13,6 +13,32 @@
     "host": "localhost:9527",
     "basePath": "/",
     "paths": {
+        "/api/v1/system/ping": {
+            "get": {
+                "tags": [
+                    "System"
+                ],
+                "summary": "System ping",
+                "operationId": "system-ping",
+                "produces": [
+                    "application/json"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "status": {
+                                    "type": "string",
+                                    "example": "ok"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/login": {
             "post": {
                 "description": "使用手机号或邮箱和密码登录，或使用验证码登录（login_type=code）",

@@ -1,10 +1,10 @@
 package middleware
 
-import httpx "go-api-starter/internal/transport/httpx"
+import "go-api-starter/internal/transport"
 
 // SecurityHeaders adds common security headers to all responses.
-func SecurityHeaders() httpx.HandlerFunc {
-	return func(c *httpx.Context) {
+func SecurityHeaders() transport.HandlerFunc {
+	return func(c *transport.Context) {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("X-XSS-Protection", "1; mode=block")

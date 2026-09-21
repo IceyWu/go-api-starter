@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"sync"
 
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 // Handler serves llms.txt and llms-full.txt endpoints
@@ -32,7 +32,7 @@ func (h *Handler) ensureParsed() {
 }
 
 // LLMsTxt serves GET /llms.txt
-func (h *Handler) LLMsTxt(c *httpx.Context) {
+func (h *Handler) LLMsTxt(c *transport.Context) {
 	h.ensureParsed()
 	if h.parseErr != nil {
 		c.String(http.StatusInternalServerError, "Failed to parse swagger spec")
@@ -44,7 +44,7 @@ func (h *Handler) LLMsTxt(c *httpx.Context) {
 }
 
 // LLMsFullTxt serves GET /llms-full.txt
-func (h *Handler) LLMsFullTxt(c *httpx.Context) {
+func (h *Handler) LLMsFullTxt(c *transport.Context) {
 	h.ensureParsed()
 	if h.parseErr != nil {
 		c.String(http.StatusInternalServerError, "Failed to parse swagger spec")
@@ -56,7 +56,7 @@ func (h *Handler) LLMsFullTxt(c *httpx.Context) {
 }
 
 // resolveConfig returns a Config with BaseURL resolved from the request if not set
-func (h *Handler) resolveConfig(c *httpx.Context) Config {
+func (h *Handler) resolveConfig(c *transport.Context) Config {
 	if h.cfg.BaseURL != "" {
 		return h.cfg
 	}
@@ -70,7 +70,7 @@ func (h *Handler) resolveConfig(c *httpx.Context) Config {
 }
 
 // RegisterRoutes registers llms.txt routes on the given router group or engine
-func (h *Handler) RegisterRoutes(r httpx.IRouter) {
+func (h *Handler) RegisterRoutes(r transport.IRouter) {
 	r.GET("/llms.txt", h.LLMsTxt)
 	r.GET("/llms-full.txt", h.LLMsFullTxt)
 }

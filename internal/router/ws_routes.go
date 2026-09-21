@@ -1,14 +1,14 @@
 package router
 
 import (
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/ws"
 )
 
 // registerWsRoutes 注册 WebSocket 路由
-func registerWsRoutes(base *httpx.RouterGroup, c *container.Container) {
+func registerWsRoutes(base *transport.RouterGroup, c *container.Container) {
 	apiKey := c.Config().WS.Key
 	base.GET("/ws", ws.Handler(c.WsHub(), apiKey))
 
@@ -23,12 +23,12 @@ func registerWsRoutes(base *httpx.RouterGroup, c *container.Container) {
 // @Produce json
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/ws/status [get]
-func botStatus(c *container.Container) httpx.HandlerFunc {
-	return func(ctx *httpx.Context) {
+func botStatus(c *container.Container) transport.HandlerFunc {
+	return func(ctx *transport.Context) {
 		connected := c.WsHub().IsConnected()
-		ctx.JSON(200, httpx.H{
+		ctx.JSON(200, transport.H{
 			"code": 200,
-			"data": httpx.H{
+			"data": transport.H{
 				"connected": connected,
 			},
 		})

@@ -6,12 +6,12 @@ import (
 	"net/http"
 
 	"github.com/coder/websocket"
-	httpx "go-api-starter/internal/transport/httpx"
+	"go-api-starter/internal/transport"
 )
 
 // Handler WebSocket 握手入口
-func Handler(hub *Hub, apiKey string) httpx.HandlerFunc {
-	return func(c *httpx.Context) {
+func Handler(hub *Hub, apiKey string) transport.HandlerFunc {
+	return func(c *transport.Context) {
 		// API Key 验证（使用常量时间比较防止时序攻击）
 		if apiKey != "" {
 			key := c.Query("key")
@@ -19,7 +19,7 @@ func Handler(hub *Hub, apiKey string) httpx.HandlerFunc {
 				key = c.GetHeader("X-API-Key")
 			}
 			if subtle.ConstantTimeCompare([]byte(key), []byte(apiKey)) != 1 {
-				c.JSON(http.StatusUnauthorized, httpx.H{"error": "invalid api key"})
+				c.JSON(http.StatusUnauthorized, transport.H{"error": "invalid api key"})
 				return
 			}
 		}

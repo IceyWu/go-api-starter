@@ -100,6 +100,23 @@ tasks:
     cmds:
       - golangci-lint run
 
+  security:
+    desc: Scan Go dependencies for known vulnerabilities
+    cmds:
+      - go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  atlas-validate:
+    desc: Validate Atlas migration directories
+    cmds:
+      - atlas migrate validate --dir file://migrations/sqlite
+      - atlas migrate validate --dir file://migrations/mysql
+
+  atlas-hash:
+    desc: Generate Atlas migration checksums after adding or changing migrations
+    cmds:
+      - atlas migrate hash --dir file://migrations/sqlite
+      - atlas migrate hash --dir file://migrations/mysql
+
   vet:
     desc: Run go vet
     cmds:

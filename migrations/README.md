@@ -20,6 +20,8 @@ task migrate
 
 Development and production use the same versioned Atlas migrations. Schema changes are never inferred from Go model tags.
 
+Existing development databases may set `database.allow_dirty_migrations: true` to establish the initial Atlas baseline over an already-created schema. Production keeps this disabled by default and requires an explicit deployment override after a verified backup.
+
 ## Manual Migrations
 
 Place SQLite migrations in `migrations/sqlite` and MySQL migrations in `migrations/mysql`. Atlas applies the SQL files in filename order.

@@ -2,10 +2,9 @@ package service
 
 import (
 	"context"
-	"mime/multipart"
 
 	"go-api-starter/internal/model"
-	"go-api-starter/pkg/oss"
+	"go-api-starter/internal/platform/oss"
 )
 
 // AuthServiceInterface defines the interface for authentication service operations
@@ -77,32 +76,24 @@ type OSSServiceInterface interface {
 	GetUploadToken(userID uint) (*oss.UploadToken, error)
 	GetUploadTokenWithFileName(userID uint, fileName string) (*oss.UploadToken, error)
 	CheckFileExists(md5 string, userID uint) (*model.File, bool)
-	SaveFileRecord(key, md5, fileName string, fileSize int64, userID uint) (*model.File, error)
+	SaveFileRecord(key, md5, fileName string, fileSize int64, userID uint, metadata *ClientMediaMetadata) (*model.File, error)
 
 	// File operations (all use uid)
 	GetFileByUID(uid string) (*model.File, error)
 	UpdateFile(uid string, req *model.UpdateFileRequest) error
 	ListFiles(userID uint, isPrivate *bool, offset, limit int, sort string) ([]model.File, int64, error)
 	DeleteFile(uid string) error
+	UpdateFileTranscodingTask(uid, taskID string) error
 
 	// Multipart upload operations
 	InitMultipartUpload(fileName string, md5 string, fileSize int64, chunkSize int64, userID uint) (*MultipartInitResult, error)
 	GetPartUploadURL(key, uploadID string, partNumber int) (*PartUploadInfo, error)
 	GetPartUploadURLs(key, uploadID string, partNumbers []int) ([]PartUploadInfo, error)
-	CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, parts []CompletePart, userID uint) (*model.File, error)
+	CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, parts []CompletePart, userID uint, metadata *ClientMediaMetadata) (*model.File, error)
 	AbortMultipartUpload(key, uploadID string) error
 	ListUploadedParts(key, uploadID string) ([]CompletePart, error)
 
 	// Resumable upload support
 	SaveUploadedPart(uploadID string, partNumber int, etag string, size int64) error
 	GetUploadedPartsFromDB(uploadID string) ([]CompletePart, error)
-}
-
-// FileServiceInterface defines the interface for file service operations
-type FileServiceInterface interface {
-	Upload(ctx context.Context, userID uint, file multipart.File, header *multipart.FileHeader) (*model.File, error)
-	GetByID(ctx context.Context, id uint, userID *uint) (*model.File, error)
-	List(ctx context.Context, filter model.FileFilter, offset, limit int, sort string, requestUserID *uint) ([]model.File, int64, error)
-	Update(ctx context.Context, id uint, userID uint, req *model.UpdateFileRequest) (*model.File, error)
-	Delete(ctx context.Context, id uint, userID uint) error
 }

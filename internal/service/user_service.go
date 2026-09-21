@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"go-api-starter/internal/model"
+	"go-api-starter/internal/platform/apperrors"
+	"go-api-starter/internal/platform/i18n"
 	"go-api-starter/internal/repository"
-	"go-api-starter/pkg/apperrors"
-	"go-api-starter/pkg/i18n"
 )
 
 // UserService handles user business logic

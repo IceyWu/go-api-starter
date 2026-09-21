@@ -45,8 +45,8 @@ type AckData struct {
 // ReviewData 审核回调
 type ReviewData struct {
 	GroupUsername string `json:"group_username"`
-	Phone        string `json:"phone"`
-	Status       int    `json:"status"`
-	Operator     string `json:"operator,omitempty"`
-	Remark       string `json:"remark,omitempty"`
+	Phone         string `json:"phone"`
+	Status        int    `json:"status"`
+	Operator      string `json:"operator,omitempty"`
+	Remark        string `json:"remark,omitempty"`
 }

@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"go-api-starter/pkg/apperrors"
-	"go-api-starter/pkg/cache"
-	"go-api-starter/pkg/i18n"
-	"go-api-starter/pkg/logger"
-	"go-api-starter/pkg/mail"
+	"go-api-starter/internal/platform/apperrors"
+	"go-api-starter/internal/platform/cache"
+	"go-api-starter/internal/platform/i18n"
+	"go-api-starter/internal/platform/logger"
+	"go-api-starter/internal/platform/mail"
 )
 
 const (

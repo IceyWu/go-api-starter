@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 
-	"go-api-starter/pkg/cache"
+	"go-api-starter/internal/platform/cache"
 )
 
 const (
@@ -77,10 +77,9 @@ func (r *RedisRateLimiter) Allow(ctx context.Context, identifier string) (bool, 
 	return count <= int64(r.rate), info, nil
 }
 
-
-// RateLimit returns a Gin middleware for rate limiting
-func (r *RedisRateLimiter) RateLimit() gin.HandlerFunc {
-	return func(c *gin.Context) {
+// RateLimit returns an HTTP middleware for rate limiting
+func (r *RedisRateLimiter) RateLimit() httpx.HandlerFunc {
+	return func(c *httpx.Context) {
 		// Use client IP as identifier
 		identifier := c.ClientIP()
 
@@ -93,7 +92,7 @@ func (r *RedisRateLimiter) RateLimit() gin.HandlerFunc {
 
 		if !allowed {
 			c.Header("Retry-After", strconv.FormatInt(int64(time.Until(info.ResetAt).Seconds()), 10))
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, httpx.H{
 				"code":    http.StatusTooManyRequests,
 				"message": "请求过于频繁，请稍后再试",
 			})
@@ -105,8 +104,8 @@ func (r *RedisRateLimiter) RateLimit() gin.HandlerFunc {
 }
 
 // RateLimitByUser returns a middleware that rate limits by user ID
-func (r *RedisRateLimiter) RateLimitByUser() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func (r *RedisRateLimiter) RateLimitByUser() httpx.HandlerFunc {
+	return func(c *httpx.Context) {
 		// Get user ID from context (set by auth middleware)
 		userID, exists := c.Get("userID")
 		var identifier string
@@ -125,7 +124,7 @@ func (r *RedisRateLimiter) RateLimitByUser() gin.HandlerFunc {
 
 		if !allowed {
 			c.Header("Retry-After", strconv.FormatInt(int64(time.Until(info.ResetAt).Seconds()), 10))
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, httpx.H{
 				"code":    http.StatusTooManyRequests,
 				"message": "请求过于频繁，请稍后再试",
 			})
@@ -137,8 +136,8 @@ func (r *RedisRateLimiter) RateLimitByUser() gin.HandlerFunc {
 }
 
 // RateLimitByEndpoint returns a middleware that rate limits by endpoint
-func (r *RedisRateLimiter) RateLimitByEndpoint() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func (r *RedisRateLimiter) RateLimitByEndpoint() httpx.HandlerFunc {
+	return func(c *httpx.Context) {
 		// Combine IP and endpoint for identifier
 		identifier := fmt.Sprintf("%s:%s:%s", c.ClientIP(), c.Request.Method, c.FullPath())
 
@@ -151,7 +150,7 @@ func (r *RedisRateLimiter) RateLimitByEndpoint() gin.HandlerFunc {
 
 		if !allowed {
 			c.Header("Retry-After", strconv.FormatInt(int64(time.Until(info.ResetAt).Seconds()), 10))
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, httpx.H{
 				"code":    http.StatusTooManyRequests,
 				"message": "请求过于频繁，请稍后再试",
 			})
@@ -203,8 +202,8 @@ func (m *MultiLevelRateLimiter) SetUserLimit(rate int, window time.Duration) *Mu
 }
 
 // RateLimit returns a middleware that applies multi-level rate limiting
-func (m *MultiLevelRateLimiter) RateLimit() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func (m *MultiLevelRateLimiter) RateLimit() httpx.HandlerFunc {
+	return func(c *httpx.Context) {
 		// Check endpoint-specific limit first
 		endpoint := c.FullPath()
 		if cfg, ok := m.endpoint[endpoint]; ok {
@@ -212,7 +211,7 @@ func (m *MultiLevelRateLimiter) RateLimit() gin.HandlerFunc {
 			identifier := fmt.Sprintf("endpoint:%s:%s", c.ClientIP(), endpoint)
 			if allowed, info, _ := limiter.Allow(c.Request.Context(), identifier); !allowed {
 				setRateLimitHeaders(c, info)
-				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				c.AbortWithStatusJSON(http.StatusTooManyRequests, httpx.H{
 					"code":    http.StatusTooManyRequests,
 					"message": "请求过于频繁，请稍后再试",
 				})
@@ -227,7 +226,7 @@ func (m *MultiLevelRateLimiter) RateLimit() gin.HandlerFunc {
 				identifier := fmt.Sprintf("user:%d", userID.(uint))
 				if allowed, info, _ := limiter.Allow(c.Request.Context(), identifier); !allowed {
 					setRateLimitHeaders(c, info)
-					c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+					c.AbortWithStatusJSON(http.StatusTooManyRequests, httpx.H{
 						"code":    http.StatusTooManyRequests,
 						"message": "请求过于频繁，请稍后再试",
 					})
@@ -243,7 +242,7 @@ func (m *MultiLevelRateLimiter) RateLimit() gin.HandlerFunc {
 			allowed, info, _ := limiter.Allow(c.Request.Context(), identifier)
 			setRateLimitHeaders(c, info)
 			if !allowed {
-				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				c.AbortWithStatusJSON(http.StatusTooManyRequests, httpx.H{
 					"code":    http.StatusTooManyRequests,
 					"message": "请求过于频繁，请稍后再试",
 				})
@@ -255,7 +254,7 @@ func (m *MultiLevelRateLimiter) RateLimit() gin.HandlerFunc {
 	}
 }
 
-func setRateLimitHeaders(c *gin.Context, info RateLimitInfo) {
+func setRateLimitHeaders(c *httpx.Context, info RateLimitInfo) {
 	c.Header("X-RateLimit-Limit", strconv.Itoa(info.Limit))
 	c.Header("X-RateLimit-Remaining", strconv.Itoa(info.Remaining))
 	c.Header("X-RateLimit-Reset", strconv.FormatInt(info.ResetAt.Unix(), 10))

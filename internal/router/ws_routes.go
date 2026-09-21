@@ -1,14 +1,14 @@
 package router
 
 import (
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/ws"
 )
 
 // registerWsRoutes 注册 WebSocket 路由
-func registerWsRoutes(base *gin.RouterGroup, c *container.Container) {
+func registerWsRoutes(base *httpx.RouterGroup, c *container.Container) {
 	apiKey := c.Config().WS.Key
 	base.GET("/ws", ws.Handler(c.WsHub(), apiKey))
 
@@ -23,12 +23,12 @@ func registerWsRoutes(base *gin.RouterGroup, c *container.Container) {
 // @Produce json
 // @Success 200 {object} map[string]interface{}
 // @Router /api/v1/ws/status [get]
-func botStatus(c *container.Container) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+func botStatus(c *container.Container) httpx.HandlerFunc {
+	return func(ctx *httpx.Context) {
 		connected := c.WsHub().IsConnected()
-		ctx.JSON(200, gin.H{
+		ctx.JSON(200, httpx.H{
 			"code": 200,
-			"data": gin.H{
+			"data": httpx.H{
 				"connected": connected,
 			},
 		})

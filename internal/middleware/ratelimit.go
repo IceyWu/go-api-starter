@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"sync"
 
-	"go-api-starter/pkg/response"
+	"go-api-starter/internal/platform/response"
 
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 	"golang.org/x/time/rate"
 )
 
@@ -44,8 +44,8 @@ func (rl *RateLimiter) getLimiter(key string) *rate.Limiter {
 }
 
 // RateLimit returns a rate limiting middleware
-func (rl *RateLimiter) RateLimit() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func (rl *RateLimiter) RateLimit() httpx.HandlerFunc {
+	return func(c *httpx.Context) {
 		// Use client IP as the key
 		key := c.ClientIP()
 		limiter := rl.getLimiter(key)
@@ -62,9 +62,9 @@ func (rl *RateLimiter) RateLimit() gin.HandlerFunc {
 
 // GlobalRateLimit creates a simple global rate limiter
 // Example: GlobalRateLimit(10, 20) allows 10 requests per second with burst of 20
-func GlobalRateLimit(r rate.Limit, b int) gin.HandlerFunc {
+func GlobalRateLimit(r rate.Limit, b int) httpx.HandlerFunc {
 	limiter := rate.NewLimiter(r, b)
-	return func(c *gin.Context) {
+	return func(c *httpx.Context) {
 		if !limiter.Allow() {
 			response.Error(c, http.StatusTooManyRequests, "rate limit exceeded")
 			c.Abort()

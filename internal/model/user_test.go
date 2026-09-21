@@ -87,4 +87,3 @@ func TestUsernameUniqueness(t *testing.T) {
 	// We expect most usernames to be unique (allowing for rare collisions)
 	assert.GreaterOrEqual(t, len(usernames), 95, "Most usernames should be unique")
 }
-

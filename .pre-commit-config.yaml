@@ -3,18 +3,24 @@
 # Or: brew install pre-commit && pre-commit install
 
 repos:
-  # Go formatting and linting
-  - repo: https://github.com/dnephin/pre-commit-golang
-    rev: v0.5.1
+  # Go project checks are routed through Taskfile.
+  - repo: local
     hooks:
-      - id: go-fmt
-        name: go fmt
-      - id: go-imports
-        name: go imports
-      - id: go-vet
-        name: go vet
-      - id: go-mod-tidy
-        name: go mod tidy
+      - id: task-fmt
+        name: task fmt
+        entry: task fmt
+        language: system
+        pass_filenames: false
+      - id: task-vet
+        name: task vet
+        entry: task vet
+        language: system
+        pass_filenames: false
+      - id: task-diff-check
+        name: task diff-check
+        entry: task diff-check
+        language: system
+        pass_filenames: false
 
   # General hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks

@@ -1,13 +1,13 @@
 package router
 
 import (
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/middleware"
 )
 
-func registerUserRoutes(api *gin.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware, permMw *middleware.PermissionMiddleware) {
+func registerUserRoutes(api *httpx.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware, permMw *middleware.PermissionMiddleware) {
 	userH := c.UserHandler()
 
 	users := api.Group("/users")

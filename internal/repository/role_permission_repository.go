@@ -3,116 +3,86 @@ package repository
 import (
 	"context"
 	"errors"
-
+	"github.com/jmoiron/sqlx"
 	"go-api-starter/internal/model"
-
-	"gorm.io/gorm"
 )
 
 var ErrRolePermissionNotFound = errors.New("role permission not found")
-
-// Compile-time interface check
 var _ RolePermissionRepositoryInterface = (*RolePermissionRepository)(nil)
 
-// RolePermissionRepository handles role permission data operations
-type RolePermissionRepository struct {
-	db *gorm.DB
+type RolePermissionRepository struct{ db *sqlx.DB }
+
+func NewRolePermissionRepository(db *sqlx.DB) *RolePermissionRepository {
+	return &RolePermissionRepository{db}
 }
 
-// NewRolePermissionRepository creates a new RolePermissionRepository
-func NewRolePermissionRepository(db *gorm.DB) *RolePermissionRepository {
-	return &RolePermissionRepository{db: db}
-}
+const rpColumns = `id,role_id,permission_id,space_id,value,created_at,updated_at`
 
-// Create creates a new role permission association
-func (r *RolePermissionRepository) Create(ctx context.Context, rp *model.RolePermission) error {
-	return r.db.WithContext(ctx).Create(rp).Error
+func (r *RolePermissionRepository) Create(c context.Context, v *model.RolePermission) error {
+	n := modelTime()
+	v.CreatedAt = n
+	v.UpdatedAt = n
+	x, e := r.db.ExecContext(c, `INSERT INTO role_permissions(role_id,permission_id,space_id,value,created_at,updated_at) VALUES(?,?,?,?,?,?)`, v.RoleID, v.PermissionID, v.SpaceID, v.Value, n, n)
+	if e == nil {
+		if id, z := x.LastInsertId(); z == nil {
+			v.ID = uint(id)
+		}
+	}
+	return e
 }
-
-// Update updates a role permission
-func (r *RolePermissionRepository) Update(ctx context.Context, rp *model.RolePermission) error {
-	return r.db.WithContext(ctx).Save(rp).Error
+func (r *RolePermissionRepository) Update(c context.Context, v *model.RolePermission) error {
+	v.UpdatedAt = modelTime()
+	_, e := r.db.ExecContext(c, `UPDATE role_permissions SET role_id=?,permission_id=?,space_id=?,value=?,updated_at=? WHERE id=?`, v.RoleID, v.PermissionID, v.SpaceID, v.Value, v.UpdatedAt, v.ID)
+	return e
 }
-
-// Delete deletes a role permission association
-func (r *RolePermissionRepository) Delete(ctx context.Context, roleID, permissionID uint) error {
-	result := r.db.WithContext(ctx).
-		Where("role_id = ? AND permission_id = ?", roleID, permissionID).
-		Delete(&model.RolePermission{})
-	if result.RowsAffected == 0 {
+func (r *RolePermissionRepository) Delete(c context.Context, role, p uint) error {
+	x, e := r.db.ExecContext(c, `DELETE FROM role_permissions WHERE role_id=? AND permission_id=?`, role, p)
+	if e != nil {
+		return e
+	}
+	n, _ := x.RowsAffected()
+	if n == 0 {
 		return ErrRolePermissionNotFound
 	}
-	return result.Error
+	return nil
 }
-
-// DeleteByRoleID deletes all permissions for a role
-func (r *RolePermissionRepository) DeleteByRoleID(ctx context.Context, roleID uint) error {
-	return r.db.WithContext(ctx).Where("role_id = ?", roleID).Delete(&model.RolePermission{}).Error
+func (r *RolePermissionRepository) DeleteByRoleID(c context.Context, id uint) error {
+	_, e := r.db.ExecContext(c, `DELETE FROM role_permissions WHERE role_id=?`, id)
+	return e
 }
-
-// FindByRoleID finds all permissions for a role
-func (r *RolePermissionRepository) FindByRoleID(ctx context.Context, roleID uint) ([]model.RolePermission, error) {
-	var rolePermissions []model.RolePermission
-	err := r.db.WithContext(ctx).
-		Preload("Permission").
-		Where("role_id = ?", roleID).
-		Find(&rolePermissions).Error
-	return rolePermissions, err
+func (r *RolePermissionRepository) FindByRoleID(c context.Context, id uint) ([]model.RolePermission, error) {
+	var v []model.RolePermission
+	e := r.db.SelectContext(c, &v, `SELECT `+rpColumns+` FROM role_permissions WHERE role_id=?`, id)
+	return v, e
 }
-
-// FindByRoleAndSpace finds role permission by role and space
-func (r *RolePermissionRepository) FindByRoleAndSpace(ctx context.Context, roleID, spaceID uint) (*model.RolePermission, error) {
-	var rp model.RolePermission
-	err := r.db.WithContext(ctx).
-		Where("role_id = ? AND space_id = ?", roleID, spaceID).
-		First(&rp).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+func (r *RolePermissionRepository) FindByRoleAndSpace(c context.Context, role, space uint) (*model.RolePermission, error) {
+	return r.find(c, `role_id=? AND space_id=?`, role, space)
+}
+func (r *RolePermissionRepository) FindByRoleAndPermission(c context.Context, role, p uint) (*model.RolePermission, error) {
+	return r.find(c, `role_id=? AND permission_id=?`, role, p)
+}
+func (r *RolePermissionRepository) find(c context.Context, w string, a ...any) (*model.RolePermission, error) {
+	var v model.RolePermission
+	e := r.db.GetContext(c, &v, `SELECT `+rpColumns+` FROM role_permissions WHERE `+w+` LIMIT 1`, a...)
+	if noRows(e) {
 		return nil, nil
 	}
-	return &rp, err
+	return &v, e
 }
-
-// FindByRoleAndPermission finds role permission by role and permission
-func (r *RolePermissionRepository) FindByRoleAndPermission(ctx context.Context, roleID, permissionID uint) (*model.RolePermission, error) {
-	var rp model.RolePermission
-	err := r.db.WithContext(ctx).
-		Where("role_id = ? AND permission_id = ?", roleID, permissionID).
-		First(&rp).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	return &rp, err
+func (r *RolePermissionRepository) Exists(c context.Context, role, p uint) (bool, error) {
+	var n int
+	e := r.db.GetContext(c, &n, `SELECT COUNT(*) FROM role_permissions WHERE role_id=? AND permission_id=?`, role, p)
+	return n > 0, e
 }
-
-// Exists checks if a role permission association exists
-func (r *RolePermissionRepository) Exists(ctx context.Context, roleID, permissionID uint) (bool, error) {
-	var count int64
-	err := r.db.WithContext(ctx).
-		Model(&model.RolePermission{}).
-		Where("role_id = ? AND permission_id = ?", roleID, permissionID).
-		Count(&count).Error
-	return count > 0, err
-}
-
-// GetSpaceValuesByRoleID returns space values for a role (for permission calculation)
-func (r *RolePermissionRepository) GetSpaceValuesByRoleID(ctx context.Context, roleID uint) (map[uint]uint64, error) {
-	var results []struct {
-		SpaceID uint
-		Value   uint64
+func (r *RolePermissionRepository) GetSpaceValuesByRoleID(c context.Context, id uint) (map[uint]uint64, error) {
+	var v []struct {
+		SpaceID uint   `db:"space_id"`
+		Value   uint64 `db:"value"`
 	}
-	err := r.db.WithContext(ctx).
-		Model(&model.RolePermission{}).
-		Select("space_id, BIT_OR(value) as value").
-		Where("role_id = ?", roleID).
-		Group("space_id").
-		Scan(&results).Error
-	if err != nil {
-		return nil, err
+	e := r.db.SelectContext(c, &v, `SELECT space_id,SUM(value) value FROM role_permissions WHERE role_id=? GROUP BY space_id`, id)
+	m := map[uint]uint64{}
+	for _, x := range v {
+		m[x.SpaceID] = x.Value
 	}
-
-	spaceValues := make(map[uint]uint64)
-	for _, r := range results {
-		spaceValues[r.SpaceID] = r.Value
-	}
-	return spaceValues, nil
+	return m, e
 }

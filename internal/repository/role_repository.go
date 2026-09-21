@@ -3,92 +3,79 @@ package repository
 import (
 	"context"
 	"errors"
-
+	"github.com/jmoiron/sqlx"
 	"go-api-starter/internal/model"
-
-	"gorm.io/gorm"
 )
 
 var (
 	ErrRoleNotFound   = errors.New("role not found")
 	ErrRoleNameExists = errors.New("role name already exists")
 )
-
-// Compile-time interface check
 var _ RoleRepositoryInterface = (*RoleRepository)(nil)
 
-// RoleRepository handles role data operations
-type RoleRepository struct {
-	db *gorm.DB
-}
+type RoleRepository struct{ db *sqlx.DB }
 
-// NewRoleRepository creates a new RoleRepository
-func NewRoleRepository(db *gorm.DB) *RoleRepository {
-	return &RoleRepository{db: db}
-}
+func NewRoleRepository(db *sqlx.DB) *RoleRepository { return &RoleRepository{db} }
 
-// Create creates a new role
-func (r *RoleRepository) Create(ctx context.Context, role *model.Role) error {
-	return r.db.WithContext(ctx).Create(role).Error
-}
+const roleColumns = `id,name,description,is_active,is_system,created_at,updated_at`
 
-// FindByName finds a role by name
-func (r *RoleRepository) FindByName(ctx context.Context, name string) (*model.Role, error) {
-	var role model.Role
-	err := r.db.WithContext(ctx).Where("name = ?", name).First(&role).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+func (r *RoleRepository) Create(c context.Context, v *model.Role) error {
+	n := modelTime()
+	v.CreatedAt = n
+	v.UpdatedAt = n
+	x, e := r.db.ExecContext(c, `INSERT INTO roles(name,description,is_active,is_system,created_at,updated_at) VALUES(?,?,?,?,?,?)`, v.Name, v.Description, v.IsActive, v.IsSystem, n, n)
+	if e == nil {
+		if id, z := x.LastInsertId(); z == nil {
+			v.ID = uint(id)
+		}
+	}
+	return e
+}
+func (r *RoleRepository) FindByName(c context.Context, v string) (*model.Role, error) {
+	return r.find(c, `name = ?`, v)
+}
+func (r *RoleRepository) FindByID(c context.Context, v uint) (*model.Role, error) {
+	return r.find(c, `id = ?`, v)
+}
+func (r *RoleRepository) find(c context.Context, p string, a any) (*model.Role, error) {
+	var v model.Role
+	e := r.db.GetContext(c, &v, `SELECT `+roleColumns+` FROM roles WHERE `+p+` LIMIT 1`, a)
+	if noRows(e) {
 		return nil, ErrRoleNotFound
 	}
-	return &role, err
+	return &v, e
 }
-
-// FindByID finds a role by ID
-func (r *RoleRepository) FindByID(ctx context.Context, id uint) (*model.Role, error) {
-	var role model.Role
-	err := r.db.WithContext(ctx).First(&role, id).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrRoleNotFound
+func (r *RoleRepository) FindByIDWithPermissions(c context.Context, id uint) (*model.Role, error) {
+	v, e := r.FindByID(c, id)
+	if e != nil {
+		return nil, e
 	}
-	return &role, err
+	v.RolePermissions, e = (&RolePermissionRepository{r.db}).FindByRoleID(c, id)
+	return v, e
 }
-
-// FindByIDWithPermissions finds a role by ID with permissions
-func (r *RoleRepository) FindByIDWithPermissions(ctx context.Context, id uint) (*model.Role, error) {
-	var role model.Role
-	err := r.db.WithContext(ctx).
-		Preload("RolePermissions").
-		Preload("RolePermissions.Permission").
-		First(&role, id).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrRoleNotFound
+func (r *RoleRepository) FindAll(c context.Context) ([]model.Role, error) {
+	var v []model.Role
+	e := r.db.SelectContext(c, &v, `SELECT `+roleColumns+` FROM roles ORDER BY id`)
+	return v, e
+}
+func (r *RoleRepository) Update(c context.Context, v *model.Role) error {
+	v.UpdatedAt = modelTime()
+	_, e := r.db.ExecContext(c, `UPDATE roles SET name=?,description=?,is_active=?,is_system=?,updated_at=? WHERE id=?`, v.Name, v.Description, v.IsActive, v.IsSystem, v.UpdatedAt, v.ID)
+	return e
+}
+func (r *RoleRepository) Delete(c context.Context, id uint) error {
+	x, e := r.db.ExecContext(c, `DELETE FROM roles WHERE id=?`, id)
+	if e != nil {
+		return e
 	}
-	return &role, err
-}
-
-// FindAll returns all roles
-func (r *RoleRepository) FindAll(ctx context.Context) ([]model.Role, error) {
-	var roles []model.Role
-	err := r.db.WithContext(ctx).Order("id ASC").Find(&roles).Error
-	return roles, err
-}
-
-// Update updates a role
-func (r *RoleRepository) Update(ctx context.Context, role *model.Role) error {
-	return r.db.WithContext(ctx).Save(role).Error
-}
-
-// Delete hard deletes a role
-func (r *RoleRepository) Delete(ctx context.Context, id uint) error {
-	result := r.db.WithContext(ctx).Unscoped().Delete(&model.Role{}, id)
-	if result.RowsAffected == 0 {
+	n, _ := x.RowsAffected()
+	if n == 0 {
 		return ErrRoleNotFound
 	}
-	return result.Error
+	return nil
 }
-
-// Exists checks if a role with the given name exists
-func (r *RoleRepository) Exists(ctx context.Context, name string) (bool, error) {
-	var count int64
-	err := r.db.WithContext(ctx).Model(&model.Role{}).Where("name = ?", name).Count(&count).Error
-	return count > 0, err
+func (r *RoleRepository) Exists(c context.Context, n string) (bool, error) {
+	var x int
+	e := r.db.GetContext(c, &x, `SELECT COUNT(*) FROM roles WHERE name=?`, n)
+	return x > 0, e
 }

@@ -3,88 +3,71 @@ package repository
 import (
 	"context"
 	"errors"
-
+	"github.com/jmoiron/sqlx"
 	"go-api-starter/internal/model"
-
-	"gorm.io/gorm"
 )
 
 var (
 	ErrPermissionSpaceNotFound   = errors.New("permission space not found")
 	ErrPermissionSpaceNameExists = errors.New("permission space name already exists")
 )
-
-// Compile-time interface check
 var _ PermissionSpaceRepositoryInterface = (*PermissionSpaceRepository)(nil)
 
-// PermissionSpaceRepository handles permission space data operations
-type PermissionSpaceRepository struct {
-	db *gorm.DB
+type PermissionSpaceRepository struct{ db *sqlx.DB }
+
+func NewPermissionSpaceRepository(db *sqlx.DB) *PermissionSpaceRepository {
+	return &PermissionSpaceRepository{db}
 }
 
-// NewPermissionSpaceRepository creates a new PermissionSpaceRepository
-func NewPermissionSpaceRepository(db *gorm.DB) *PermissionSpaceRepository {
-	return &PermissionSpaceRepository{db: db}
-}
+const spaceColumns = `id,name,description,is_active,created_at,updated_at`
 
-// Create creates a new permission space
-func (r *PermissionSpaceRepository) Create(ctx context.Context, space *model.PermissionSpace) error {
-	return r.db.WithContext(ctx).Create(space).Error
+func (r *PermissionSpaceRepository) Create(c context.Context, v *model.PermissionSpace) error {
+	n := modelTime()
+	v.CreatedAt = n
+	v.UpdatedAt = n
+	x, e := r.db.ExecContext(c, `INSERT INTO permission_spaces(name,description,is_active,created_at,updated_at) VALUES(?,?,?,?,?)`, v.Name, v.Description, v.IsActive, v.CreatedAt, v.UpdatedAt)
+	if e == nil {
+		if id, z := x.LastInsertId(); z == nil {
+			v.ID = uint(id)
+		}
+	}
+	return e
 }
-
-// FindByName finds a permission space by name
-func (r *PermissionSpaceRepository) FindByName(ctx context.Context, name string) (*model.PermissionSpace, error) {
-	var space model.PermissionSpace
-	err := r.db.WithContext(ctx).Where("name = ?", name).First(&space).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+func (r *PermissionSpaceRepository) FindByName(c context.Context, n string) (*model.PermissionSpace, error) {
+	return r.find(c, "name = ?", n)
+}
+func (r *PermissionSpaceRepository) FindByID(c context.Context, id uint) (*model.PermissionSpace, error) {
+	return r.find(c, "id = ?", id)
+}
+func (r *PermissionSpaceRepository) find(c context.Context, p string, a any) (*model.PermissionSpace, error) {
+	var v model.PermissionSpace
+	e := r.db.GetContext(c, &v, `SELECT `+spaceColumns+` FROM permission_spaces WHERE `+p+` LIMIT 1`, a)
+	if noRows(e) {
 		return nil, ErrPermissionSpaceNotFound
 	}
-	return &space, err
+	return &v, e
 }
-
-// FindByID finds a permission space by ID
-func (r *PermissionSpaceRepository) FindByID(ctx context.Context, id uint) (*model.PermissionSpace, error) {
-	var space model.PermissionSpace
-	err := r.db.WithContext(ctx).First(&space, id).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrPermissionSpaceNotFound
-	}
-	return &space, err
+func (r *PermissionSpaceRepository) FindAll(c context.Context) ([]model.PermissionSpace, error) {
+	var v []model.PermissionSpace
+	e := r.db.SelectContext(c, &v, `SELECT `+spaceColumns+` FROM permission_spaces ORDER BY id`)
+	return v, e
 }
-
-// FindAll returns all permission spaces
-func (r *PermissionSpaceRepository) FindAll(ctx context.Context) ([]model.PermissionSpace, error) {
-	var spaces []model.PermissionSpace
-	err := r.db.WithContext(ctx).Order("id ASC").Find(&spaces).Error
-	return spaces, err
+func (r *PermissionSpaceRepository) FindAllWithCount(c context.Context) ([]model.SpaceWithCount, error) {
+	var v []model.SpaceWithCount
+	e := r.db.SelectContext(c, &v, `SELECT s.id,s.name,s.description,s.is_active,COUNT(p.id) permission_count FROM permission_spaces s LEFT JOIN permissions p ON p.space_id=s.id GROUP BY s.id ORDER BY s.id`)
+	return v, e
 }
-
-// FindAllWithCount returns all permission spaces with permission count
-func (r *PermissionSpaceRepository) FindAllWithCount(ctx context.Context) ([]model.SpaceWithCount, error) {
-	var results []model.SpaceWithCount
-	err := r.db.WithContext(ctx).
-		Model(&model.PermissionSpace{}).
-		Select("permission_spaces.id, permission_spaces.name, permission_spaces.description, permission_spaces.is_active, COUNT(permissions.id) as permission_count").
-		Joins("LEFT JOIN permissions ON permissions.space_id = permission_spaces.id").
-		Group("permission_spaces.id").
-		Order("permission_spaces.id ASC").
-		Scan(&results).Error
-	return results, err
+func (r *PermissionSpaceRepository) Exists(c context.Context, n string) (bool, error) {
+	var x int
+	e := r.db.GetContext(c, &x, `SELECT COUNT(*) FROM permission_spaces WHERE name=?`, n)
+	return x > 0, e
 }
-
-// Exists checks if a permission space with the given name exists
-func (r *PermissionSpaceRepository) Exists(ctx context.Context, name string) (bool, error) {
-	var count int64
-	err := r.db.WithContext(ctx).Model(&model.PermissionSpace{}).Where("name = ?", name).Count(&count).Error
-	return count > 0, err
+func (r *PermissionSpaceRepository) Update(c context.Context, v *model.PermissionSpace) error {
+	v.UpdatedAt = modelTime()
+	_, e := r.db.ExecContext(c, `UPDATE permission_spaces SET name=?,description=?,is_active=?,updated_at=? WHERE id=?`, v.Name, v.Description, v.IsActive, v.UpdatedAt, v.ID)
+	return e
 }
-
-// Update updates a permission space
-func (r *PermissionSpaceRepository) Update(ctx context.Context, space *model.PermissionSpace) error {
-	return r.db.WithContext(ctx).Save(space).Error
-}
-
-// Delete deletes a permission space by ID (hard delete)
-func (r *PermissionSpaceRepository) Delete(ctx context.Context, id uint) error {
-	return r.db.WithContext(ctx).Unscoped().Delete(&model.PermissionSpace{}, id).Error
+func (r *PermissionSpaceRepository) Delete(c context.Context, id uint) error {
+	_, e := r.db.ExecContext(c, `DELETE FROM permission_spaces WHERE id=?`, id)
+	return e
 }

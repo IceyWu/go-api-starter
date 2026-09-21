@@ -1,29 +1,28 @@
 package container
 
 import (
+	"github.com/jmoiron/sqlx"
+	"io"
 	"log"
+	"log/slog"
 	"sync"
 	"time"
-
-	"go.uber.org/zap"
-	"gorm.io/gorm"
 
 	"go-api-starter/internal/config"
 	"go-api-starter/internal/handler"
 	"go-api-starter/internal/middleware"
+	"go-api-starter/internal/platform/auth"
+	"go-api-starter/internal/platform/cache"
+	"go-api-starter/internal/platform/mail"
 	"go-api-starter/internal/repository"
 	"go-api-starter/internal/service"
 	"go-api-starter/internal/ws"
-	"go-api-starter/pkg/auth"
-	"go-api-starter/pkg/cache"
-	"go-api-starter/pkg/mail"
 )
 
 // Container is the dependency injection container for the slim starter.
 type Container struct {
-	db     *gorm.DB
+	db     *sqlx.DB
 	config *config.Config
-	logger *zap.Logger
 
 	// Repositories
 	userRepo          repository.UserRepositoryInterface
@@ -54,8 +53,8 @@ type Container struct {
 	permServiceOnce    sync.Once
 	ossService         service.OSSServiceInterface
 	ossServiceOnce     sync.Once
-	fileService        service.FileServiceInterface
-	fileServiceOnce    sync.Once
+	taskManager        *service.TaskManager
+	taskManagerOnce    sync.Once
 	tokenBlacklist     service.TokenBlacklist
 	tokenBlacklistOnce sync.Once
 	wechatService      *service.WechatService
@@ -113,24 +112,15 @@ type Container struct {
 }
 
 // NewContainer creates a new dependency injection container
-func NewContainer(db *gorm.DB, cfg *config.Config) *Container {
+func NewContainer(db *sqlx.DB, cfg *config.Config) *Container {
 	return &Container{
 		db:     db,
 		config: cfg,
-	}
-}
-
-// NewContainerWithLogger creates a new container with logger
-func NewContainerWithLogger(db *gorm.DB, cfg *config.Config, logger *zap.Logger) *Container {
-	return &Container{
-		db:     db,
-		config: cfg,
-		logger: logger,
 	}
 }
 
 // DB returns the database connection
-func (c *Container) DB() *gorm.DB {
+func (c *Container) DB() *sqlx.DB {
 	return c.db
 }
 
@@ -213,13 +203,6 @@ func (c *Container) OSSService() service.OSSServiceInterface {
 	return c.ossService
 }
 
-func (c *Container) FileService() service.FileServiceInterface {
-	c.fileServiceOnce.Do(func() {
-		c.fileService = service.NewFileService(c.FileRepository())
-	})
-	return c.fileService
-}
-
 func (c *Container) TokenBlacklist() service.TokenBlacklist {
 	c.tokenBlacklistOnce.Do(func() {
 		c.tokenBlacklist = service.NewRedisTokenBlacklist(c.CacheBackend())
@@ -274,11 +257,7 @@ func (c *Container) CacheBackend() cache.CacheBackend {
 		redisCache := c.RedisCache()
 
 		if redisCache != nil && c.config.Redis.EnableFallback {
-			logger := c.logger
-			if logger == nil {
-				logger = zap.NewNop()
-			}
-			c.cacheBackend = cache.NewFallbackCache(redisCache, memCache, logger)
+			c.cacheBackend = cache.NewFallbackCache(redisCache, memCache, slog.New(slog.NewTextHandler(io.Discard, nil)))
 		} else if redisCache != nil {
 			c.cacheBackend = redisCache
 		} else {

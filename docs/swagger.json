@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "\n---\n\n## 🔌 WebSocket\n\n| 项目 | 说明 |\n|------|------|\n| 入口 | `GET /ws` — 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证 |\n| 消息格式 | `{\"type\":\"...\", \"id\":\"...\", \"data\":{...}}` |\n| ⬇️ 下行指令 | `send_text_msg`、`get_group_list`、`ping` |\n| ⬆️ 上行消息 | `ack`、`review`、`pong` |\n\n---\n\n## 🤖 LLMs 入口\n\n| 文件 | 说明 |\n|------|------|\n| 📄 [llms.txt](llms.txt) | AI 可读接口概览 |\n| 📚 [llms-full.txt](llms-full.txt) | AI 可读完整文档 |",
+        "description": "\n---\n\n## 🔌 WebSocket\n\n| 项目 | 说明 |\n|------|------|\n| 入口 | `GET /ws` — 长连接入口，query 参数 `key` 或 header `X-API-Key` 认证 |\n| 消息格式 | `{\"type\":\"...\", \"id\":\"...\", \"data\":{}}` |\n| ⬇️ 下行指令 | `send_text_msg`、`get_group_list`、`ping` |\n| ⬆️ 上行消息 | `ack`、`review`、`pong` |\n\n---\n\n## 🤖 LLMs 入口\n\n| 文件 | 说明 |\n|------|------|\n| 📄 [llms.txt](/llms.txt) | AI 可读接口概览 |\n| 📚 [llms-full.txt](/llms-full.txt) | AI 可读完整文档 |",
         "title": "Go API Starter",
         "contact": {},
         "version": "1.0",
@@ -2151,7 +2151,8 @@
                 "file_name",
                 "file_size",
                 "key",
-                "md5"
+                "md5",
+                "metadata"
             ],
             "properties": {
                 "file_name": {
@@ -2168,6 +2169,9 @@
                 },
                 "md5": {
                     "type": "string"
+                },
+                "metadata": {
+                    "$ref": "#/definitions/service.ClientMediaMetadata"
                 },
                 "parts": {
                     "description": "分片上传专用",
@@ -2238,6 +2242,26 @@
                 },
                 "url": {
                     "type": "string"
+                }
+            }
+        },
+        "model.Color": {
+            "type": "object",
+            "properties": {
+                "b": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "g": {
+                    "type": "integer"
+                },
+                "hex": {
+                    "type": "string"
+                },
+                "r": {
+                    "type": "integer"
                 }
             }
         },
@@ -2347,14 +2371,80 @@
         "model.File": {
             "type": "object",
             "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "altitude": {
+                    "type": "number"
+                },
+                "arthash": {
+                    "type": "string"
+                },
+                "arthash_codec": {
+                    "type": "string"
+                },
+                "bitrate": {
+                    "type": "integer"
+                },
+                "blurhash": {
+                    "type": "string"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "codec": {
+                    "type": "string"
+                },
+                "colors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.FileColor"
+                    }
+                },
+                "country": {
+                    "type": "string"
+                },
+                "country_code": {
+                    "type": "string"
+                },
                 "created_at": {
+                    "type": "string"
+                },
+                "device_make": {
+                    "type": "string"
+                },
+                "device_model": {
+                    "type": "string"
+                },
+                "district": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "number"
+                },
+                "exif_raw": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "exposure_time": {
                     "type": "string"
                 },
                 "extension": {
                     "type": "string"
                 },
+                "f_number": {
+                    "type": "string"
+                },
                 "file_md5": {
                     "type": "string"
+                },
+                "focal_length": {
+                    "type": "string"
+                },
+                "frame_rate": {
+                    "type": "number"
                 },
                 "height": {
                     "type": "integer"
@@ -2362,9 +2452,21 @@
                 "is_private": {
                     "type": "boolean"
                 },
+                "iso": {
+                    "type": "integer"
+                },
                 "key": {
                     "description": "OSS 存储路径（相对路径）",
                     "type": "string"
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lens_model": {
+                    "type": "string"
+                },
+                "lng": {
+                    "type": "number"
                 },
                 "name": {
                     "type": "string"
@@ -2372,8 +2474,20 @@
                 "path": {
                     "type": "string"
                 },
+                "province": {
+                    "type": "string"
+                },
                 "size": {
                     "type": "integer"
+                },
+                "taken_at": {
+                    "type": "string"
+                },
+                "transcoding_task": {
+                    "$ref": "#/definitions/model.TranscodingTask"
+                },
+                "transcoding_task_id": {
+                    "type": "string"
                 },
                 "type": {
                     "description": "MIME type",
@@ -2397,7 +2511,39 @@
                         }
                     ]
                 },
+                "video_metadata": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "video_variants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.VideoVariant"
+                    }
+                },
                 "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.FileColor": {
+            "type": "object",
+            "properties": {
+                "color": {
+                    "$ref": "#/definitions/model.Color"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "is_primary": {
+                    "type": "boolean"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "rank": {
                     "type": "integer"
                 }
             }
@@ -2786,6 +2932,82 @@
                 }
             }
         },
+        "model.TranscodingResult": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "resolution": {
+                    "description": "1080p, 720p, 480p",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "文件大小（字节）",
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "success, failed",
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.TranscodingTask": {
+            "type": "object",
+            "properties": {
+                "completed_at": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "error_msg": {
+                    "type": "string"
+                },
+                "file_id": {
+                    "description": "关联的文件 ID,用于保存转码结果到 video_variants",
+                    "type": "integer"
+                },
+                "provider": {
+                    "description": "aliyun_mps",
+                    "type": "string"
+                },
+                "resolutions": {
+                    "description": "[\"1080p\", \"720p\", \"480p\"]",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "results": {
+                    "description": "Array of TranscodingResult",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.TranscodingResult"
+                    }
+                },
+                "source_url": {
+                    "type": "string"
+                },
+                "status": {
+                    "description": "processing, success, partial_success, failed",
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "webhook_url": {
+                    "description": "Webhook callback URL",
+                    "type": "string"
+                }
+            }
+        },
         "model.UpdateFileRequest": {
             "type": "object",
             "properties": {
@@ -3065,6 +3287,44 @@
                 }
             }
         },
+        "model.VideoVariant": {
+            "type": "object",
+            "properties": {
+                "bitrate": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "number"
+                },
+                "format": {
+                    "type": "string"
+                },
+                "fps": {
+                    "type": "integer"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "quality": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
         "model.WxLoginRequest": {
             "type": "object",
             "properties": {
@@ -3132,6 +3392,173 @@
                 "data": {},
                 "message": {
                     "type": "string"
+                }
+            }
+        },
+        "service.ClientBasicMetadata": {
+            "type": "object",
+            "properties": {
+                "extension": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "md5": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.ClientImageExif": {
+            "type": "object",
+            "properties": {
+                "altitude": {
+                    "type": "number"
+                },
+                "device_make": {
+                    "type": "string"
+                },
+                "device_model": {
+                    "type": "string"
+                },
+                "exposure_time": {
+                    "type": "string"
+                },
+                "f_number": {
+                    "type": "string"
+                },
+                "focal_length": {
+                    "type": "string"
+                },
+                "iso": {
+                    "type": "integer"
+                },
+                "lat": {
+                    "type": "number"
+                },
+                "lens_model": {
+                    "type": "string"
+                },
+                "lng": {
+                    "type": "number"
+                },
+                "raw": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "taken_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ClientImageMetadata": {
+            "type": "object",
+            "properties": {
+                "arthash": {
+                    "type": "string"
+                },
+                "arthash_codec": {
+                    "type": "string"
+                },
+                "blurhash": {
+                    "type": "string"
+                },
+                "colors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/service.ClientMediaColor"
+                    }
+                },
+                "exif": {
+                    "$ref": "#/definitions/service.ClientImageExif"
+                }
+            }
+        },
+        "service.ClientMediaColor": {
+            "type": "object",
+            "properties": {
+                "b": {
+                    "type": "integer"
+                },
+                "g": {
+                    "type": "integer"
+                },
+                "hex": {
+                    "type": "string"
+                },
+                "is_primary": {
+                    "type": "boolean"
+                },
+                "percentage": {
+                    "type": "number"
+                },
+                "r": {
+                    "type": "integer"
+                },
+                "rank": {
+                    "type": "integer"
+                }
+            }
+        },
+        "service.ClientMediaMetadata": {
+            "type": "object",
+            "properties": {
+                "basic": {
+                    "$ref": "#/definitions/service.ClientBasicMetadata"
+                },
+                "image": {
+                    "$ref": "#/definitions/service.ClientImageMetadata"
+                },
+                "schema_version": {
+                    "type": "integer"
+                },
+                "video": {
+                    "$ref": "#/definitions/service.ClientVideoMetadata"
+                }
+            }
+        },
+        "service.ClientVideoMetadata": {
+            "type": "object",
+            "properties": {
+                "bitrate": {
+                    "type": "integer"
+                },
+                "codec": {
+                    "type": "string"
+                },
+                "creation_time": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "number"
+                },
+                "exif": {
+                    "$ref": "#/definitions/service.ClientImageExif"
+                },
+                "frame_rate": {
+                    "type": "number"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "width": {
+                    "type": "integer"
                 }
             }
         },

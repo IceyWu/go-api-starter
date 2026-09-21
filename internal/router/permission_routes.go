@@ -1,13 +1,13 @@
 package router
 
 import (
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/middleware"
 )
 
-func registerPermissionRoutes(api *gin.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware, permMw *middleware.PermissionMiddleware) {
+func registerPermissionRoutes(api *httpx.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware, permMw *middleware.PermissionMiddleware) {
 	h := c.PermissionHandler()
 
 	permissions := api.Group("/permissions")

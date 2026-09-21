@@ -3,79 +3,52 @@ package repository
 import (
 	"context"
 	"errors"
-
+	"github.com/jmoiron/sqlx"
 	"go-api-starter/internal/model"
-
-	"gorm.io/gorm"
 )
 
 var (
 	ErrUserRoleNotFound      = errors.New("user role not found")
 	ErrUserRoleAlreadyExists = errors.New("user already has this role")
 )
-
-// Compile-time interface check
 var _ UserRoleRepositoryInterface = (*UserRoleRepository)(nil)
 
-// UserRoleRepository handles user role data operations
-type UserRoleRepository struct {
-	db *gorm.DB
-}
+type UserRoleRepository struct{ db *sqlx.DB }
 
-// NewUserRoleRepository creates a new UserRoleRepository
-func NewUserRoleRepository(db *gorm.DB) *UserRoleRepository {
-	return &UserRoleRepository{db: db}
+func NewUserRoleRepository(db *sqlx.DB) *UserRoleRepository { return &UserRoleRepository{db} }
+func (r *UserRoleRepository) Create(c context.Context, v *model.UserRole) error {
+	n := modelTime()
+	_, e := r.db.ExecContext(c, `INSERT INTO user_roles(user_id,role_id,created_at,updated_at) VALUES(?,?,?,?)`, v.UserID, v.RoleID, n, n)
+	return e
 }
-
-// Create creates a new user role association
-func (r *UserRoleRepository) Create(ctx context.Context, userRole *model.UserRole) error {
-	return r.db.WithContext(ctx).Create(userRole).Error
-}
-
-// Delete deletes a user role association
-func (r *UserRoleRepository) Delete(ctx context.Context, userID, roleID uint) error {
-	result := r.db.WithContext(ctx).
-		Where("user_id = ? AND role_id = ?", userID, roleID).
-		Delete(&model.UserRole{})
-	if result.RowsAffected == 0 {
+func (r *UserRoleRepository) Delete(c context.Context, u, role uint) error {
+	x, e := r.db.ExecContext(c, `DELETE FROM user_roles WHERE user_id=? AND role_id=?`, u, role)
+	if e != nil {
+		return e
+	}
+	n, _ := x.RowsAffected()
+	if n == 0 {
 		return ErrUserRoleNotFound
 	}
-	return result.Error
+	return nil
 }
-
-// FindByUserID finds all roles for a user
-func (r *UserRoleRepository) FindByUserID(ctx context.Context, userID uint) ([]model.UserRole, error) {
-	var userRoles []model.UserRole
-	err := r.db.WithContext(ctx).
-		Preload("Role").
-		Where("user_id = ?", userID).
-		Find(&userRoles).Error
-	return userRoles, err
+func (r *UserRoleRepository) FindByUserID(c context.Context, id uint) ([]model.UserRole, error) {
+	var v []model.UserRole
+	e := r.db.SelectContext(c, &v, `SELECT id,user_id,role_id,created_at,updated_at FROM user_roles WHERE user_id=?`, id)
+	return v, e
 }
-
-// FindByRoleID finds all users with a role
-func (r *UserRoleRepository) FindByRoleID(ctx context.Context, roleID uint) ([]model.UserRole, error) {
-	var userRoles []model.UserRole
-	err := r.db.WithContext(ctx).Where("role_id = ?", roleID).Find(&userRoles).Error
-	return userRoles, err
+func (r *UserRoleRepository) FindByRoleID(c context.Context, id uint) ([]model.UserRole, error) {
+	var v []model.UserRole
+	e := r.db.SelectContext(c, &v, `SELECT id,user_id,role_id,created_at,updated_at FROM user_roles WHERE role_id=?`, id)
+	return v, e
 }
-
-// Exists checks if a user role association exists
-func (r *UserRoleRepository) Exists(ctx context.Context, userID, roleID uint) (bool, error) {
-	var count int64
-	err := r.db.WithContext(ctx).
-		Model(&model.UserRole{}).
-		Where("user_id = ? AND role_id = ?", userID, roleID).
-		Count(&count).Error
-	return count > 0, err
+func (r *UserRoleRepository) Exists(c context.Context, u, role uint) (bool, error) {
+	var n int
+	e := r.db.GetContext(c, &n, `SELECT COUNT(*) FROM user_roles WHERE user_id=? AND role_id=?`, u, role)
+	return n > 0, e
 }
-
-// GetUserIDsByRoleID returns all user IDs with a specific role
-func (r *UserRoleRepository) GetUserIDsByRoleID(ctx context.Context, roleID uint) ([]uint, error) {
-	var userIDs []uint
-	err := r.db.WithContext(ctx).
-		Model(&model.UserRole{}).
-		Where("role_id = ?", roleID).
-		Pluck("user_id", &userIDs).Error
-	return userIDs, err
+func (r *UserRoleRepository) GetUserIDsByRoleID(c context.Context, id uint) ([]uint, error) {
+	var v []uint
+	e := r.db.SelectContext(c, &v, `SELECT user_id FROM user_roles WHERE role_id=?`, id)
+	return v, e
 }

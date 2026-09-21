@@ -1,11 +1,11 @@
 package middleware
 
 import (
+	"go-api-starter/internal/platform/response"
 	"go-api-starter/internal/service"
-	"go-api-starter/pkg/response"
 	"sync"
 
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 )
 
 type PermissionMiddleware struct {
@@ -23,13 +23,13 @@ func NewPermissionMiddleware(permService service.PermissionServiceInterface) *Pe
 
 // RequirePermission checks if the user has the required permission.
 // It also collects the permission code for auto-seeding.
-func (m *PermissionMiddleware) RequirePermission(permissionCode string) gin.HandlerFunc {
+func (m *PermissionMiddleware) RequirePermission(permissionCode string) httpx.HandlerFunc {
 	// 路由注册阶段自动收集 code
 	m.mu.Lock()
 	m.collectedCodes[permissionCode] = struct{}{}
 	m.mu.Unlock()
 
-	return func(c *gin.Context) {
+	return func(c *httpx.Context) {
 		userIDVal, exists := c.Get("userID")
 		if !exists {
 			response.Unauthorized(c, "用户未认证")

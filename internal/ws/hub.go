@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 )
 
 var (
@@ -65,7 +66,7 @@ func (h *Hub) Register(conn *websocket.Conn) {
 	h.mu.Unlock()
 
 	if old != nil {
-		old.Close()
+		old.CloseNow()
 	}
 
 	log.Println("[WS Hub] wechat_hook 已连接")
@@ -111,7 +112,12 @@ func (h *Hub) Send(msgType string, data interface{}) (*AckData, error) {
 
 	// 发送（使用 writeMu 序列化写操作）
 	h.writeMu.Lock()
-	err = conn.WriteJSON(msg)
+	dataBytes, err = json.Marshal(msg)
+	if err == nil {
+		writeCtx, cancel := context.WithTimeout(context.Background(), h.ackTimeout)
+		err = conn.Write(writeCtx, websocket.MessageText, dataBytes)
+		cancel()
+	}
 	h.writeMu.Unlock()
 	if err != nil {
 		return nil, fmt.Errorf("发送失败: %w", err)
@@ -152,7 +158,12 @@ func (h *Hub) SendNoWait(msgType string, data interface{}) error {
 	}
 
 	h.writeMu.Lock()
-	err = conn.WriteJSON(msg)
+	dataBytes, err = json.Marshal(msg)
+	if err == nil {
+		writeCtx, cancel := context.WithTimeout(context.Background(), h.ackTimeout)
+		err = conn.Write(writeCtx, websocket.MessageText, dataBytes)
+		cancel()
+	}
 	h.writeMu.Unlock()
 	return err
 }
@@ -165,28 +176,22 @@ func (h *Hub) readPump(conn *websocket.Conn) {
 			h.conn = nil
 		}
 		h.mu.Unlock()
-		conn.Close()
+		conn.CloseNow()
 		log.Println("[WS Hub] wechat_hook 连接断开")
 	}()
 
-	conn.SetReadDeadline(time.Now().Add(90 * time.Second))
-	conn.SetPongHandler(func(string) error {
-		conn.SetReadDeadline(time.Now().Add(90 * time.Second))
-		return nil
-	})
-
 	for {
-		var msg Message
-		err := conn.ReadJSON(&msg)
+		_, data, err := conn.Read(context.Background())
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-				log.Printf("[WS Hub] 读取错误: %v", err)
-			}
+			log.Printf("[WS Hub] 读取结束: %v", err)
 			return
 		}
 
-		// 每收到消息都刷新 deadline
-		conn.SetReadDeadline(time.Now().Add(90 * time.Second))
+		var msg Message
+		if err := json.Unmarshal(data, &msg); err != nil {
+			log.Printf("[WS Hub] 解析消息失败: %v", err)
+			continue
+		}
 
 		switch msg.Type {
 		case TypeAck:
@@ -251,11 +256,18 @@ func (h *Hub) pingLoop(conn *websocket.Conn) {
 		}
 
 		h.writeMu.Lock()
-		err := conn.WriteJSON(Message{
+		data, marshalErr := json.Marshal(Message{
 			Type: TypePing,
 			ID:   uuid.New().String(),
 			Data: json.RawMessage("{}"),
 		})
+		if marshalErr != nil {
+			h.writeMu.Unlock()
+			return
+		}
+		writeCtx, cancel := context.WithTimeout(context.Background(), h.ackTimeout)
+		err := conn.Write(writeCtx, websocket.MessageText, data)
+		cancel()
 		h.writeMu.Unlock()
 
 		if err != nil {

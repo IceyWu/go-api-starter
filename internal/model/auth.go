@@ -6,10 +6,10 @@ import "strings"
 type LoginRequest struct {
 	Account   string  `json:"account" binding:"required" example:"admin@example.com"` // 账号：邮箱或手机号，自动识别
 	Password  string  `json:"password" binding:"omitempty,min=6" example:"password123"`
-	Code      string  `json:"code" binding:"omitempty,len=6" example:"123456"`         // 验证码登录时使用
-	LoginType string  `json:"login_type" binding:"omitempty" example:"code"`           // "code" 表示验证码登录，空或其他表示密码登录
-	Mobile    *string `json:"-"` // 内部使用，由 ResolveAccount 填充
-	Email     *string `json:"-"` // 内部使用，由 ResolveAccount 填充
+	Code      string  `json:"code" binding:"omitempty,len=6" example:"123456"` // 验证码登录时使用
+	LoginType string  `json:"login_type" binding:"omitempty" example:"code"`   // "code" 表示验证码登录，空或其他表示密码登录
+	Mobile    *string `json:"-"`                                               // 内部使用，由 ResolveAccount 填充
+	Email     *string `json:"-"`                                               // 内部使用，由 ResolveAccount 填充
 }
 
 // ResolveAccount 将 account 字段解析到 email 或 mobile
@@ -35,7 +35,7 @@ type RegisterRequest struct {
 type LoginResponse struct {
 	AccessToken  string        `json:"access_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 	RefreshToken string        `json:"refresh_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
-	ExpiresIn    int64         `json:"expires_in" example:"86400"`    // access_token 过期时间（秒）
+	ExpiresIn    int64         `json:"expires_in" example:"86400"` // access_token 过期时间（秒）
 	User         *UserResponse `json:"user"`
 }
 
@@ -57,7 +57,7 @@ type ResetPasswordRequest struct {
 
 // SelfResetPasswordRequest represents the self-service password reset request
 type SelfResetPasswordRequest struct {
-	Account     string `json:"account" binding:"required" example:"john@example.com"`       // 账号：邮箱或手机号
+	Account     string `json:"account" binding:"required" example:"john@example.com"` // 账号：邮箱或手机号
 	Code        string `json:"code" binding:"required,len=6" example:"123456"`
 	NewPassword string `json:"new_password" binding:"required,min=6" example:"newpassword123"`
 }
@@ -80,5 +80,3 @@ type WxLoginResponse struct {
 	ExpiresIn    int64         `json:"expires_in,omitempty"`    // access_token 过期时间（秒）
 	User         *UserResponse `json:"user,omitempty"`          // 登录成功时返回
 }
-
-

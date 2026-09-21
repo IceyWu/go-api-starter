@@ -67,7 +67,6 @@ func (s *PermissionService) DeletePermission(ctx context.Context, id uint) error
 	return s.manager.DeletePermission(ctx, id)
 }
 
-
 // CreateRole creates a new role
 func (s *PermissionService) CreateRole(ctx context.Context, req *model.CreateRoleRequest) (*model.Role, error) {
 	return s.manager.CreateRoleWithPermissions(ctx, req.Name, req.Description, req.PermissionCodes)

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"go-api-starter/pkg/cache"
+	"go-api-starter/internal/platform/cache"
 )
 
 const (
@@ -53,7 +53,6 @@ func hashToken(token string) string {
 func (b *RedisTokenBlacklist) buildTokenKey(tokenHash string) string {
 	return tokenBlacklistPrefix + tokenHash
 }
-
 
 // Add adds a token to the blacklist with the given expiration
 func (b *RedisTokenBlacklist) Add(ctx context.Context, token string, expiration time.Duration) error {

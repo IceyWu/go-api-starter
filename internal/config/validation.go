@@ -106,6 +106,19 @@ func (c *Config) Validate() ValidationErrors {
 				})
 			}
 		}
+
+		if c.Transcoding.MPSRegion == "" {
+			errors = append(errors, ValidationError{
+				Field:   "transcoding.mps_region",
+				Message: "MPS region must be configured in production",
+			})
+		}
+		if c.Transcoding.MPSPipelineID == "" {
+			errors = append(errors, ValidationError{
+				Field:   "transcoding.mps_pipeline_id",
+				Message: "MPS pipeline ID must be configured in production",
+			})
+		}
 	}
 
 	// Development environment: warn about critical security misconfigurations
@@ -113,7 +126,7 @@ func (c *Config) Validate() ValidationErrors {
 		if c.App.JWTSecret == "" || c.App.JWTSecret == "your-secret-key-change-in-production" {
 			errors = append(errors, ValidationError{
 				Field:   "app.jwt_secret",
-				Message: "JWT secret is using default value (set JWT_SECRET env var to suppress this warning)",
+				Message: "JWT secret is using default value (set GO_API_APP__JWT_SECRET env var to suppress this warning)",
 			})
 		}
 	}

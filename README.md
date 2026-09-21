@@ -13,7 +13,7 @@
 - 💬 微信小程序一键登录
 - ⏱️ 多级限流（单机 + Redis 分布式）
 - 🔴 Redis + 内存自动降级
-- 📝 Swagger + Scalar UI + LLMs.txt
+- 📝 Huma OpenAPI + Scalar UI + LLMs.txt
 
 ## 🚀 快速开始
 
@@ -21,10 +21,21 @@
 git clone https://github.com/IceyWu/go-api-starter
 cd go-api-starter
 
-go mod tidy
-cp .env.example .env.dev
+# 安装并使用 Task（项目命令统一由 Taskfile 管理）
+go install github.com/go-task/task/v3/cmd/task@latest
+task deps
 
-make dev
+task dev
+```
+
+常用校验命令：`task test`、`task check`、`task sqlc`、`task migrate`。
+
+生产环境需要先安装 Atlas，并单独运行 API 和 MPS Worker：
+
+```bash
+task migrate
+task prod
+task worker
 ```
 
 ## 📖 文档
@@ -56,9 +67,11 @@ make dev
 
 ## ⚙️ 配置
 
-配置优先级：环境变量 > `.env.dev` / `.env.prod` > `config/config.yaml`
+配置统一维护在 [`config/config.yaml`](config/config.yaml) 中，`APP_ENV` 选择 `development` 或 `production` 配置段。
 
-通过 `APP_ENV` 决定加载哪个 env 文件。完整变量及说明见 [AGENTS.md](./AGENTS.md#environment-variables)，快速示例见 [.env.example](.env.example)。
+环境变量使用 `GO_API_` 前缀覆盖配置，双下划线表示层级，例如 `GO_API_SERVER__PORT=9000` 覆盖 `server.port`。完整规则见 [AGENTS.md](./AGENTS.md#environment-variables)，示例见 [.env.example](.env.example)。
+
+视频转码统一提交到阿里云 MPS。API server 只负责创建任务，独立的 MPS Worker 负责轮询和结果落库；项目不再包含本地转码 worker。
 
 ## 🤖 AI Agents
 

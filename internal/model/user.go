@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // UsernamePrefix 用户账号前缀，默认 "go"，可通过配置修改
@@ -15,36 +13,36 @@ var UsernamePrefix = "go"
 
 // User represents the user model
 type User struct {
-	ID               uint    `json:"-" gorm:"primaryKey"`                      // 内部ID，不对外暴露
-	UID              string  `json:"uid" gorm:"column:uid;size:64;uniqueIndex;not null"` // 对外唯一标识
-	LPID             string  `json:"lp_id" gorm:"size:20;uniqueIndex;not null"`   // LP号，类似抖音号
-	Username         *string `json:"username,omitempty" gorm:"size:100;index"`    // 用户账号
-	Mobile           *string `json:"mobile,omitempty" gorm:"size:20;uniqueIndex"` // 手机号，可选
-	Email            *string `json:"email,omitempty" gorm:"size:50;uniqueIndex"`  // 邮箱，可选
-	OpenID           *string `json:"open_id,omitempty" gorm:"size:64;uniqueIndex"` // 微信 OpenID
-	Password         *string `json:"-" gorm:"size:255"`                           // Password hash, not exposed in JSON
-	AvatarFileID     *uint   `json:"-" gorm:"index"`                              // 头像文件ID
-	BackgroundFileID *uint   `json:"-" gorm:"index"`                              // 背景文件ID
+	ID               uint    `json:"-"`                  // 内部ID，不对外暴露
+	UID              string  `json:"uid"`                // 对外唯一标识
+	LPID             string  `json:"lp_id"`              // LP号，类似抖音号
+	Username         *string `json:"username,omitempty"` // 用户账号
+	Mobile           *string `json:"mobile,omitempty"`   // 手机号，可选
+	Email            *string `json:"email,omitempty"`    // 邮箱，可选
+	OpenID           *string `json:"open_id,omitempty"`  // 微信 OpenID
+	Password         *string `json:"-"`                  // Password hash, not exposed in JSON
+	AvatarFileID     *uint   `json:"-"`                  // 头像文件ID
+	BackgroundFileID *uint   `json:"-"`                  // 背景文件ID
 
 	// Relations
-	AvatarFile     *File  `json:"avatar_file,omitempty" gorm:"foreignKey:AvatarFileID"`                      // 头像文件对象
-	BackgroundFile *File  `json:"background_file,omitempty" gorm:"foreignKey:BackgroundFileID"`              // 背景文件对象
-	Roles          []Role `json:"-" gorm:"many2many:user_roles;joinForeignKey:UserID;joinReferences:RoleID"` // RBAC 角色
+	AvatarFile     *File  `json:"avatar_file,omitempty"`     // 头像文件对象
+	BackgroundFile *File  `json:"background_file,omitempty"` // 背景文件对象
+	Roles          []Role `json:"-"`                         // RBAC 角色
 
-	Sex       int            `json:"sex" gorm:"default:0"` // 性别: 0-未知, 1-男, 2-女
-	Birthday  *time.Time     `json:"birthday,omitempty"`
-	City      *string        `json:"city,omitempty"`
-	Job       *string        `json:"job,omitempty"`
-	Company   *string        `json:"company,omitempty"`
-	Signature *string        `json:"signature,omitempty"`
-	Website   *string        `json:"website,omitempty"`
-	Freezed   bool      `json:"freezed" gorm:"default:false;index"` // 是否冻结
-	CreatedAt time.Time `json:"created_at" gorm:"index"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Sex       int        `json:"sex"` // 性别: 0-未知, 1-男, 2-女
+	Birthday  *time.Time `json:"birthday,omitempty"`
+	City      *string    `json:"city,omitempty"`
+	Job       *string    `json:"job,omitempty"`
+	Company   *string    `json:"company,omitempty"`
+	Signature *string    `json:"signature,omitempty"`
+	Website   *string    `json:"website,omitempty"`
+	Freezed   bool       `json:"freezed"` // 是否冻结
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
 }
 
 // BeforeCreate 创建前自动生成 UID、Username 和 LPID
-func (u *User) BeforeCreate(tx *gorm.DB) error {
+func (u *User) PrepareForCreate() {
 	if u.UID == "" {
 		u.UID = GenerateUID()
 	}
@@ -56,18 +54,13 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 		// 最多重试 5 次确保 LPID 唯一
 		for i := 0; i < 5; i++ {
 			lpID := GenerateLPID()
-			var count int64
-			tx.Model(&User{}).Where("lp_id = ?", lpID).Count(&count)
-			if count == 0 {
-				u.LPID = lpID
-				break
-			}
+			u.LPID = lpID
+			break
 		}
 		if u.LPID == "" {
 			u.LPID = GenerateLPID() // fallback，依赖 uniqueIndex 兜底
 		}
 	}
-	return nil
 }
 
 // GenerateUID 生成唯一标识符 (22字符，URL安全的base64)
@@ -98,19 +91,19 @@ type CreateUserRequest struct {
 
 // UpdateUserRequest represents the request body for updating a user
 type UpdateUserRequest struct {
-	Username         *string    `json:"username" binding:"omitempty,min=1,max=50" example:"john_doe"`
-	LPID             *string    `json:"lp_id" binding:"omitempty,min=3,max=20" example:"LP_8806386288"`
-	Mobile           *string    `json:"mobile" binding:"omitempty,len=11" example:"13800138000"`
-	Email            *string    `json:"email" binding:"omitempty,email" example:"john@example.com"`
+	Username      *string    `json:"username" binding:"omitempty,min=1,max=50" example:"john_doe"`
+	LPID          *string    `json:"lp_id" binding:"omitempty,min=3,max=20" example:"LP_8806386288"`
+	Mobile        *string    `json:"mobile" binding:"omitempty,len=11" example:"13800138000"`
+	Email         *string    `json:"email" binding:"omitempty,email" example:"john@example.com"`
 	AvatarUID     *string    `json:"avatar_uid" binding:"omitempty" example:"abc123"`
 	BackgroundUID *string    `json:"background_uid" binding:"omitempty" example:"def456"`
-	Sex              *int       `json:"sex" binding:"omitempty,min=0,max=2" example:"1"`
-	Birthday         *time.Time `json:"birthday" example:"1990-01-01T00:00:00Z"`
-	City             *string    `json:"city" binding:"omitempty,max=100" example:"Beijing"`
-	Job              *string    `json:"job" binding:"omitempty,max=100" example:"Software Engineer"`
-	Company          *string    `json:"company" binding:"omitempty,max=100" example:"Tech Corp"`
-	Signature        *string    `json:"signature" binding:"omitempty,max=500" example:"Hello World"`
-	Website          *string    `json:"website" binding:"omitempty,url" example:"https://example.com"`
+	Sex           *int       `json:"sex" binding:"omitempty,min=0,max=2" example:"1"`
+	Birthday      *time.Time `json:"birthday" example:"1990-01-01T00:00:00Z"`
+	City          *string    `json:"city" binding:"omitempty,max=100" example:"Beijing"`
+	Job           *string    `json:"job" binding:"omitempty,max=100" example:"Software Engineer"`
+	Company       *string    `json:"company" binding:"omitempty,max=100" example:"Tech Corp"`
+	Signature     *string    `json:"signature" binding:"omitempty,max=500" example:"Hello World"`
+	Website       *string    `json:"website" binding:"omitempty,url" example:"https://example.com"`
 }
 
 // ToUser converts CreateUserRequest to User model

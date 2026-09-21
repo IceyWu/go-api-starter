@@ -3,38 +3,102 @@ package model
 import (
 	"strings"
 	"time"
-
-	"gorm.io/gorm"
 )
 
 // File represents a file in the system
 type File struct {
-	ID     uint   `json:"-" gorm:"primaryKey"`
-	UID    string `json:"uid" gorm:"column:uid;size:64;uniqueIndex;not null"`
-	UserID uint   `json:"-" gorm:"index:idx_files_user_created;uniqueIndex:idx_md5_user;not null"`
+	ID     uint   `json:"-"`
+	UID    string `json:"uid"`
+	UserID uint   `json:"-"`
 
-	Name    string  `json:"name" gorm:"size:255;not null"`
-	Path    *string `json:"path" gorm:"size:500"`
-	Type    string  `json:"type" gorm:"size:50;index;not null"` // MIME type
-	FileMd5 string  `json:"file_md5" gorm:"size:32;uniqueIndex:idx_md5_user;not null"`
-	Size    uint    `json:"size" gorm:"not null"`
+	Name    string  `json:"name"`
+	Path    *string `json:"path"`
+	Type    string  `json:"type"` // MIME type
+	FileMd5 string  `json:"file_md5"`
+	Size    uint    `json:"size"`
 
-	Key       string `json:"key" gorm:"size:500;uniqueIndex;not null"` // OSS 存储路径（相对路径）
-	Extension string `json:"extension" gorm:"size:20"`
+	Key       string `json:"key"` // OSS 存储路径（相对路径）
+	Extension string `json:"extension"`
 
 	// URL 由 Key + BaseURL 动态生成，不存数据库
-	URL string `json:"url" gorm:"-"`
+	URL string `json:"url"`
 
-	Width     *uint `json:"width"`
-	Height    *uint `json:"height"`
-	IsPrivate bool  `json:"is_private" gorm:"default:false;index"`
+	Width             *uint      `json:"width"`
+	Height            *uint      `json:"height"`
+	Blurhash          *string    `json:"blurhash"`
+	Arthash           *string    `json:"arthash"`
+	ArthashCodec      *string    `json:"arthash_codec"`
+	Lng               *float64   `json:"lng"`
+	Lat               *float64   `json:"lat"`
+	Country           *string    `json:"country"`
+	CountryCode       *string    `json:"country_code"`
+	Province          *string    `json:"province"`
+	City              *string    `json:"city"`
+	District          *string    `json:"district"`
+	Address           *string    `json:"address"`
+	Altitude          *float64   `json:"altitude"`
+	TakenAt           *time.Time `json:"taken_at"`
+	DeviceMake        *string    `json:"device_make"`
+	DeviceModel       *string    `json:"device_model"`
+	LensModel         *string    `json:"lens_model"`
+	FNumber           *string    `json:"f_number"`
+	ExposureTime      *string    `json:"exposure_time"`
+	ISO               *int       `json:"iso"`
+	FocalLength       *string    `json:"focal_length"`
+	ExifRaw           []byte     `json:"exif_raw"`
+	Duration          *float64   `json:"duration,omitempty"`
+	Codec             *string    `json:"codec,omitempty"`
+	Bitrate           *uint      `json:"bitrate,omitempty"`
+	FrameRate         *float64   `json:"frame_rate,omitempty"`
+	VideoMetadata     []byte     `json:"video_metadata,omitempty"`
+	TranscodingTaskID *string    `json:"transcoding_task_id,omitempty"`
+	IsPrivate         bool       `json:"is_private"`
 
-	CreatedAt time.Time `json:"created_at" gorm:"index:idx_files_user_created"`
+	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
 	// Relations
-	User *User `json:"user,omitempty" gorm:"foreignKey:UserID"`
+	User            *User            `json:"user,omitempty"`
+	Colors          []FileColor      `json:"colors,omitempty"`
+	VideoVariants   []VideoVariant   `json:"video_variants,omitempty"`
+	TranscodingTask *TranscodingTask `json:"transcoding_task,omitempty"`
 }
+
+type Color struct {
+	ID        uint      `json:"-"`
+	Hex       string    `json:"hex"`
+	R         uint8     `json:"r"`
+	G         uint8     `json:"g"`
+	B         uint8     `json:"b"`
+	CreatedAt time.Time `json:"created_at"`
+}
+type FileColor struct {
+	ID         uint      `json:"-"`
+	FileID     uint      `json:"-"`
+	ColorID    uint      `json:"-"`
+	IsPrimary  bool      `json:"is_primary"`
+	Rank       uint8     `json:"rank"`
+	Percentage *float64  `json:"percentage,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+	Color      Color     `json:"color"`
+}
+type VideoVariant struct {
+	ID        uint      `json:"-"`
+	FileID    uint      `json:"-"`
+	Quality   string    `json:"quality"`
+	Key       string    `json:"key"`
+	Format    string    `json:"format"`
+	Size      *uint     `json:"size,omitempty"`
+	Width     *uint     `json:"width,omitempty"`
+	Height    *uint     `json:"height,omitempty"`
+	Bitrate   *uint     `json:"bitrate,omitempty"`
+	FPS       *uint     `json:"fps,omitempty"`
+	Duration  *float64  `json:"duration,omitempty"`
+	URL       string    `json:"url"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (v *VideoVariant) PrepareForResponse() { v.URL = BuildURL(v.Key) }
 
 // FileSimpleResponse 简化的文件响应(用于列表等场景)
 type FileSimpleResponse struct {
@@ -83,11 +147,10 @@ func (f *File) ToSimpleResponse() *FileSimpleResponse {
 }
 
 // BeforeCreate 创建前自动生成 UID
-func (f *File) BeforeCreate(tx *gorm.DB) error {
+func (f *File) PrepareForCreate() {
 	if f.UID == "" {
 		f.UID = GenerateUID()
 	}
-	return nil
 }
 
 // OSSBaseURL is the base URL for constructing full URLs from keys.
@@ -107,10 +170,9 @@ func BuildURL(key string) string {
 	return OSSBaseURL + "/" + key
 }
 
-// AfterFind GORM hook: auto-populate URL from Key after loading from DB.
-func (f *File) AfterFind(tx *gorm.DB) error {
+// AfterFind SQL hook: auto-populate URL from Key after loading from DB.
+func (f *File) PrepareForResponse() {
 	f.URL = BuildURL(f.Key)
-	return nil
 }
 
 // CreateFileRequest represents the request body for creating a file

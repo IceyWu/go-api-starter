@@ -97,7 +97,6 @@ func (m *BitPermissionManager) GetSpaceByID(ctx context.Context, id uint) (*mode
 	return space, err
 }
 
-
 func (m *BitPermissionManager) CreatePermission(ctx context.Context, code, name, description string, spaceID uint, module string) (*model.Permission, error) {
 	if _, err := m.spaceRepo.FindByID(ctx, spaceID); errors.Is(err, repository.ErrPermissionSpaceNotFound) {
 		return nil, ErrPermissionSpaceNotFound
@@ -142,7 +141,6 @@ func (m *BitPermissionManager) DeletePermission(ctx context.Context, id uint) er
 	return err
 }
 
-
 func (m *BitPermissionManager) GetAllPermissions(ctx context.Context) ([]model.PermissionDetail, error) {
 	perms, err := m.permRepo.FindAll(ctx)
 	if err != nil {
@@ -173,7 +171,6 @@ func (m *BitPermissionManager) GetPermissionByID(ctx context.Context, id uint) (
 	}
 	return &model.PermissionDetail{ID: p.ID, Code: p.Code, Name: p.Name, Description: p.Description, SpaceID: p.SpaceID, SpaceName: sn, Position: p.Position, Value: p.Value, Module: p.Module, IsActive: p.IsActive}, nil
 }
-
 
 func (m *BitPermissionManager) CreateRoleWithPermissions(ctx context.Context, name, description string, codes []string) (*model.Role, error) {
 	if exists, _ := m.roleRepo.Exists(ctx, name); exists {
@@ -235,7 +232,6 @@ func (m *BitPermissionManager) DeleteRole(ctx context.Context, id uint) error {
 func (m *BitPermissionManager) GetAllRoles(ctx context.Context) ([]model.Role, error) {
 	return m.roleRepo.FindAll(ctx)
 }
-
 
 func (m *BitPermissionManager) GetRoleByID(ctx context.Context, id uint) (*model.RoleDetail, error) {
 	role, err := m.roleRepo.FindByIDWithPermissions(ctx, id)
@@ -306,7 +302,6 @@ func (m *BitPermissionManager) addPermissionToRoleNoCache(ctx context.Context, r
 	return m.rolePermRepo.Create(ctx, rp)
 }
 
-
 func (m *BitPermissionManager) RemovePermissionFromRole(ctx context.Context, roleID uint, code string) error {
 	p, err := m.permRepo.FindByCode(ctx, code)
 	if errors.Is(err, repository.ErrPermissionNotFound) {
@@ -362,7 +357,6 @@ func (m *BitPermissionManager) clearCacheForRole(ctx context.Context, roleID uin
 	return nil
 }
 
-
 func (m *BitPermissionManager) AssignRoleToUser(ctx context.Context, userID, roleID uint) error {
 	if _, err := m.roleRepo.FindByID(ctx, roleID); errors.Is(err, repository.ErrRoleNotFound) {
 		return ErrRoleNotFound
@@ -398,7 +392,6 @@ func (m *BitPermissionManager) GetUserRoles(ctx context.Context, userID uint) ([
 	}
 	return roles, nil
 }
-
 
 func (m *BitPermissionManager) HasPermission(ctx context.Context, userID uint, code string) (bool, error) {
 	p, err := m.permRepo.FindByCode(ctx, code)
@@ -443,7 +436,6 @@ func (m *BitPermissionManager) CalculateUserPermissions(ctx context.Context, use
 	}
 	return nil
 }
-
 
 func (m *BitPermissionManager) GetUserPermissions(ctx context.Context, userID uint) ([]string, error) {
 	urs, err := m.userRoleRepo.FindByUserID(ctx, userID)

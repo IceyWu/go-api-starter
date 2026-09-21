@@ -6,16 +6,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	httpx "go-api-starter/internal/transport/httpx"
 
 	"go-api-starter/internal/config"
 	"go-api-starter/internal/model"
+	"go-api-starter/internal/platform/apperrors"
+	"go-api-starter/internal/platform/logger"
+	"go-api-starter/internal/platform/oss"
+	"go-api-starter/internal/platform/response"
 	"go-api-starter/internal/service"
-	"go-api-starter/pkg/apperrors"
-	"go-api-starter/pkg/logger"
-	"go-api-starter/pkg/oss"
-	"go-api-starter/pkg/response"
 )
 
 // Imports referenced for swagger auto-generation
@@ -27,12 +27,15 @@ var (
 type OSSHandler struct {
 	service     service.OSSServiceInterface
 	userService service.UserServiceInterface
+	taskManager *service.TaskManager
 }
 
 // NewOSSHandler creates a new OSSHandler.
 func NewOSSHandler(svc service.OSSServiceInterface, userSvc service.UserServiceInterface) *OSSHandler {
 	return &OSSHandler{service: svc, userService: userSvc}
 }
+
+func (h *OSSHandler) SetTaskManager(tm *service.TaskManager) { h.taskManager = tm }
 
 // ============ 统一上传接口 ============
 
@@ -54,7 +57,7 @@ type UploadInitRequest struct {
 // @Success 200 {object} response.Response
 // @Failure 400 {object} response.Response
 // @Router /api/v1/file/upload/init [post]
-func (h *OSSHandler) UploadInit(c *gin.Context) {
+func (h *OSSHandler) UploadInit(c *httpx.Context) {
 	var req UploadInitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
@@ -67,7 +70,7 @@ func (h *OSSHandler) UploadInit(c *gin.Context) {
 	if req.MD5 != "" {
 		file, exists := h.service.CheckFileExists(req.MD5, userID)
 		if exists {
-			response.Success(c, gin.H{
+			response.Success(c, httpx.H{
 				"exists": true,
 				"file":   file,
 			})
@@ -84,7 +87,7 @@ func (h *OSSHandler) UploadInit(c *gin.Context) {
 			c.Error(err)
 			return
 		}
-		response.Success(c, gin.H{
+		response.Success(c, httpx.H{
 			"exists": false,
 			"mode":   "simple",
 			"token":  token,
@@ -103,7 +106,7 @@ func (h *OSSHandler) UploadInit(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{
+	response.Success(c, httpx.H{
 		"exists":         false,
 		"mode":           "multipart",
 		"upload_id":      result.UploadID,
@@ -117,13 +120,14 @@ func (h *OSSHandler) UploadInit(c *gin.Context) {
 
 // UploadCompleteRequest 统一的上传完成请求
 type UploadCompleteRequest struct {
-	Key       string                 `json:"key" binding:"required"`
-	MD5       string                 `json:"md5" binding:"required"`
-	FileName  string                 `json:"file_name" binding:"required"`
-	FileSize  int64                  `json:"file_size" binding:"required"`
-	IsPrivate *bool                  `json:"is_private"`
-	UploadID  string                 `json:"upload_id"` // 分片上传专用
-	Parts     []service.CompletePart `json:"parts"`     // 分片上传专用
+	Key       string                       `json:"key" binding:"required"`
+	MD5       string                       `json:"md5" binding:"required"`
+	FileName  string                       `json:"file_name" binding:"required"`
+	FileSize  int64                        `json:"file_size" binding:"required"`
+	IsPrivate *bool                        `json:"is_private"`
+	UploadID  string                       `json:"upload_id"` // 分片上传专用
+	Parts     []service.CompletePart       `json:"parts"`     // 分片上传专用
+	Metadata  *service.ClientMediaMetadata `json:"metadata" binding:"required"`
 }
 
 // UploadComplete godoc
@@ -136,7 +140,7 @@ type UploadCompleteRequest struct {
 // @Success 200 {object} response.Response{data=model.File}
 // @Failure 400 {object} response.Response
 // @Router /api/v1/file/upload/complete [post]
-func (h *OSSHandler) UploadComplete(c *gin.Context) {
+func (h *OSSHandler) UploadComplete(c *httpx.Context) {
 	var req UploadCompleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
@@ -153,10 +157,10 @@ func (h *OSSHandler) UploadComplete(c *gin.Context) {
 	if req.UploadID != "" && len(req.Parts) > 0 {
 		file, err = h.service.CompleteMultipartUpload(
 			req.Key, req.UploadID, req.MD5, req.FileName,
-			req.FileSize, req.Parts, userID,
+			req.FileSize, req.Parts, userID, req.Metadata,
 		)
 	} else {
-		file, err = h.service.SaveFileRecord(req.Key, req.MD5, req.FileName, req.FileSize, userID)
+		file, err = h.service.SaveFileRecord(req.Key, req.MD5, req.FileName, req.FileSize, userID, req.Metadata)
 	}
 	if err != nil {
 		c.Error(err)
@@ -167,6 +171,12 @@ func (h *OSSHandler) UploadComplete(c *gin.Context) {
 		isPrivate := true
 		_ = h.service.UpdateFile(file.UID, &model.UpdateFileRequest{IsPrivate: &isPrivate})
 		file.IsPrivate = true
+	}
+	if h.taskManager != nil && strings.HasPrefix(file.Type, "video/") && file.TranscodingTaskID == nil {
+		if taskID, taskErr := h.taskManager.CreateTask(model.CreateTaskRequest{FileID: &file.ID, SourceURL: file.URL, Resolutions: []string{"original", "1080p", "720p", "480p"}}); taskErr == nil {
+			file.TranscodingTaskID = &taskID
+			_ = h.service.UpdateFileTranscodingTask(file.UID, taskID)
+		}
 	}
 
 	response.Success(c, file)
@@ -182,7 +192,7 @@ func (h *OSSHandler) UploadComplete(c *gin.Context) {
 // @Success 200 {object} response.Response{data=model.File}
 // @Failure 404 {object} response.Response
 // @Router /api/v1/file/{uid} [get]
-func (h *OSSHandler) GetFile(c *gin.Context) {
+func (h *OSSHandler) GetFile(c *httpx.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -207,7 +217,7 @@ func (h *OSSHandler) GetFile(c *gin.Context) {
 // @Param is_private query bool false "是否仅返回私密文件（需认证）"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file [get]
-func (h *OSSHandler) ListFiles(c *gin.Context) {
+func (h *OSSHandler) ListFiles(c *httpx.Context) {
 	p, ok := BindPagination(c)
 	if !ok {
 		return
@@ -260,7 +270,7 @@ func (h *OSSHandler) ListFiles(c *gin.Context) {
 // @Param uid path string true "文件 UID"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file/{uid} [delete]
-func (h *OSSHandler) DeleteFile(c *gin.Context) {
+func (h *OSSHandler) DeleteFile(c *httpx.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -282,7 +292,7 @@ func (h *OSSHandler) DeleteFile(c *gin.Context) {
 // @Param request body model.UpdateFileRequest true "更新请求"
 // @Success 200 {object} response.Response{data=model.File}
 // @Router /api/v1/file/{uid} [put]
-func (h *OSSHandler) UpdateFile(c *gin.Context) {
+func (h *OSSHandler) UpdateFile(c *httpx.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -335,7 +345,7 @@ type GetPartURLRequest struct {
 // @Param request body GetPartURLRequest true "请求参数"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file/upload/urls [post]
-func (h *OSSHandler) GetPartUploadURLs(c *gin.Context) {
+func (h *OSSHandler) GetPartUploadURLs(c *httpx.Context) {
 	var req GetPartURLRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
@@ -346,7 +356,7 @@ func (h *OSSHandler) GetPartUploadURLs(c *gin.Context) {
 		c.Error(err)
 		return
 	}
-	response.Success(c, gin.H{"urls": urls})
+	response.Success(c, httpx.H{"urls": urls})
 }
 
 // AbortMultipartRequest represents the request to abort a multipart upload
@@ -364,7 +374,7 @@ type AbortMultipartRequest struct {
 // @Param request body AbortMultipartRequest true "取消请求"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file/upload/abort [post]
-func (h *OSSHandler) AbortMultipart(c *gin.Context) {
+func (h *OSSHandler) AbortMultipart(c *httpx.Context) {
 	var req AbortMultipartRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
@@ -388,7 +398,7 @@ func (h *OSSHandler) AbortMultipart(c *gin.Context) {
 // @Param file formData file true "要上传的文件"
 // @Success 200 {object} response.Response
 // @Router /api/v1/file/public/upload [post]
-func (h *OSSHandler) PublicUpload(c *gin.Context) {
+func (h *OSSHandler) PublicUpload(c *httpx.Context) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		c.Error(apperrors.BadRequest("file is required: " + err.Error()))
@@ -426,7 +436,7 @@ func (h *OSSHandler) PublicUpload(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{
+	response.Success(c, httpx.H{
 		"key":  result.Key,
 		"url":  result.URL,
 		"name": fileHeader.Filename,

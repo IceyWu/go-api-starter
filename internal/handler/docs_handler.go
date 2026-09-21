@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 
 	"go-api-starter/internal/config"
 )
@@ -21,6 +21,21 @@ const docsTemplate = `<!DOCTYPE html>
     <div id="app"></div>
     <script src="https://fastly.jsdelivr.net/npm/@scalar/api-reference"></script>
     <script>
+      // Scalar renders OpenAPI Markdown inside web components, so handle these
+      // two document links at the composed event path to open them in a new tab.
+      document.addEventListener('click', function (event) {
+        var link = event.composedPath().find(function (node) {
+          return node instanceof HTMLAnchorElement;
+        });
+        if (!link) return;
+
+        var path = new URL(link.href, window.location.href).pathname;
+        if (!path.endsWith('/llms.txt') && !path.endsWith('/llms-full.txt')) return;
+
+        event.preventDefault();
+        window.open(link.href, '_blank', 'noopener,noreferrer');
+      }, true);
+
       Scalar.createApiReference('#app', {
         url: '%s/swagger/doc.json',
         theme: 'elysiajs',
@@ -41,7 +56,7 @@ const docsTemplate = `<!DOCTYPE html>
 // DocsHandler serves the Scalar API documentation UI.
 // Logo and title are read from the OpenAPI info.title (set via swagger annotations).
 // To display a logo in the sidebar, add x-logo to your OpenAPI info via swagger doc customization.
-func DocsHandler(c *gin.Context) {
+func DocsHandler(c *httpx.Context) {
 	cfg := config.GetConfig()
 	appName := "Go API Starter"
 	favicon := "/favicon.ico"
@@ -54,6 +69,5 @@ func DocsHandler(c *gin.Context) {
 	}
 
 	html := fmt.Sprintf(docsTemplate, appName, favicon, basePath, favicon, appName)
-	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, html)
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
 }

@@ -1,4 +1,4 @@
-﻿package service
+package service
 
 import (
 	"context"
@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"go-api-starter/internal/model"
+	"go-api-starter/internal/platform/apperrors"
+	"go-api-starter/internal/platform/auth"
+	"go-api-starter/internal/platform/i18n"
 	"go-api-starter/internal/repository"
-	"go-api-starter/pkg/apperrors"
-	"go-api-starter/pkg/auth"
-	"go-api-starter/pkg/i18n"
 )
 
 // AuthService handles authentication business logic

@@ -3,13 +3,13 @@ package router
 import (
 	"time"
 
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/middleware"
 )
 
-func registerFileRoutes(api *gin.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware) {
+func registerFileRoutes(api *httpx.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware) {
 	h := c.OSSHandler()
 
 	file := api.Group("/file")
@@ -33,16 +33,16 @@ func registerFileRoutes(api *gin.RouterGroup, c *container.Container, authMw *mi
 			}
 
 			// 仅当 Redis 启用时开启针对上传动作端点的用户级限流。
-			var uploadActionMw gin.HandlerFunc
+			var uploadActionMw httpx.HandlerFunc
 			if cfg != nil && cfg.Redis.Enabled {
 				uploadActionMw = middleware.NewRedisRateLimiter(c.CacheBackend(), limit, time.Minute).RateLimitByUser()
 			}
 
-			withLimit := func(handlers ...gin.HandlerFunc) []gin.HandlerFunc {
+			withLimit := func(handlers ...httpx.HandlerFunc) []httpx.HandlerFunc {
 				if uploadActionMw == nil {
 					return handlers
 				}
-				return append([]gin.HandlerFunc{uploadActionMw}, handlers...)
+				return append([]httpx.HandlerFunc{uploadActionMw}, handlers...)
 			}
 
 			upload.POST("/init", withLimit(h.UploadInit)...)

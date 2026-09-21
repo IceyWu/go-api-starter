@@ -6,84 +6,83 @@ import (
 
 // PermissionSpace 权限空间
 type PermissionSpace struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	Name        string    `json:"name" gorm:"size:100;uniqueIndex;not null"`
-	Description string    `json:"description" gorm:"type:text"`
-	IsActive    bool      `json:"is_active" gorm:"default:true;index"`
+	ID          uint      `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	IsActive    bool      `json:"is_active"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 
-	Permissions []Permission `json:"permissions,omitempty" gorm:"foreignKey:SpaceID"`
+	Permissions []Permission `json:"permissions,omitempty"`
 }
 
 // Permission 权限定义
 type Permission struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	Code        string    `json:"code" gorm:"size:50;uniqueIndex;not null"`
-	Name        string    `json:"name" gorm:"size:100;not null"`
-	Description string    `json:"description" gorm:"type:text"`
-	SpaceID     uint      `json:"space_id" gorm:"not null;index"`
-	Position    uint8     `json:"position" gorm:"not null"`          // 0-63
-	Value       uint64    `json:"value" gorm:"not null"`             // 2^position
-	Module      string    `json:"module" gorm:"size:100;index"`
-	IsActive    bool      `json:"is_active" gorm:"default:true;index"`
+	ID          uint      `json:"id"`
+	Code        string    `json:"code"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	SpaceID     uint      `json:"space_id"`
+	Position    uint8     `json:"position"` // 0-63
+	Value       uint64    `json:"value"`    // 2^position
+	Module      string    `json:"module"`
+	IsActive    bool      `json:"is_active"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 
-	Space *PermissionSpace `json:"space,omitempty" gorm:"foreignKey:SpaceID"`
+	Space *PermissionSpace `json:"space,omitempty"`
 }
 
 // Role 角色
 type Role struct {
-	ID          uint      `json:"id" gorm:"primaryKey"`
-	Name        string    `json:"name" gorm:"size:100;uniqueIndex;not null"`
-	Description string    `json:"description" gorm:"type:text"`
-	IsActive    bool      `json:"is_active" gorm:"default:true;index"`
-	IsSystem    bool      `json:"is_system" gorm:"default:false;index"`
+	ID          uint      `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	IsActive    bool      `json:"is_active"`
+	IsSystem    bool      `json:"is_system"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 
-	RolePermissions []RolePermission `json:"role_permissions,omitempty" gorm:"foreignKey:RoleID"`
+	RolePermissions []RolePermission `json:"role_permissions,omitempty"`
 }
 
 // UserRole 用户角色关联
 type UserRole struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
-	UserID    uint      `json:"user_id" gorm:"not null;uniqueIndex:uk_user_role"`
-	RoleID    uint      `json:"role_id" gorm:"not null;uniqueIndex:uk_user_role;index"`
+	ID        uint      `json:"id"`
+	UserID    uint      `json:"user_id"`
+	RoleID    uint      `json:"role_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	Role *Role `json:"role,omitempty" gorm:"foreignKey:RoleID"`
+	Role *Role `json:"role,omitempty"`
 }
-
 
 // RolePermission 角色权限关联（存储位运算值）
 type RolePermission struct {
-	ID           uint      `json:"id" gorm:"primaryKey"`
-	RoleID       uint      `json:"role_id" gorm:"not null;uniqueIndex:uk_role_permission;index"`
-	PermissionID uint      `json:"permission_id" gorm:"not null;uniqueIndex:uk_role_permission;index"`
-	SpaceID      uint      `json:"space_id" gorm:"not null;index"`
-	Value        uint64    `json:"value" gorm:"not null"` // 该空间下的位运算值
+	ID           uint      `json:"id"`
+	RoleID       uint      `json:"role_id"`
+	PermissionID uint      `json:"permission_id"`
+	SpaceID      uint      `json:"space_id"`
+	Value        uint64    `json:"value"` // 该空间下的位运算值
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 
-	Role       *Role       `json:"role,omitempty" gorm:"foreignKey:RoleID"`
-	Permission *Permission `json:"permission,omitempty" gorm:"foreignKey:PermissionID"`
-	Space      *PermissionSpace `json:"space,omitempty" gorm:"foreignKey:SpaceID"`
+	Role       *Role            `json:"role,omitempty"`
+	Permission *Permission      `json:"permission,omitempty"`
+	Space      *PermissionSpace `json:"space,omitempty"`
 }
 
 // UserPermissionCache 用户权限缓存
 type UserPermissionCache struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
-	UserID    uint      `json:"user_id" gorm:"not null;uniqueIndex:uk_user_space"`
-	SpaceID   uint      `json:"space_id" gorm:"not null;uniqueIndex:uk_user_space;index"`
-	Value     uint64    `json:"value" gorm:"not null"` // 该空间下用户的权限位运算值
-	ExpiresAt time.Time `json:"expires_at" gorm:"index"`
+	ID        uint      `json:"id"`
+	UserID    uint      `json:"user_id"`
+	SpaceID   uint      `json:"space_id"`
+	Value     uint64    `json:"value"` // 该空间下用户的权限位运算值
+	ExpiresAt time.Time `json:"expires_at"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	Space *PermissionSpace `json:"space,omitempty" gorm:"foreignKey:SpaceID"`
+	Space *PermissionSpace `json:"space,omitempty"`
 }
 
 // IsExpired checks if the cache entry has expired
@@ -123,7 +122,6 @@ func (RolePermission) TableName() string {
 func (UserPermissionCache) TableName() string {
 	return "user_permission_caches"
 }
-
 
 // ==================== Request DTOs ====================
 
@@ -207,12 +205,12 @@ type PermissionDetail struct {
 
 // RoleDetail 角色详情
 type RoleDetail struct {
-	ID              uint       `json:"id"`
-	Name            string     `json:"name"`
-	Description     string     `json:"description"`
-	IsActive        bool       `json:"is_active"`
-	IsSystem        bool       `json:"is_system"`
-	PermissionCodes []string   `json:"permission_codes"`
+	ID              uint               `json:"id"`
+	Name            string             `json:"name"`
+	Description     string             `json:"description"`
+	IsActive        bool               `json:"is_active"`
+	IsSystem        bool               `json:"is_system"`
+	PermissionCodes []string           `json:"permission_codes"`
 	Permissions     []PermissionDetail `json:"permissions,omitempty"`
 }
 

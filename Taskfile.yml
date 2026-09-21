@@ -1,0 +1,155 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  build:
+    desc: Build the API server after validating OpenAPI docs
+    deps: [swagger]
+    cmds:
+      - cmd: go build -o bin/server.exe ./cmd/server
+        platforms: [windows]
+      - cmd: go build -o bin/server ./cmd/server
+        platforms: [linux, darwin]
+
+  dev:
+    desc: Run the API server with the development profile
+    deps: [swagger]
+    env:
+      APP_ENV: development
+    cmds:
+      - cmd: go build -o bin/server.exe ./cmd/server
+        platforms: [windows]
+      - cmd: go build -o bin/server ./cmd/server
+        platforms: [linux, darwin]
+      - cmd: ./bin/server.exe
+        platforms: [windows]
+      - cmd: ./bin/server
+        platforms: [linux, darwin]
+
+  prod:
+    desc: Run the API server with the production profile
+    env:
+      APP_ENV: production
+    cmds:
+      - cmd: go build -o bin/server.exe ./cmd/server
+        platforms: [windows]
+      - cmd: go build -o bin/server ./cmd/server
+        platforms: [linux, darwin]
+      - cmd: ./bin/server.exe
+        platforms: [windows]
+      - cmd: ./bin/server
+        platforms: [linux, darwin]
+
+  worker:
+    desc: Run the Alibaba Cloud MPS polling worker
+    cmds:
+      - go run ./cmd/worker
+
+  migrate:
+    desc: Apply versioned SQL migrations with Atlas
+    cmds:
+      - go run ./cmd/migrate
+
+  sqlc:
+    desc: Regenerate type-safe SQL access code
+    cmds:
+      - sqlc generate
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test -v ./...
+
+  test-package:
+    desc: Run tests for one package (use PACKAGE=internal/model/...)
+    requires:
+      vars: [PACKAGE]
+    cmds:
+      - go test -v ./{{.PACKAGE}}
+
+  clean:
+    desc: Remove build artifacts and local database files
+    cmds:
+      - cmd: Remove-Item -Recurse -Force -ErrorAction SilentlyContinue bin, *.db, server.exe, server
+        platforms: [windows]
+      - cmd: rm -rf bin *.db server.exe server
+        platforms: [linux, darwin]
+
+  swagger:
+    desc: Validate the checked-in OpenAPI document
+    cmds:
+      - go test ./docs
+
+  deps:
+    desc: Tidy and download Go dependencies
+    cmds:
+      - go mod tidy
+      - go mod download
+
+  fmt:
+    desc: Format Go source files
+    cmds:
+      - go fmt ./...
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  check:
+    desc: Format, generate, test, build, vet, and verify the diff
+    cmds:
+      - task: fmt
+      - task: sqlc
+      - task: test
+      - task: build
+      - task: vet
+      - task: diff-check
+
+  diff-check:
+    desc: Verify patch whitespace
+    cmds:
+      - git diff --check
+
+  build-linux:
+    desc: Build a stripped Linux production binary
+    env:
+      CGO_ENABLED: '0'
+      GOOS: linux
+      GOARCH: amd64
+    cmds:
+      - go build -ldflags="-s -w" -o bin/server ./cmd/server
+
+  build-windows:
+    desc: Build a stripped Windows production binary
+    env:
+      CGO_ENABLED: '0'
+      GOOS: windows
+      GOARCH: amd64
+    cmds:
+      - go build -ldflags="-s -w" -o bin/server.exe ./cmd/server
+
+  hooks:
+    desc: Install pre-commit hooks
+    cmds:
+      - pre-commit install
+
+  hooks-run:
+    desc: Run pre-commit against all files
+    cmds:
+      - pre-commit run --all-files
+
+  update:
+    desc: Upgrade Go dependencies
+    cmds:
+      - go get -u ./...
+      - go mod tidy

@@ -1,12 +1,12 @@
 package router
 
 import (
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 
 	"go-api-starter/internal/container"
 )
 
-func registerVerificationRoutes(api *gin.RouterGroup, c *container.Container) {
+func registerVerificationRoutes(api *httpx.RouterGroup, c *container.Container) {
 	h := c.VerificationHandler()
 
 	verification := api.Group("/verification")

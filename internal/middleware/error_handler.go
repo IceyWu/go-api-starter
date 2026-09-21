@@ -4,17 +4,17 @@ import (
 	"errors"
 
 	"go-api-starter/internal/config"
-	"go-api-starter/pkg/apperrors"
-	"go-api-starter/pkg/logger"
-	"go-api-starter/pkg/response"
+	"go-api-starter/internal/platform/apperrors"
+	"go-api-starter/internal/platform/logger"
+	"go-api-starter/internal/platform/response"
 
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 )
 
 // ErrorHandler returns a middleware that handles errors set in context
 // It should be placed early in the middleware chain to catch all errors
-func ErrorHandler() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func ErrorHandler() httpx.HandlerFunc {
+	return func(c *httpx.Context) {
 		c.Next()
 
 		// Check for errors set in context
@@ -26,7 +26,7 @@ func ErrorHandler() gin.HandlerFunc {
 }
 
 // handleError processes the error and sends appropriate HTTP response
-func handleError(c *gin.Context, err error) {
+func handleError(c *httpx.Context, err error) {
 	var appErr *apperrors.AppError
 	if errors.As(err, &appErr) {
 		if logger.Log != nil && appErr.HTTPStatus >= 500 {

@@ -1,28 +1,50 @@
 package router
 
 import (
+	"context"
+	"github.com/danielgtaylor/huma/v2"
+	humachi "github.com/danielgtaylor/huma/v2/adapters/humachi"
+	"github.com/jmoiron/sqlx"
+	"net/http"
+	"net/http/pprof"
 	"time"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/gzip"
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
+	httpx "go-api-starter/internal/transport/httpx"
 	"golang.org/x/time/rate"
-	"gorm.io/gorm"
 
 	"go-api-starter/docs"
 	"go-api-starter/internal/config"
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/handler"
 	"go-api-starter/internal/middleware"
-	"go-api-starter/pkg/llmstxt"
+	"go-api-starter/internal/platform/llmstxt"
+	"go-api-starter/internal/platform/metrics"
 )
 
 // Setup configures and returns the router, permission middleware, and DI container.
-func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *container.Container) {
-	r := gin.New()
+func Setup(db *sqlx.DB) (*httpx.Engine, *middleware.PermissionMiddleware, *container.Container) {
+	r := httpx.New()
+	humaAPI := humachi.New(r.Chi(), huma.DefaultConfig("go-api-starter", "2.0.0"))
+	huma.Register(humaAPI, huma.Operation{
+		OperationID: "system-ping",
+		Method:      http.MethodGet,
+		Path:        "/api/v1/system/ping",
+		Summary:     "System ping",
+		Tags:        []string{"System"},
+	}, func(context.Context, *struct{}) (*struct {
+		Body struct {
+			Status string `json:"status"`
+		}
+	}, error) {
+		return &struct {
+			Body struct {
+				Status string `json:"status"`
+			}
+		}{Body: struct {
+			Status string `json:"status"`
+		}{Status: "ok"}}, nil
+	})
+	httpMetrics := metrics.New()
 
 	cfg := config.GetConfig()
 	c := container.NewContainer(db, cfg)
@@ -34,20 +56,11 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.Logger())
 	r.Use(middleware.ErrorHandler())
+	r.Use(httpMetrics.Middleware())
 
-	// Gzip compression middleware
-	r.Use(gzip.Gzip(
-		gzip.DefaultCompression,
-		gzip.WithExcludedExtensions([]string{".jpg", ".jpeg", ".png", ".gif", ".pdf", ".zip"}),
-	))
-
-	// CORS middleware
-	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOrigins = cfg.CORS.AllowOrigins
-	corsConfig.AllowMethods = cfg.CORS.AllowMethods
-	corsConfig.AllowHeaders = cfg.CORS.AllowHeaders
-	corsConfig.ExposeHeaders = []string{"X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"}
-	r.Use(cors.New(corsConfig))
+	// Compression and CORS are implemented by the internal transport adapter.
+	r.Use(httpx.Gzip())
+	r.Use(httpx.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowMethods, cfg.CORS.AllowHeaders))
 
 	// Rate limiting
 	if cfg.Redis.Enabled {
@@ -63,7 +76,11 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 
 	// pprof in development
 	if cfg != nil && cfg.App.Env == "development" {
-		pprof.Register(r)
+		r.GET("/debug/pprof/", httpx.WrapH(http.HandlerFunc(pprof.Index)))
+		r.GET("/debug/pprof/cmdline", httpx.WrapH(http.HandlerFunc(pprof.Cmdline)))
+		r.GET("/debug/pprof/profile", httpx.WrapH(http.HandlerFunc(pprof.Profile)))
+		r.GET("/debug/pprof/symbol", httpx.WrapH(http.HandlerFunc(pprof.Symbol)))
+		r.GET("/debug/pprof/trace", httpx.WrapH(http.HandlerFunc(pprof.Trace)))
 	}
 
 	// Build shared middleware
@@ -76,6 +93,7 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	// Health check routes (no auth)
 	base.GET("/health", c.HealthHandler().Health)
 	base.GET("/health/ready", c.HealthHandler().Ready)
+	base.GET("/metrics", httpx.WrapH(httpMetrics.Handler()))
 
 	// Static files (logo, favicon)
 	base.StaticFile("/logo.svg", "./public/logo.svg")
@@ -95,16 +113,16 @@ func Setup(db *gorm.DB) (*gin.Engine, *middleware.PermissionMiddleware, *contain
 	registerWsRoutes(base, c)
 
 	// Documentation routes (protected by Basic Auth)
-	docs.SwaggerInfo.BasePath = cfg.Server.BasePath + "/"
-	docs.SwaggerInfo.Host = ""
-	docsAuth := gin.BasicAuth(gin.Accounts{
+	docsAuth := httpx.BasicAuth(httpx.Accounts{
 		cfg.App.DocsUser: cfg.App.DocsPassword,
 	})
-	base.GET("/swagger/*any", docsAuth, ginSwagger.WrapHandler(swaggerFiles.Handler))
+	base.GET("/swagger/doc.json", docsAuth, func(c *httpx.Context) {
+		c.Data(200, "application/json; charset=utf-8", []byte(docs.ReadDoc()))
+	})
 	base.GET("/docs", docsAuth, handler.DocsHandler)
 
 	// LLMs.txt routes (public, for AI consumption)
-	llmsHandler := llmstxt.NewHandler(docs.SwaggerInfo.ReadDoc(), llmstxt.Config{
+	llmsHandler := llmstxt.NewHandler(docs.ReadDoc(), llmstxt.Config{
 		BaseURL: "", // 空值表示使用请求时的 Host 动态生成
 	})
 	llmsHandler.RegisterRoutes(base)

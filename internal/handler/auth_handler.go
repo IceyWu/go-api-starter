@@ -1,13 +1,13 @@
 package handler
 
 import (
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 
 	"go-api-starter/internal/model"
+	"go-api-starter/internal/platform/apperrors"
+	"go-api-starter/internal/platform/i18n"
+	"go-api-starter/internal/platform/response"
 	"go-api-starter/internal/service"
-	"go-api-starter/pkg/apperrors"
-	"go-api-starter/pkg/i18n"
-	"go-api-starter/pkg/response"
 )
 
 type AuthHandler struct {
@@ -46,7 +46,7 @@ func (h *AuthHandler) SetVerifyService(vs *service.VerificationCodeService) {
 // @Failure 400 {object} response.Response
 // @Failure 409 {object} response.Response
 // @Router /api/v1/auth/register [post]
-func (h *AuthHandler) Register(c *gin.Context) {
+func (h *AuthHandler) Register(c *httpx.Context) {
 	var req model.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest(err.Error()))
@@ -96,7 +96,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Router /api/v1/auth/login [post]
-func (h *AuthHandler) Login(c *gin.Context) {
+func (h *AuthHandler) Login(c *httpx.Context) {
 	var req model.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest(err.Error()))
@@ -158,7 +158,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Failure 400 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Router /api/v1/auth/refresh [post]
-func (h *AuthHandler) RefreshToken(c *gin.Context) {
+func (h *AuthHandler) RefreshToken(c *httpx.Context) {
 	var req model.RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest(err.Error()))
@@ -191,7 +191,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 // @Failure 400 {object} response.Response
 // @Failure 404 {object} response.Response
 // @Router /api/v1/auth/reset-password/{uid} [post]
-func (h *AuthHandler) ResetPassword(c *gin.Context) {
+func (h *AuthHandler) ResetPassword(c *httpx.Context) {
 	uid := c.Param("uid")
 	if uid == "" {
 		c.Error(apperrors.BadRequestCode(i18n.ErrInvalidUserID))
@@ -216,7 +216,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{"message": "密码重置成功"})
+	response.Success(c, httpx.H{"message": "密码重置成功"})
 }
 
 // SelfResetPassword godoc
@@ -230,7 +230,7 @@ func (h *AuthHandler) ResetPassword(c *gin.Context) {
 // @Failure 400 {object} response.Response
 // @Failure 404 {object} response.Response
 // @Router /api/v1/auth/self-reset-password [post]
-func (h *AuthHandler) SelfResetPassword(c *gin.Context) {
+func (h *AuthHandler) SelfResetPassword(c *httpx.Context) {
 	var req model.SelfResetPasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest(err.Error()))
@@ -253,7 +253,7 @@ func (h *AuthHandler) SelfResetPassword(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{"message": "密码重置成功"})
+	response.Success(c, httpx.H{"message": "密码重置成功"})
 }
 
 // Logout godoc
@@ -265,7 +265,7 @@ func (h *AuthHandler) SelfResetPassword(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Router /api/v1/auth/logout [post]
-func (h *AuthHandler) Logout(c *gin.Context) {
+func (h *AuthHandler) Logout(c *httpx.Context) {
 	token, exists := c.Get("token")
 	if !exists {
 		c.Error(apperrors.UnauthorizedCode(i18n.ErrUnauthenticated))
@@ -278,7 +278,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{"message": "登出成功"})
+	response.Success(c, httpx.H{"message": "登出成功"})
 }
 
 // LogoutAllDevices godoc
@@ -290,7 +290,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 // @Success 200 {object} response.Response
 // @Failure 401 {object} response.Response
 // @Router /api/v1/auth/logout-all [post]
-func (h *AuthHandler) LogoutAllDevices(c *gin.Context) {
+func (h *AuthHandler) LogoutAllDevices(c *httpx.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
 		return
@@ -302,7 +302,7 @@ func (h *AuthHandler) LogoutAllDevices(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, gin.H{"message": "已登出所有设备"})
+	response.Success(c, httpx.H{"message": "已登出所有设备"})
 }
 
 // WxLogin godoc
@@ -317,7 +317,7 @@ func (h *AuthHandler) LogoutAllDevices(c *gin.Context) {
 // @Failure 409 {object} response.Response "手机号已绑定其他微信号"
 // @Failure 500 {object} response.Response
 // @Router /api/v1/auth/wx-login [post]
-func (h *AuthHandler) WxLogin(c *gin.Context) {
+func (h *AuthHandler) WxLogin(c *httpx.Context) {
 	if h.wechatService == nil {
 		c.Error(apperrors.InternalCode(nil, i18n.ErrWechatNotConfigured))
 		return

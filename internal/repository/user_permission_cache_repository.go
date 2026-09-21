@@ -2,77 +2,66 @@ package repository
 
 import (
 	"context"
-
+	"github.com/jmoiron/sqlx"
 	"go-api-starter/internal/model"
-
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
-// Compile-time interface check
 var _ UserPermissionCacheRepositoryInterface = (*UserPermissionCacheRepository)(nil)
 
-// UserPermissionCacheRepository handles user permission cache data operations
-type UserPermissionCacheRepository struct {
-	db *gorm.DB
+type UserPermissionCacheRepository struct{ db *sqlx.DB }
+
+func NewUserPermissionCacheRepository(db *sqlx.DB) *UserPermissionCacheRepository {
+	return &UserPermissionCacheRepository{db}
 }
 
-// NewUserPermissionCacheRepository creates a new UserPermissionCacheRepository
-func NewUserPermissionCacheRepository(db *gorm.DB) *UserPermissionCacheRepository {
-	return &UserPermissionCacheRepository{db: db}
-}
+const cacheColumns = `id,user_id,space_id,value,expires_at,created_at,updated_at`
 
-// Upsert creates or updates a user permission cache
-func (r *UserPermissionCacheRepository) Upsert(ctx context.Context, cache *model.UserPermissionCache) error {
-	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "user_id"}, {Name: "space_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
-	}).Create(cache).Error
+func (r *UserPermissionCacheRepository) Upsert(c context.Context, v *model.UserPermissionCache) error {
+	n := modelTime()
+	if v.CreatedAt.IsZero() {
+		v.CreatedAt = n
+	}
+	v.UpdatedAt = n
+	query := `INSERT INTO user_permission_caches(user_id,space_id,value,expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,space_id) DO UPDATE SET value=excluded.value,expires_at=excluded.expires_at,updated_at=excluded.updated_at`
+	if r.db.DriverName() == "mysql" {
+		query = `INSERT INTO user_permission_caches(user_id,space_id,value,expires_at,created_at,updated_at) VALUES(?,?,?,?,?,?) ON DUPLICATE KEY UPDATE value=VALUES(value),expires_at=VALUES(expires_at),updated_at=VALUES(updated_at)`
+	}
+	_, e := r.db.ExecContext(c, query, v.UserID, v.SpaceID, v.Value, v.ExpiresAt, v.CreatedAt, v.UpdatedAt)
+	return e
 }
-
-// FindByUserAndSpace finds a cache entry by user and space
-func (r *UserPermissionCacheRepository) FindByUserAndSpace(ctx context.Context, userID, spaceID uint) (*model.UserPermissionCache, error) {
-	var cache model.UserPermissionCache
-	err := r.db.WithContext(ctx).
-		Where("user_id = ? AND space_id = ?", userID, spaceID).
-		First(&cache).Error
-	if err == gorm.ErrRecordNotFound {
+func (r *UserPermissionCacheRepository) FindByUserAndSpace(c context.Context, u, s uint) (*model.UserPermissionCache, error) {
+	var v model.UserPermissionCache
+	e := r.db.GetContext(c, &v, `SELECT `+cacheColumns+` FROM user_permission_caches WHERE user_id=? AND space_id=? LIMIT 1`, u, s)
+	if noRows(e) {
 		return nil, nil
 	}
-	return &cache, err
+	return &v, e
 }
-
-// FindByUserID finds all cache entries for a user
-func (r *UserPermissionCacheRepository) FindByUserID(ctx context.Context, userID uint) ([]model.UserPermissionCache, error) {
-	var caches []model.UserPermissionCache
-	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&caches).Error
-	return caches, err
+func (r *UserPermissionCacheRepository) FindByUserID(c context.Context, u uint) ([]model.UserPermissionCache, error) {
+	var v []model.UserPermissionCache
+	e := r.db.SelectContext(c, &v, `SELECT `+cacheColumns+` FROM user_permission_caches WHERE user_id=?`, u)
+	return v, e
 }
-
-// DeleteByUserID deletes all cache entries for a user
-func (r *UserPermissionCacheRepository) DeleteByUserID(ctx context.Context, userID uint) error {
-	return r.db.WithContext(ctx).Where("user_id = ?", userID).Delete(&model.UserPermissionCache{}).Error
+func (r *UserPermissionCacheRepository) DeleteByUserID(c context.Context, u uint) error {
+	_, e := r.db.ExecContext(c, `DELETE FROM user_permission_caches WHERE user_id=?`, u)
+	return e
 }
-
-// DeleteByUserIDs deletes all cache entries for multiple users
-func (r *UserPermissionCacheRepository) DeleteByUserIDs(ctx context.Context, userIDs []uint) error {
-	if len(userIDs) == 0 {
+func (r *UserPermissionCacheRepository) DeleteByUserIDs(c context.Context, u []uint) error {
+	if len(u) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).Where("user_id IN ?", userIDs).Delete(&model.UserPermissionCache{}).Error
+	q, a, e := sqlx.In(`DELETE FROM user_permission_caches WHERE user_id IN (?)`, u)
+	if e != nil {
+		return e
+	}
+	_, e = r.db.ExecContext(c, r.db.Rebind(q), a...)
+	return e
 }
-
-// GetUserSpaceValues returns all space values for a user
-func (r *UserPermissionCacheRepository) GetUserSpaceValues(ctx context.Context, userID uint) (map[uint]uint64, error) {
-	var caches []model.UserPermissionCache
-	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Find(&caches).Error
-	if err != nil {
-		return nil, err
+func (r *UserPermissionCacheRepository) GetUserSpaceValues(c context.Context, u uint) (map[uint]uint64, error) {
+	v, e := r.FindByUserID(c, u)
+	m := map[uint]uint64{}
+	for _, x := range v {
+		m[x.SpaceID] = x.Value
 	}
-
-	spaceValues := make(map[uint]uint64)
-	for _, c := range caches {
-		spaceValues[c.SpaceID] = c.Value
-	}
-	return spaceValues, nil
+	return m, e
 }

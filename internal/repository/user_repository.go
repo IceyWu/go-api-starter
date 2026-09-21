@@ -2,180 +2,121 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"fmt"
+	"time"
 
+	"github.com/jmoiron/sqlx"
 	"go-api-starter/internal/model"
-
-	"gorm.io/gorm"
 )
 
 var ErrUserNotFound = errors.New("user not found")
-
-// Compile-time interface check
 var _ UserRepositoryInterface = (*UserRepository)(nil)
 
-// UserRepository handles user data operations
-type UserRepository struct {
-	db *gorm.DB
-}
+type UserRepository struct{ db *sqlx.DB }
 
-// NewUserRepository creates a new UserRepository
-func NewUserRepository(db *gorm.DB) *UserRepository {
-	return &UserRepository{db: db}
-}
+func NewUserRepository(db *sqlx.DB) *UserRepository { return &UserRepository{db: db} }
 
-// Create creates a new user
+const userColumns = `id, uid, lp_id, username, mobile, email, open_id, password, avatar_file_id, background_file_id, sex, birthday, city, job, company, signature, website, freezed, created_at, updated_at`
+
 func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
-	return r.db.WithContext(ctx).Create(user).Error
+	user.PrepareForCreate()
+	now := user.CreatedAt
+	if now.IsZero() {
+		now = time.Now()
+	}
+	user.CreatedAt, user.UpdatedAt = now, now
+	result, err := r.db.ExecContext(ctx, `INSERT INTO users (uid, lp_id, username, mobile, email, open_id, password, avatar_file_id, background_file_id, sex, birthday, city, job, company, signature, website, freezed, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, user.UID, user.LPID, user.Username, user.Mobile, user.Email, user.OpenID, user.Password, user.AvatarFileID, user.BackgroundFileID, user.Sex, user.Birthday, user.City, user.Job, user.Company, user.Signature, user.Website, user.Freezed, user.CreatedAt, user.UpdatedAt)
+	if err != nil {
+		return err
+	}
+	id, err := result.LastInsertId()
+	if err == nil {
+		user.ID = uint(id)
+	}
+	return err
 }
-
-// FindAll returns all users with pagination and sorting
 func (r *UserRepository) FindAll(ctx context.Context, offset, limit int, sort string) ([]model.User, int64, error) {
-	var users []model.User
 	var total int64
-
-	if err := r.db.WithContext(ctx).Model(&model.User{}).Count(&total).Error; err != nil {
+	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM users`); err != nil {
 		return nil, 0, err
 	}
-
-	err := r.db.WithContext(ctx).
-		Preload("AvatarFile").
-		Preload("BackgroundFile").
-		Preload("Roles").
-		Offset(offset).Limit(limit).Order(sort).Find(&users).Error
+	if sort == "" || !safeSort(sort) {
+		sort = "created_at DESC"
+	}
+	var users []model.User
+	err := r.db.SelectContext(ctx, &users, fmt.Sprintf(`SELECT %s FROM users ORDER BY %s LIMIT ? OFFSET ?`, userColumns, sort), limit, offset)
 	return users, total, err
 }
-
-// FindByID finds a user by ID
 func (r *UserRepository) FindByID(ctx context.Context, id uint) (*model.User, error) {
+	return r.find(ctx, "id = ?", id)
+}
+func (r *UserRepository) FindByEmail(ctx context.Context, v string) (*model.User, error) {
+	return r.find(ctx, "email = ?", v)
+}
+func (r *UserRepository) FindByMobile(ctx context.Context, v string) (*model.User, error) {
+	return r.find(ctx, "mobile = ?", v)
+}
+func (r *UserRepository) FindByOpenID(ctx context.Context, v string) (*model.User, error) {
+	return r.find(ctx, "open_id = ?", v)
+}
+func (r *UserRepository) FindByUID(ctx context.Context, v string) (*model.User, error) {
+	return r.find(ctx, "uid = ?", v)
+}
+func (r *UserRepository) FindByUsername(ctx context.Context, v string) (*model.User, error) {
+	return r.find(ctx, "username = ?", v)
+}
+func (r *UserRepository) FindByLPID(ctx context.Context, v string) (*model.User, error) {
+	return r.find(ctx, "lp_id = ?", v)
+}
+func (r *UserRepository) FindByEmailForAuth(ctx context.Context, v string) (*model.User, error) {
+	return r.find(ctx, "email = ?", v)
+}
+func (r *UserRepository) FindByMobileForAuth(ctx context.Context, v string) (*model.User, error) {
+	return r.find(ctx, "mobile = ?", v)
+}
+func (r *UserRepository) find(ctx context.Context, predicate string, arg any) (*model.User, error) {
 	var user model.User
-	err := r.db.WithContext(ctx).
-		Preload("AvatarFile").
-		Preload("BackgroundFile").
-		Preload("Roles").
-		First(&user, id).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	err := r.db.GetContext(ctx, &user, `SELECT `+userColumns+` FROM users WHERE `+predicate+` LIMIT 1`, arg)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrUserNotFound
 	}
 	return &user, err
 }
-
-// FindByIDs 批量查询用户
 func (r *UserRepository) FindByIDs(ctx context.Context, ids []uint) ([]model.User, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
+	q, args, err := sqlx.In(`SELECT `+userColumns+` FROM users WHERE id IN (?)`, ids)
+	if err != nil {
+		return nil, err
+	}
 	var users []model.User
-	err := r.db.WithContext(ctx).Where("id IN ?", ids).Find(&users).Error
+	err = r.db.SelectContext(ctx, &users, r.db.Rebind(q), args...)
 	return users, err
 }
-
-// FindByEmail finds a user by email
-func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*model.User, error) {
-	var user model.User
-	err := r.db.WithContext(ctx).
-		Preload("AvatarFile").
-		Preload("BackgroundFile").
-		Preload("Roles").
-		Where("email = ?", email).First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
-	}
-	return &user, err
+func (r *UserRepository) Update(ctx context.Context, u *model.User) error {
+	u.UpdatedAt = time.Now()
+	_, err := r.db.ExecContext(ctx, `UPDATE users SET uid=?,lp_id=?,username=?,mobile=?,email=?,open_id=?,password=?,avatar_file_id=?,background_file_id=?,sex=?,birthday=?,city=?,job=?,company=?,signature=?,website=?,freezed=?,updated_at=? WHERE id=?`, u.UID, u.LPID, u.Username, u.Mobile, u.Email, u.OpenID, u.Password, u.AvatarFileID, u.BackgroundFileID, u.Sex, u.Birthday, u.City, u.Job, u.Company, u.Signature, u.Website, u.Freezed, u.UpdatedAt, u.ID)
+	return err
 }
-
-// FindByMobile finds a user by mobile
-func (r *UserRepository) FindByMobile(ctx context.Context, mobile string) (*model.User, error) {
-	var user model.User
-	err := r.db.WithContext(ctx).
-		Preload("AvatarFile").
-		Preload("BackgroundFile").
-		Preload("Roles").
-		Where("mobile = ?", mobile).First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
-	}
-	return &user, err
-}
-
-// FindByOpenID finds a user by WeChat OpenID
-func (r *UserRepository) FindByOpenID(ctx context.Context, openID string) (*model.User, error) {
-	var user model.User
-	err := r.db.WithContext(ctx).
-		Preload("AvatarFile").
-		Preload("BackgroundFile").
-		Preload("Roles").
-		Where("open_id = ?", openID).First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
-	}
-	return &user, err
-}
-
-// FindByUID finds a user by UID
-func (r *UserRepository) FindByUID(ctx context.Context, uid string) (*model.User, error) {
-	var user model.User
-	err := r.db.WithContext(ctx).
-		Preload("AvatarFile").
-		Preload("BackgroundFile").
-		Preload("Roles").
-		Where("uid = ?", uid).First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
-	}
-	return &user, err
-}
-
-// FindByUsername finds a user by Username
-func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*model.User, error) {
-	var user model.User
-	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
-	}
-	return &user, err
-}
-
-// FindByLPID finds a user by LP号
-func (r *UserRepository) FindByLPID(ctx context.Context, lpID string) (*model.User, error) {
-	var user model.User
-	err := r.db.WithContext(ctx).Where("lp_id = ?", lpID).First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
-	}
-	return &user, err
-}
-
-// Update updates a user
-func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
-	return r.db.WithContext(ctx).Save(user).Error
-}
-
-// Delete hard deletes a user by ID
 func (r *UserRepository) Delete(ctx context.Context, id uint) error {
-	result := r.db.WithContext(ctx).Unscoped().Delete(&model.User{}, id)
-	if result.RowsAffected == 0 {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id=?`, id)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
 		return ErrUserNotFound
 	}
-	return result.Error
+	return nil
 }
-
-// FindByEmailForAuth finds a user by email without preloading relations (optimized for auth flows)
-func (r *UserRepository) FindByEmailForAuth(ctx context.Context, email string) (*model.User, error) {
-	var user model.User
-	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
+func safeSort(sort string) bool {
+	for _, r := range sort {
+		if !(r == '_' || r == ',' || r == ' ' || r == '.' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z') {
+			return false
+		}
 	}
-	return &user, err
-}
-
-// FindByMobileForAuth finds a user by mobile without preloading relations (optimized for auth flows)
-func (r *UserRepository) FindByMobileForAuth(ctx context.Context, mobile string) (*model.User, error) {
-	var user model.User
-	err := r.db.WithContext(ctx).Where("mobile = ?", mobile).First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrUserNotFound
-	}
-	return &user, err
+	return true
 }

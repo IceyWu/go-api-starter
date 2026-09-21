@@ -8,18 +8,26 @@ Migration files follow the naming convention: `YYYYMMDDHHMMSS_description.sql`
 
 Example: `20260126173717_add_webhook_url_to_transcoding_tasks.sql`
 
-## Auto Migration
+## Migration runner
 
-The application uses GORM's AutoMigrate feature to automatically create and update database tables based on model definitions. This is configured in `cmd/server/main.go`.
+The application uses [Atlas](https://atlasgo.io) for versioned SQL migrations. The runner selects the dialect-specific directory automatically. Run them with:
+
+```bash
+task migrate
+```
+
+生产环境先执行迁移，再启动 API server 和 MPS Worker。
+
+Development and production use the same versioned Atlas migrations. Schema changes are never inferred from Go model tags.
 
 ## Manual Migrations
 
-For complex schema changes that cannot be handled by AutoMigrate, place SQL migration files in this directory. These should be executed manually or through a migration tool.
+Place SQLite migrations in `migrations/sqlite` and MySQL migrations in `migrations/mysql`. Atlas applies the SQL files in filename order.
 
 ## Migration Strategy
 
-1. **Development**: Use AutoMigrate for rapid development
-2. **Production**: Use versioned SQL migrations for controlled schema changes
+1. **All environments**: Apply versioned Atlas migrations before startup
+2. **Schema source**: Keep SQL migrations as the only schema source
 3. **Rollback**: Keep rollback scripts for each migration
 
 ## Best Practices
@@ -27,4 +35,4 @@ For complex schema changes that cannot be handled by AutoMigrate, place SQL migr
 - Always test migrations on a development database first
 - Keep migrations small and focused
 - Document breaking changes
-- Maintain backward compatibility when possible
+- Regenerate `sqlc` after changing `db/schema.sql` or `db/query`

@@ -3,9 +3,9 @@ package middleware
 import (
 	"net/http"
 
-	"go-api-starter/pkg/response"
+	"go-api-starter/internal/platform/response"
 
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 )
 
 const (
@@ -15,12 +15,12 @@ const (
 
 // BodyLimit returns a middleware that limits the request body size.
 // If the body exceeds maxBytes, the request is rejected with 413 Payload Too Large.
-func BodyLimit(maxBytes int64) gin.HandlerFunc {
+func BodyLimit(maxBytes int64) httpx.HandlerFunc {
 	if maxBytes <= 0 {
 		maxBytes = DefaultBodyLimit
 	}
 
-	return func(c *gin.Context) {
+	return func(c *httpx.Context) {
 		if c.Request.ContentLength > maxBytes {
 			c.JSON(http.StatusRequestEntityTooLarge, response.ErrorResponse{
 				Code:    http.StatusRequestEntityTooLarge,

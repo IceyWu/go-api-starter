@@ -3,21 +3,21 @@ package middleware
 import (
 	"time"
 
-	"go-api-starter/pkg/logger"
-	"go-api-starter/pkg/response"
+	"go-api-starter/internal/platform/logger"
+	"go-api-starter/internal/platform/response"
 
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 )
 
 // RequestID returns a request ID middleware
 // It reads X-Request-ID from header if present, otherwise generates a new UUID
-func RequestID() gin.HandlerFunc {
+func RequestID() httpx.HandlerFunc {
 	return RequestIDWithConfig(DefaultRequestIDConfig())
 }
 
 // Logger returns a logging middleware using zap
-func Logger() gin.HandlerFunc {
-	return func(c *gin.Context) {
+func Logger() httpx.HandlerFunc {
+	return func(c *httpx.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
 		method := c.Request.Method
@@ -42,8 +42,8 @@ func Logger() gin.HandlerFunc {
 }
 
 // Recovery returns a recovery middleware that handles panics
-func Recovery() gin.HandlerFunc {
-	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
+func Recovery() httpx.HandlerFunc {
+	return httpx.CustomRecovery(func(c *httpx.Context, recovered interface{}) {
 		requestID := GetRequestID(c)
 		logger.Log.Errorw("Panic recovered",
 			"request_id", requestID,

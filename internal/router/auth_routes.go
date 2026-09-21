@@ -1,13 +1,13 @@
 package router
 
 import (
-	"github.com/gin-gonic/gin"
+	httpx "go-api-starter/internal/transport/httpx"
 
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/middleware"
 )
 
-func registerAuthRoutes(api *gin.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware) {
+func registerAuthRoutes(api *httpx.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware) {
 	h := c.AuthHandler()
 
 	auth := api.Group("/auth")

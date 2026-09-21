@@ -4,26 +4,30 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/joho/godotenv"
-	"github.com/spf13/viper"
+	"github.com/knadh/koanf/providers/confmap"
+	koanfenvironment "github.com/knadh/koanf/providers/env/v2"
+	"github.com/knadh/koanf/v2"
+	"gopkg.in/yaml.v3"
 )
 
 // Config holds all configuration
 type Config struct {
-	App       AppConfig       `mapstructure:"app"`
-	Server    ServerConfig    `mapstructure:"server"`
-	Database  DatabaseConfig  `mapstructure:"database"`
-	Log       LogConfig       `mapstructure:"log"`
-	OSS       OSSConfig       `mapstructure:"oss"`
-	Redis     RedisConfig     `mapstructure:"redis"`
-	CORS      CORSConfig      `mapstructure:"cors"`
-	RateLimit RateLimitConfig `mapstructure:"rate_limit"`
-	Mail      MailConfig      `mapstructure:"mail"`
-	Wechat    WechatConfig    `mapstructure:"wechat"`
-	WS        WebSocketConfig `mapstructure:"ws"`
+	App         AppConfig         `mapstructure:"app"`
+	Server      ServerConfig      `mapstructure:"server"`
+	Database    DatabaseConfig    `mapstructure:"database"`
+	Log         LogConfig         `mapstructure:"log"`
+	OSS         OSSConfig         `mapstructure:"oss"`
+	Redis       RedisConfig       `mapstructure:"redis"`
+	Transcoding TranscodingConfig `mapstructure:"transcoding"`
+	CORS        CORSConfig        `mapstructure:"cors"`
+	RateLimit   RateLimitConfig   `mapstructure:"rate_limit"`
+	Mail        MailConfig        `mapstructure:"mail"`
+	Wechat      WechatConfig      `mapstructure:"wechat"`
+	WS          WebSocketConfig   `mapstructure:"ws"`
 }
 
 // MailConfig holds mail server configuration.
@@ -153,218 +157,134 @@ func (r *RedisConfig) Addr() string {
 	return fmt.Sprintf("%s:%d", r.Host, r.Port)
 }
 
+type TranscodingConfig struct {
+	StorageRoot         string `mapstructure:"storage_root"`
+	MPSRegion           string `mapstructure:"mps_region"`
+	MPSPipelineID       string `mapstructure:"mps_pipeline_id"`
+	MPSTemplateOriginal string `mapstructure:"mps_template_original"`
+	MPSTemplate1080p    string `mapstructure:"mps_template_1080p"`
+	MPSTemplate720p     string `mapstructure:"mps_template_720p"`
+	MPSTemplate480p     string `mapstructure:"mps_template_480p"`
+	MPSPollIntervalSec  int    `mapstructure:"mps_poll_interval_sec"`
+}
+
 // GlobalConfig is the process-wide configuration singleton populated by Load.
 var GlobalConfig *Config
 
-// Load loads configuration from file and environment variables.
-func Load() *Config {
-	loadEnvFile()
+const (
+	defaultConfigFile = "./config/config.yaml"
+	configEnvPrefix   = "GO_API_"
+)
 
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("./config")
-	viper.AddConfigPath(".")
+type configDocument struct {
+	Common       map[string]any `yaml:"common"`
+	Environments map[string]any `yaml:"-"`
+}
 
-	setDefaults()
-
-	if err := viper.ReadInConfig(); err != nil {
-		log.Printf("Config file not found, using defaults: %v", err)
+func (d *configDocument) UnmarshalYAML(value *yaml.Node) error {
+	var sections map[string]any
+	if err := value.Decode(&sections); err != nil {
+		return err
 	}
 
-	// Bind specific environment variables BEFORE AutomaticEnv
-	bindEnvVariables()
+	d.Common = map[string]any{}
+	d.Environments = map[string]any{}
+	for key, section := range sections {
+		if key == "common" {
+			if common, ok := section.(map[string]any); ok {
+				d.Common = common
+			}
+			continue
+		}
+		d.Environments[key] = section
+	}
+	return nil
+}
 
-	// Environment variable support (highest priority, overrides config file)
-	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+// Load loads common settings, the selected profile, and GO_API_* overrides.
+func Load() *Config {
+	configPath := os.Getenv("CONFIG_FILE")
+	if configPath == "" {
+		configPath = defaultConfigFile
+	}
+
+	document, err := readConfigDocument(configPath)
+	if err != nil {
+		log.Fatalf("failed to load configuration file %s: %v", configPath, err)
+	}
+
+	environment := normalizeEnvironment(os.Getenv("APP_ENV"))
+	profile, ok := document.Environments[environment]
+	if !ok {
+		log.Fatalf("configuration profile %q was not found in %s", environment, configPath)
+	}
+	profileMap, ok := profile.(map[string]any)
+	if !ok {
+		log.Fatalf("configuration profile %q must be a mapping", environment)
+	}
+
+	k := koanf.New(".")
+	if err := k.Load(confmap.Provider(document.Common, "."), nil); err != nil {
+		log.Fatalf("failed to load common configuration: %v", err)
+	}
+	if err := k.Load(confmap.Provider(profileMap, "."), nil); err != nil {
+		log.Fatalf("failed to load %s configuration: %v", environment, err)
+	}
+	if err := k.Load(koanfenvironment.Provider(".", koanfenvironment.Opt{
+		Prefix: configEnvPrefix,
+		TransformFunc: func(key, value string) (string, any) {
+			key = strings.TrimPrefix(key, configEnvPrefix)
+			key = strings.ToLower(strings.ReplaceAll(key, "__", "."))
+			return key, value
+		},
+	}), nil); err != nil {
+		log.Fatalf("failed to load environment overrides: %v", err)
+	}
 
 	var cfg Config
-	if err := viper.Unmarshal(&cfg); err != nil {
-		log.Fatalf("Failed to unmarshal config: %v", err)
+	if err := k.UnmarshalWithConf("", &cfg, koanf.UnmarshalConf{Tag: "mapstructure"}); err != nil {
+		log.Fatalf("failed to unmarshal config: %v", err)
 	}
 
-	log.Printf("Configuration loaded from: %s", viper.ConfigFileUsed())
-	log.Printf("Environment: %s", cfg.App.Env)
+	log.Printf("configuration loaded from: %s", filepath.Clean(configPath))
+	log.Printf("configuration profile: %s", environment)
 
 	validationErrors := cfg.Validate()
 	if validationErrors.HasErrors() {
 		if cfg.App.Env == "production" || cfg.App.Env == "prod" {
-			log.Fatalf("Configuration validation failed: %s", validationErrors.Error())
+			log.Fatalf("configuration validation failed: %s", validationErrors.Error())
 		}
-		log.Printf("WARNING: Configuration issues: %s", validationErrors.Error())
+		log.Printf("WARNING: configuration issues: %s", validationErrors.Error())
 	} else {
-		log.Printf("Configuration validation passed")
+		log.Printf("configuration validation passed")
 	}
 
 	GlobalConfig = &cfg
 	return &cfg
 }
 
-// loadEnvFile loads .env file based on APP_ENV.
-func loadEnvFile() {
-	env := os.Getenv("APP_ENV")
-	var envFile string
+func readConfigDocument(configPath string) (configDocument, error) {
+	contents, err := os.ReadFile(configPath)
+	if err != nil {
+		return configDocument{}, err
+	}
 
-	switch env {
-	case "production", "prod":
-		envFile = ".env.prod"
-	case "development", "dev":
-		envFile = ".env.dev"
+	var document configDocument
+	if err := yaml.Unmarshal(contents, &document); err != nil {
+		return configDocument{}, err
+	}
+	return document, nil
+}
+
+func normalizeEnvironment(environment string) string {
+	switch strings.ToLower(strings.TrimSpace(environment)) {
+	case "", "dev", "development":
+		return "development"
+	case "prod", "production":
+		return "production"
 	default:
-		envFile = ".env"
+		return strings.ToLower(strings.TrimSpace(environment))
 	}
-
-	if err := godotenv.Load(envFile); err != nil {
-		if err := godotenv.Load(); err != nil {
-			log.Printf("No .env file found, using system environment variables")
-		}
-	} else {
-		log.Printf("Loaded environment from %s", envFile)
-	}
-}
-
-// bindEnvVariables binds specific environment variables to config keys.
-func bindEnvVariables() {
-	viper.BindEnv("app.env", "APP_ENV")
-	viper.BindEnv("app.jwt_secret", "JWT_SECRET")
-	viper.BindEnv("app.access_token_days", "ACCESS_TOKEN_DAYS")
-	viper.BindEnv("app.refresh_token_days", "REFRESH_TOKEN_DAYS")
-	viper.BindEnv("app.username_prefix", "APP_USERNAME_PREFIX")
-	viper.BindEnv("app.admin_email", "ADMIN_EMAIL")
-	viper.BindEnv("app.admin_password", "ADMIN_PASSWORD")
-	viper.BindEnv("app.docs_user", "DOCS_USER")
-	viper.BindEnv("app.docs_password", "DOCS_PASSWORD")
-	viper.BindEnv("app.default_user_password", "DEFAULT_USER_PASSWORD")
-
-	viper.BindEnv("server.host", "SERVER_HOST")
-	viper.BindEnv("server.port", "SERVER_PORT")
-	viper.BindEnv("server.mode", "SERVER_MODE")
-	viper.BindEnv("server.base_path", "BASE_PATH")
-
-	viper.BindEnv("database.driver", "DB_DRIVER")
-	viper.BindEnv("database.path", "DB_PATH")
-	viper.BindEnv("database.host", "DB_HOST")
-	viper.BindEnv("database.port", "DB_PORT")
-	viper.BindEnv("database.username", "DB_USER")
-	viper.BindEnv("database.password", "DB_PASSWORD")
-	viper.BindEnv("database.dbname", "DB_NAME")
-
-	viper.BindEnv("log.level", "LOG_LEVEL")
-
-	viper.BindEnv("oss.endpoint", "ALICLOUD_OSS_ENDPOINT")
-	viper.BindEnv("oss.bucket", "ALICLOUD_OSS_BUCKET")
-	viper.BindEnv("oss.region", "ALICLOUD_OSS_REGION")
-	viper.BindEnv("oss.access_key_id", "ALICLOUD_ACCESS_KEY_ID")
-	viper.BindEnv("oss.access_key_secret", "ALICLOUD_ACCESS_KEY_SECRET")
-	viper.BindEnv("oss.upload_dir", "ALICLOUD_OSS_UPLOAD_DIR")
-	viper.BindEnv("oss.domain", "OSS_DOMAIN")
-	viper.BindEnv("oss.callback_url", "OSS_CALLBACK_URL")
-
-	viper.BindEnv("redis.host", "REDIS_HOST")
-	viper.BindEnv("redis.port", "REDIS_PORT")
-	viper.BindEnv("redis.password", "REDIS_PASSWORD")
-	viper.BindEnv("redis.db", "REDIS_DB")
-	viper.BindEnv("redis.enabled", "REDIS_ENABLED")
-	viper.BindEnv("redis.pool_size", "REDIS_POOL_SIZE")
-	viper.BindEnv("redis.cluster_mode", "REDIS_CLUSTER_MODE")
-	viper.BindEnv("redis.enable_fallback", "REDIS_ENABLE_FALLBACK")
-
-	viper.BindEnv("cors.allow_origins", "CORS_ALLOW_ORIGINS")
-	viper.BindEnv("cors.allow_methods", "CORS_ALLOW_METHODS")
-	viper.BindEnv("cors.allow_headers", "CORS_ALLOW_HEADERS")
-
-	viper.BindEnv("wechat.appid", "WX_APPID")
-	viper.BindEnv("wechat.secret", "WX_SECRET")
-
-	viper.BindEnv("ws.key", "WS_KEY")
-
-	viper.BindEnv("mail.enabled", "MAIL_ENABLED")
-	viper.BindEnv("mail.host", "MAIL_HOST")
-	viper.BindEnv("mail.port", "MAIL_PORT")
-	viper.BindEnv("mail.user", "MAIL_USER")
-	viper.BindEnv("mail.password", "MAIL_PASS")
-	viper.BindEnv("mail.from", "MAIL_FROM")
-	viper.BindEnv("mail.use_tls", "MAIL_USE_TLS")
-	viper.BindEnv("mail.mock_send", "MAIL_MOCK_SEND")
-
-	viper.BindEnv("rate_limit.global_per_minute", "RATE_LIMIT_GLOBAL_PER_MINUTE")
-	viper.BindEnv("rate_limit.user_per_minute", "RATE_LIMIT_USER_PER_MINUTE")
-	viper.BindEnv("rate_limit.login_per_minute", "RATE_LIMIT_LOGIN_PER_MINUTE")
-	viper.BindEnv("rate_limit.upload_per_minute", "RATE_LIMIT_UPLOAD_PER_MINUTE")
-	viper.BindEnv("rate_limit.fallback_rps", "RATE_LIMIT_FALLBACK_RPS")
-	viper.BindEnv("rate_limit.fallback_burst", "RATE_LIMIT_FALLBACK_BURST")
-}
-
-func setDefaults() {
-	viper.SetDefault("app.name", "go-api-starter")
-	viper.SetDefault("app.env", "development")
-	viper.SetDefault("app.jwt_secret", "your-secret-key-change-in-production")
-	viper.SetDefault("app.access_token_days", 7)
-	viper.SetDefault("app.refresh_token_days", 30)
-	viper.SetDefault("app.username_prefix", "go")
-	viper.SetDefault("app.admin_email", "")
-	viper.SetDefault("app.admin_password", "123456")
-	viper.SetDefault("app.docs_user", "admin")
-	viper.SetDefault("app.docs_password", "admin123")
-	viper.SetDefault("app.default_user_password", "123456")
-
-	viper.SetDefault("cors.allow_origins", []string{"*"})
-	viper.SetDefault("cors.allow_methods", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
-	viper.SetDefault("cors.allow_headers", []string{"Origin", "Content-Type", "Authorization", "X-Request-ID"})
-
-	viper.SetDefault("rate_limit.global_per_minute", 3000)
-	viper.SetDefault("rate_limit.user_per_minute", 600)
-	viper.SetDefault("rate_limit.login_per_minute", 60)
-	viper.SetDefault("rate_limit.upload_per_minute", 300)
-	viper.SetDefault("rate_limit.fallback_rps", 500)
-	viper.SetDefault("rate_limit.fallback_burst", 1000)
-
-	viper.SetDefault("server.host", "localhost")
-	viper.SetDefault("server.port", "9527")
-	viper.SetDefault("server.mode", "debug")
-	viper.SetDefault("server.base_path", "")
-
-	viper.SetDefault("database.driver", "sqlite")
-	viper.SetDefault("database.path", "./data.db")
-	viper.SetDefault("database.host", "localhost")
-	viper.SetDefault("database.port", 3306)
-	viper.SetDefault("database.username", "root")
-	viper.SetDefault("database.password", "123456")
-	viper.SetDefault("database.dbname", "go_api_starter")
-	viper.SetDefault("database.charset", "utf8mb4")
-
-	viper.SetDefault("log.level", "debug")
-	viper.SetDefault("log.format", "console")
-	viper.SetDefault("log.output", "stdout")
-
-	viper.SetDefault("oss.upload_dir", "go_oss")
-	viper.SetDefault("oss.max_file_size", 10485760) // 10MB
-	viper.SetDefault("oss.token_expire", 1800)      // 30 minutes
-	viper.SetDefault("oss.allowed_extensions", []string{".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx", ".xls", ".xlsx"})
-
-	viper.SetDefault("redis.host", "localhost")
-	viper.SetDefault("redis.port", 6379)
-	viper.SetDefault("redis.password", "")
-	viper.SetDefault("redis.db", 0)
-	viper.SetDefault("redis.pool_size", 10)
-	viper.SetDefault("redis.min_idle_conns", 5)
-	viper.SetDefault("redis.max_retries", 3)
-	viper.SetDefault("redis.dial_timeout", 5*time.Second)
-	viper.SetDefault("redis.read_timeout", 3*time.Second)
-	viper.SetDefault("redis.write_timeout", 3*time.Second)
-	viper.SetDefault("redis.cluster_mode", false)
-	viper.SetDefault("redis.enable_fallback", true)
-	viper.SetDefault("redis.enabled", false)
-
-	viper.SetDefault("mail.enabled", false)
-	viper.SetDefault("mail.host", "smtp.qq.com")
-	viper.SetDefault("mail.port", 587)
-	viper.SetDefault("mail.user", "")
-	viper.SetDefault("mail.password", "")
-	viper.SetDefault("mail.from", "")
-	viper.SetDefault("mail.use_tls", true)
-	viper.SetDefault("mail.mock_send", true)
-
 }
 
 // GetConfig returns the global config.

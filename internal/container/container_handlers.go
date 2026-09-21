@@ -2,8 +2,8 @@ package container
 
 import (
 	"go-api-starter/internal/handler"
+	"go-api-starter/internal/platform/mail"
 	"go-api-starter/internal/service"
-	"go-api-starter/pkg/mail"
 )
 
 // ========== Handler Getters ==========
@@ -38,8 +38,22 @@ func (c *Container) PermissionHandler() *handler.PermissionHandler {
 func (c *Container) OSSHandler() *handler.OSSHandler {
 	c.ossHandlerOnce.Do(func() {
 		c.ossHandler = handler.NewOSSHandler(c.OSSService(), c.UserService())
+		c.ossHandler.SetTaskManager(c.TranscodingTaskManager())
 	})
 	return c.ossHandler
+}
+
+func (c *Container) TranscodingTaskManager() *service.TaskManager {
+	c.taskManagerOnce.Do(func() {
+		c.taskManager = service.NewTaskManager(c.db)
+		transcoder, err := service.NewAliyunMPSClient(&c.config.OSS, &c.config.Transcoding)
+		if err != nil {
+			c.taskManager.SetProviderError(err)
+			return
+		}
+		c.taskManager.SetCloudTranscoder(transcoder)
+	})
+	return c.taskManager
 }
 
 func (c *Container) HealthHandler() *handler.HealthHandler {

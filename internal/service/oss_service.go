@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -8,21 +10,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"gorm.io/gorm"
+	"github.com/jmoiron/sqlx"
 
 	"go-api-starter/internal/config"
 	"go-api-starter/internal/model"
+	"go-api-starter/internal/platform/apperrors"
+	"go-api-starter/internal/platform/logger"
+	"go-api-starter/internal/platform/oss"
 	"go-api-starter/internal/repository"
-	"go-api-starter/pkg/apperrors"
-	"go-api-starter/pkg/logger"
-	"go-api-starter/pkg/oss"
 )
 
 // OSSService handles OSS-related operations including simple uploads and multipart uploads.
 // It deliberately does not do any media processing (EXIF / blurhash / transcoding);
 // clients are expected to upload finished artifacts.
 type OSSService struct {
-	db            *gorm.DB
+	db            *sqlx.DB
 	fileRepo      repository.FileRepositoryInterface
 	multipartRepo repository.MultipartRepositoryInterface
 	config        *config.OSSConfig
@@ -31,7 +33,7 @@ type OSSService struct {
 }
 
 // NewOSSService creates a new OSSService
-func NewOSSService(db *gorm.DB, fileRepo repository.FileRepositoryInterface, multipartRepo repository.MultipartRepositoryInterface, cfg *config.OSSConfig, appEnv string) *OSSService {
+func NewOSSService(db *sqlx.DB, fileRepo repository.FileRepositoryInterface, multipartRepo repository.MultipartRepositoryInterface, cfg *config.OSSConfig, appEnv string) *OSSService {
 	return &OSSService{
 		db:            db,
 		fileRepo:      fileRepo,
@@ -95,23 +97,33 @@ func (s *OSSService) GetUploadTokenWithFileName(userID uint, fileName string) (*
 // (scoped to the user when userID > 0, used for instant upload).
 func (s *OSSService) CheckFileExists(md5 string, userID uint) (*model.File, bool) {
 	var file model.File
-	query := s.db.Where("file_md5 = ?", md5)
+	query := `SELECT id,uid,user_id,name,path,type,file_md5,size,key,extension,width,height,blurhash,arthash,arthash_codec,lng,lat,country,country_code,province,city,district,address,altitude,taken_at,device_make,device_model,lens_model,f_number,exposure_time,iso,focal_length,exif_raw,duration,codec,bitrate,frame_rate,video_metadata,transcoding_task_id,is_private,created_at,updated_at FROM files WHERE file_md5 = ?`
+	args := []any{md5}
 	if userID > 0 {
-		query = query.Where("user_id = ?", userID)
+		query += " AND user_id = ?"
+		args = append(args, userID)
 	}
-	if err := query.First(&file).Error; err != nil {
+	query += " LIMIT 1"
+	if err := s.db.Get(&file, query, args...); err != nil {
 		return nil, false
 	}
+	file.PrepareForResponse()
 	return &file, true
 }
 
 // SaveFileRecord creates a DB record after a successful direct client-to-OSS upload.
-func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, userID uint) (*model.File, error) {
+func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, userID uint, metadata *ClientMediaMetadata) (*model.File, error) {
+	if metadata == nil {
+		return nil, apperrors.BadRequest("client media metadata is required")
+	}
+	if metadata.Basic.MD5 == "" || !strings.EqualFold(metadata.Basic.MD5, md5) {
+		return nil, apperrors.BadRequest("metadata md5 does not match upload md5")
+	}
+	if metadata.Basic.Size != fileSize || metadata.Basic.Type == "" {
+		return nil, apperrors.BadRequest("metadata size or type is invalid")
+	}
 	// Dedup by MD5 (scoped to user)
 	if existing, ok := s.CheckFileExists(md5, userID); ok {
-		if err := s.db.Preload("User").First(existing, existing.ID).Error; err != nil {
-			logger.Log.Warnf("failed to preload user for existing file: %v", err)
-		}
 		return existing, nil
 	}
 
@@ -127,13 +139,35 @@ func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, u
 		Key:       key,
 		Extension: ext,
 	}
+	if metadata != nil {
+		applyClientMetadata(file, metadata)
+	}
 
-	if err := s.db.Create(file).Error; err != nil {
+	if err := s.fileRepo.Create(context.Background(), file); err != nil {
 		return nil, apperrors.Internal(err, "failed to save file record")
 	}
-	if err := s.db.Preload("User").First(file, file.ID).Error; err != nil {
-		logger.Log.Warnf("failed to preload user: %v", err)
+	if metadata != nil && metadata.Image != nil {
+		for _, item := range metadata.Image.Colors {
+			color := &model.Color{Hex: item.Hex, R: item.R, G: item.G, B: item.B}
+			if err := s.db.Get(color, `SELECT id,hex,r,g,b,created_at FROM colors WHERE hex = ? LIMIT 1`, item.Hex); err != nil {
+				if !errors.Is(err, sql.ErrNoRows) {
+					continue
+				}
+				result, createErr := s.db.Exec(`INSERT INTO colors(hex,r,g,b,created_at) VALUES(?,?,?,?,?)`, item.Hex, item.R, item.G, item.B, time.Now())
+				if createErr != nil {
+					continue
+				}
+				id, idErr := result.LastInsertId()
+				if idErr != nil {
+					continue
+				}
+				color.ID = uint(id)
+			}
+			percentage := item.Percentage
+			_, _ = s.db.Exec(`INSERT INTO file_colors(file_id,color_id,is_primary,rank,percentage,created_at) VALUES(?,?,?,?,?,?)`, file.ID, color.ID, item.IsPrimary, item.Rank, &percentage, time.Now())
+		}
 	}
+	file.PrepareForResponse()
 	return file, nil
 }
 
@@ -143,14 +177,14 @@ func (s *OSSService) SaveFileRecord(key, md5, fileName string, fileSize int64, u
 
 // GetFileByUID returns a file by its UID.
 func (s *OSSService) GetFileByUID(uid string) (*model.File, error) {
-	var file model.File
-	if err := s.db.Preload("User").Where("uid = ?", uid).First(&file).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+	file, err := s.fileRepo.FindByUID(context.Background(), uid)
+	if err != nil {
+		if errors.Is(err, repository.ErrFileNotFound) {
 			return nil, apperrors.NotFound("file not found")
 		}
 		return nil, apperrors.Internal(err, "failed to query file")
 	}
-	return &file, nil
+	return file, nil
 }
 
 // UpdateFile updates mutable fields (name / visibility) on a file.
@@ -165,7 +199,7 @@ func (s *OSSService) UpdateFile(uid string, req *model.UpdateFileRequest) error 
 	if req.IsPrivate != nil {
 		file.IsPrivate = *req.IsPrivate
 	}
-	if err := s.db.Save(file).Error; err != nil {
+	if err := s.fileRepo.Update(context.Background(), file); err != nil {
 		return apperrors.Internal(err, "failed to update file")
 	}
 	return nil
@@ -173,25 +207,12 @@ func (s *OSSService) UpdateFile(uid string, req *model.UpdateFileRequest) error 
 
 // ListFiles returns a paginated list of files, optionally filtered by owner and privacy.
 func (s *OSSService) ListFiles(userID uint, isPrivate *bool, offset, limit int, sort string) ([]model.File, int64, error) {
-	query := s.db.Model(&model.File{})
+	filter := model.FileFilter{}
 	if userID > 0 {
-		query = query.Where("user_id = ?", userID)
+		filter.UserID = &userID
 	}
-	if isPrivate != nil {
-		query = query.Where("is_private = ?", *isPrivate)
-	}
-
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, apperrors.Internal(err, "failed to count files")
-	}
-
-	if sort == "" {
-		sort = "created_at DESC"
-	}
-
-	var files []model.File
-	err := query.Preload("User").Offset(offset).Limit(limit).Order(sort).Find(&files).Error
+	filter.IsPrivate = isPrivate
+	files, total, err := s.fileRepo.List(context.Background(), filter, offset, limit, sort)
 	if err != nil {
 		return nil, 0, apperrors.Internal(err, "failed to list files")
 	}
@@ -212,10 +233,19 @@ func (s *OSSService) DeleteFile(uid string) error {
 		}
 	}
 
-	if err := s.db.Unscoped().Delete(file).Error; err != nil {
+	if err := s.fileRepo.Delete(context.Background(), file.ID); err != nil {
 		return apperrors.Internal(err, "failed to delete file")
 	}
 	return nil
+}
+
+func (s *OSSService) UpdateFileTranscodingTask(uid, taskID string) error {
+	file, err := s.fileRepo.FindByUID(context.Background(), uid)
+	if err != nil {
+		return err
+	}
+	file.TranscodingTaskID = &taskID
+	return s.fileRepo.Update(context.Background(), file)
 }
 
 // ======================
@@ -330,7 +360,7 @@ func (s *OSSService) GetPartUploadURLs(key, uploadID string, partNumbers []int) 
 }
 
 // CompleteMultipartUpload completes a multipart upload and persists a file record.
-func (s *OSSService) CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, parts []CompletePart, userID uint) (*model.File, error) {
+func (s *OSSService) CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, parts []CompletePart, userID uint, metadata *ClientMediaMetadata) (*model.File, error) {
 	ossParts := make([]oss.CompletePart, 0, len(parts))
 	for _, p := range parts {
 		ossParts = append(ossParts, oss.CompletePart{PartNumber: p.PartNumber, ETag: p.ETag})
@@ -347,7 +377,7 @@ func (s *OSSService) CompleteMultipartUpload(key, uploadID, md5, fileName string
 		logger.Log.Warnf("failed to delete part records: %v", err)
 	}
 
-	return s.SaveFileRecord(key, md5, fileName, fileSize, userID)
+	return s.SaveFileRecord(key, md5, fileName, fileSize, userID, metadata)
 }
 
 // AbortMultipartUpload aborts an in-progress multipart upload.
@@ -414,7 +444,7 @@ func (s *OSSService) getUserUID(userID uint) (string, error) {
 		return v.(string), nil
 	}
 	var user model.User
-	if err := s.db.Select("uid").First(&user, userID).Error; err != nil {
+	if err := s.db.Get(&user, `SELECT uid FROM users WHERE id = ?`, userID); err != nil {
 		return "", apperrors.Internal(err, "failed to load user")
 	}
 	s.uidCache.Store(userID, user.UID)

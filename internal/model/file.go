@@ -11,11 +11,10 @@ type File struct {
 	UID    string `json:"uid"`
 	UserID uint   `json:"-"`
 
-	Name    string  `json:"name"`
-	Path    *string `json:"path"`
-	Type    string  `json:"type"` // MIME type
-	FileMd5 string  `json:"file_md5"`
-	Size    uint    `json:"size"`
+	Name    string `json:"name"`
+	Type    string `json:"type"` // MIME type
+	FileMd5 string `json:"file_md5"`
+	Size    uint   `json:"size"`
 
 	Key       string `json:"key"` // 对象存储路径（相对路径）
 	Extension string `json:"extension"`
@@ -177,14 +176,13 @@ func (f *File) PrepareForResponse() {
 
 // CreateFileRequest represents the request body for creating a file
 type CreateFileRequest struct {
-	Name      string  `json:"name" binding:"required,min=1,max=255"`
-	Path      *string `json:"path" binding:"omitempty,max=500"`
-	Type      string  `json:"type" binding:"required,max=50"`
-	FileMd5   string  `json:"file_md5" binding:"required,len=32"`
-	Size      uint    `json:"size" binding:"required"`
-	Width     *uint   `json:"width" binding:"omitempty"`
-	Height    *uint   `json:"height" binding:"omitempty"`
-	IsPrivate bool    `json:"is_private"`
+	Name      string `json:"name" binding:"required,min=1,max=255"`
+	Type      string `json:"type" binding:"required,max=50"`
+	FileMd5   string `json:"file_md5" binding:"required,len=32"`
+	Size      uint   `json:"size" binding:"required"`
+	Width     *uint  `json:"width" binding:"omitempty"`
+	Height    *uint  `json:"height" binding:"omitempty"`
+	IsPrivate bool   `json:"is_private"`
 }
 
 // UpdateFileRequest represents the request body for updating a file
@@ -205,7 +203,6 @@ func (r *CreateFileRequest) ToFile(userID uint) *File {
 	return &File{
 		UserID:    userID,
 		Name:      r.Name,
-		Path:      r.Path,
 		Type:      r.Type,
 		FileMd5:   r.FileMd5,
 		Size:      r.Size,

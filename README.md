@@ -141,6 +141,8 @@ GO_API_APP__JWT_SECRET=replace-with-at-least-32-characters
 
 See the complete [configuration guide](docs/configuration.md), [`AGENTS.md`](AGENTS.md#environment-variables), and [`.env.example`](.env.example).
 
+For local development, `task dev` loads `.env.dev` and the optional ignored `.env.dev.local`; keep storage credentials in the latter. The standalone upload demo is available with `task upload-demo` at `http://127.0.0.1:5501/upload-demo.html`.
+
 ## Development and verification
 
 ```bash

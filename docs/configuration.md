@@ -2,7 +2,7 @@
 
 [简体中文](configuration.zh-CN.md)
 
-This project has one normal configuration source: [`../config/config.yaml`](../config/config.yaml). Environment files are templates or compatibility helpers; they are not additional configuration sources loaded automatically by the application.
+This project has one normal application configuration source: [`../config/config.yaml`](../config/config.yaml). The `task dev` command additionally loads `.env.dev` and the optional `.env.dev.local` file as environment-variable overrides.
 
 ## Configuration files
 
@@ -10,11 +10,12 @@ This project has one normal configuration source: [`../config/config.yaml`](../c
 | --- | --- | --- |
 | `config/config.yaml` | Shared defaults plus `development` and `production` profiles. | Yes |
 | `.env.example` | Documented environment-variable template for local setup and deployment reference. | No |
-| `.env.dev` | Deprecated development compatibility file. Use `APP_ENV=development` and explicit `GO_API_*` variables instead. | No |
+| `.env.dev` | Development overrides loaded by `task dev`. Keep non-secret local defaults here. | By `task dev` |
+| `.env.dev.local` | Ignored local development overrides for credentials and machine-specific values. | By `task dev` when present |
 | `.env.prod` | Deprecated production compatibility file. Use `APP_ENV=production` and a secret manager or deployment environment instead. | No |
 | `CONFIG_FILE` target | Optional replacement YAML file selected by the `CONFIG_FILE` environment variable. | Only when explicitly configured |
 
-The `.env.dev` and `.env.prod` files are not layered on top of `config/config.yaml` by the Go application. If you source one from a shell, its exported variables become normal environment-variable overrides.
+The Go application itself reads `config/config.yaml` and normal environment variables. `task dev` loads `.env.dev` first and `.env.dev.local` second, so the local file is the right place for secrets. `.env.prod` remains a deployment template and is not loaded by the application.
 
 ## Profile and override order
 
@@ -42,6 +43,35 @@ GO_API_APP__JWT_SECRET=replace-with-at-least-32-characters
 ```
 
 `GO_API_` variables use double underscores for nested keys. A single underscore remains part of a field name.
+
+## S3-compatible object storage
+
+The upload layer uses the AWS SDK for Go v2 through an S3-compatible provider interface. The same settings work with Amazon S3, Alibaba Cloud OSS, Cloudflare R2, and other compatible providers.
+
+Amazon S3 in `ap-southeast-2`:
+
+```text
+GO_API_STORAGE__ENDPOINT=https://s3.ap-southeast-2.amazonaws.com
+GO_API_STORAGE__BUCKET=go-api-starter-s3
+GO_API_STORAGE__REGION=ap-southeast-2
+GO_API_STORAGE__UPLOAD_DIR=go_api
+GO_API_STORAGE__PUBLIC_BASE_URL=
+GO_API_STORAGE__FORCE_PATH_STYLE=false
+GO_API_STORAGE__ACCESS_KEY_ID=<local-secret>
+GO_API_STORAGE__ACCESS_KEY_SECRET=<local-secret>
+```
+
+Keep the access key variables in `.env.dev.local` or a deployment secret manager. The bucket should remain private; uploads use presigned URLs. The IAM principal needs bucket-level `ListBucket` and multipart-list permissions, plus object-level `GetObject`, `PutObject`, `DeleteObject`, `AbortMultipartUpload`, and `ListMultipartUploadParts` permissions.
+
+## File metadata and reverse geocoding
+
+When the playground's “process media metadata” option is enabled, the browser submits EXIF, capture time, GPS, device, dimensions, and image features. The server accepts common EXIF time formats and can enrich GPS coordinates through AMap when configured:
+
+```text
+GO_API_APP__AMAP_API_KEY=<AMap Web service API key>
+```
+
+Without this key, the server does not call an external geocoding service; GPS coordinates are still stored and address fields remain empty.
 
 ## Configuration groups
 
@@ -73,6 +103,14 @@ $env:APP_ENV = "development"
 $env:GO_API_APP__JWT_SECRET = "local-only-secret"
 task dev
 ```
+
+`task dev` loads `.env.dev` and then `.env.dev.local`. The standalone upload page can be served without live reload:
+
+```powershell
+task upload-demo
+```
+
+Open `http://127.0.0.1:5501/upload-demo.html`. This avoids Live Server refreshing the page when the API updates the local database.
 
 Production:
 

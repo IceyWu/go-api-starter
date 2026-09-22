@@ -2,10 +2,12 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
 	"go-api-starter/internal/model"
+	"go-api-starter/internal/platform/geo"
 )
 
 type ClientMediaMetadata struct {
@@ -94,13 +96,44 @@ func applyExif(file *model.File, exif ClientImageExif) {
 	file.DeviceMake, file.DeviceModel, file.LensModel = optionalString(exif.DeviceMake), optionalString(exif.DeviceModel), optionalString(exif.LensModel)
 	file.FNumber, file.ExposureTime, file.FocalLength = optionalString(exif.FNumber), optionalString(exif.ExposureTime), optionalString(exif.FocalLength)
 	if exif.TakenAt != "" {
-		if t, err := time.Parse(time.RFC3339, exif.TakenAt); err == nil {
+		if t, err := parseMetadataTime(exif.TakenAt); err == nil {
 			file.TakenAt = &t
 		}
 	}
 	if len(exif.Raw) > 0 {
 		file.ExifRaw, _ = json.Marshal(exif.Raw)
 	}
+}
+
+func parseMetadataTime(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	for _, layout := range []string{
+		time.RFC3339,
+		"2006:01:02 15:04:05Z07:00",
+		"2006:01:02 15:04:05",
+		"2006-01-02 15:04:05",
+	} {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("unsupported metadata time format: %q", value)
+}
+
+func applyClientGeocoding(file *model.File, geocoder geo.GeocodingService) {
+	if geocoder == nil || file.Lat == nil || file.Lng == nil || (*file.Lat == 0 && *file.Lng == 0) {
+		return
+	}
+	location, err := geocoder.ReverseGeocode(*file.Lat, *file.Lng)
+	if err != nil || location == nil {
+		return
+	}
+	file.Country = location.Country
+	file.CountryCode = location.CountryCode
+	file.Province = location.Province
+	file.City = location.City
+	file.District = location.District
+	file.Address = location.Address
 }
 func optionalString(s string) *string {
 	s = strings.TrimSpace(s)

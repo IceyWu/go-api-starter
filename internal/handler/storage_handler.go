@@ -74,8 +74,9 @@ func (h *StorageHandler) UploadInit(c *transport.Context) {
 
 // UploadCompleteRequest 统一的上传完成请求
 type UploadCompleteRequest struct {
-	Parts     []service.CompletePart `json:"parts,omitempty"`
-	IsPrivate bool                   `json:"is_private"`
+	Parts     []service.CompletePart       `json:"parts,omitempty"`
+	IsPrivate bool                         `json:"is_private"`
+	Metadata  *service.ClientMediaMetadata `json:"metadata,omitempty"`
 }
 
 // UploadComplete godoc
@@ -99,7 +100,7 @@ func (h *StorageHandler) UploadComplete(c *transport.Context) {
 	if !ok {
 		return
 	}
-	file, err := h.service.CompleteUpload(c.Param("upload_id"), userID, req.Parts)
+	file, err := h.service.CompleteUpload(c.Param("upload_id"), userID, req.Parts, req.Metadata)
 	if err != nil {
 		c.Error(err)
 		return

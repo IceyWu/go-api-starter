@@ -2390,9 +2390,6 @@
                 "name": {
                     "type": "string"
                 },
-                "path": {
-                    "type": "string"
-                },
                 "province": {
                     "type": "string"
                 },

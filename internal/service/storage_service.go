@@ -17,6 +17,7 @@ import (
 	"go-api-starter/internal/config"
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/platform/apperrors"
+	"go-api-starter/internal/platform/geo"
 	"go-api-starter/internal/platform/logger"
 	"go-api-starter/internal/platform/storage"
 	"go-api-starter/internal/repository"
@@ -32,6 +33,7 @@ type StorageService struct {
 	provider      storage.ObjectStorage
 	config        *config.StorageConfig
 	appEnv        string
+	geoService    geo.GeocodingService
 	uidCache      sync.Map // userID -> uid cache
 }
 
@@ -58,7 +60,11 @@ type UploadSession struct {
 }
 
 // NewStorageService creates a new StorageService.
-func NewStorageService(db *sqlx.DB, fileRepo repository.FileRepositoryInterface, multipartRepo repository.MultipartRepositoryInterface, provider storage.ObjectStorage, cfg *config.StorageConfig, appEnv string) *StorageService {
+func NewStorageService(db *sqlx.DB, fileRepo repository.FileRepositoryInterface, multipartRepo repository.MultipartRepositoryInterface, provider storage.ObjectStorage, cfg *config.StorageConfig, appEnv string, amapAPIKey string) *StorageService {
+	var geoService geo.GeocodingService
+	if amapAPIKey != "" {
+		geoService = geo.NewAMapGeocodingService(amapAPIKey)
+	}
 	return &StorageService{
 		db:            db,
 		fileRepo:      fileRepo,
@@ -66,6 +72,7 @@ func NewStorageService(db *sqlx.DB, fileRepo repository.FileRepositoryInterface,
 		provider:      provider,
 		config:        cfg,
 		appEnv:        appEnv,
+		geoService:    geoService,
 	}
 }
 
@@ -214,7 +221,7 @@ func (s *StorageService) presignParts(key, uploadID string, totalParts int) ([]P
 	return result, nil
 }
 
-func (s *StorageService) CompleteUpload(uploadID string, userID uint, parts []CompletePart) (*model.File, error) {
+func (s *StorageService) CompleteUpload(uploadID string, userID uint, parts []CompletePart, metadata *ClientMediaMetadata) (*model.File, error) {
 	session, err := s.ownedUpload(uploadID, userID)
 	if err != nil {
 		return nil, err
@@ -255,7 +262,7 @@ func (s *StorageService) CompleteUpload(uploadID string, userID uint, parts []Co
 		return nil, apperrors.Internal(err, "failed to complete upload session")
 	}
 	_ = s.multipartRepo.DeleteParts(uploadID)
-	return s.SaveFileRecord(session.Key, session.MD5, session.FileName, object.Size, userID, nil)
+	return s.SaveFileRecord(session.Key, session.MD5, session.FileName, object.Size, userID, metadata)
 }
 
 func (s *StorageService) AbortUpload(uploadID string, userID uint) error {
@@ -290,7 +297,7 @@ func (s *StorageService) ownedUpload(uploadID string, userID uint) (*model.Multi
 // (scoped to the user when userID > 0, used for instant upload).
 func (s *StorageService) CheckFileExists(md5 string, userID uint) (*model.File, bool) {
 	var file model.File
-	query := `SELECT id,uid,user_id,name,path,type,file_md5,size,` + "`key`" + `,extension,width,height,blurhash,arthash,arthash_codec,lng,lat,country,country_code,province,city,district,address,altitude,taken_at,device_make,device_model,lens_model,f_number,exposure_time,iso,focal_length,exif_raw,duration,codec,bitrate,frame_rate,video_metadata,transcoding_task_id,is_private,created_at,updated_at FROM files WHERE file_md5 = ?`
+	query := `SELECT id,uid,user_id,name,type,file_md5,size,` + "`key`" + `,extension,width,height,blurhash,arthash,arthash_codec,lng,lat,country,country_code,province,city,district,address,altitude,taken_at,device_make,device_model,lens_model,f_number,exposure_time,iso,focal_length,exif_raw,duration,codec,bitrate,frame_rate,video_metadata,transcoding_task_id,is_private,created_at,updated_at FROM files WHERE file_md5 = ?`
 	args := []any{md5}
 	if userID > 0 {
 		query += " AND user_id = ?"
@@ -341,6 +348,7 @@ func (s *StorageService) SaveFileRecord(key, md5, fileName string, fileSize int6
 	}
 	if metadata != nil {
 		applyClientMetadata(file, metadata)
+		applyClientGeocoding(file, s.geoService)
 	}
 
 	if err := s.fileRepo.Create(context.Background(), file); err != nil {
@@ -364,7 +372,7 @@ func (s *StorageService) SaveFileRecord(key, md5, fileName string, fileSize int6
 				color.ID = uint(id)
 			}
 			percentage := item.Percentage
-			_, _ = s.db.Exec(`INSERT INTO file_colors(file_id,color_id,is_primary,rank,percentage,created_at) VALUES(?,?,?,?,?,?)`, file.ID, color.ID, item.IsPrimary, item.Rank, &percentage, time.Now())
+			_, _ = s.db.Exec(`INSERT INTO file_colors(file_id,color_id,is_primary,`+"`rank`"+`,percentage,created_at) VALUES(?,?,?,?,?,?)`, file.ID, color.ID, item.IsPrimary, item.Rank, &percentage, time.Now())
 		}
 	}
 	file.PrepareForResponse()

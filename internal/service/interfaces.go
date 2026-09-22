@@ -75,7 +75,7 @@ type PermissionServiceInterface interface {
 type StorageServiceInterface interface {
 	// Upload session operations
 	CreateUpload(fileName, contentType, checksum string, fileSize, partSize int64, userID uint) (*UploadSession, error)
-	CompleteUpload(uploadID string, userID uint, parts []CompletePart) (*model.File, error)
+	CompleteUpload(uploadID string, userID uint, parts []CompletePart, metadata *ClientMediaMetadata) (*model.File, error)
 	AbortUpload(uploadID string, userID uint) error
 	UploadPublic(ctx context.Context, key string, body io.Reader, contentType string) (*storage.ObjectInfo, error)
 	CheckFileExists(md5 string, userID uint) (*model.File, bool)

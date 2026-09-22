@@ -202,6 +202,7 @@ func (c *Container) StorageService() service.StorageServiceInterface {
 		c.storageService = service.NewStorageService(
 			c.db, c.FileRepository(), c.MultipartRepository(),
 			c.StorageProvider(), &c.config.Storage, c.config.App.Env,
+			c.config.App.AMapAPIKey,
 		)
 	})
 	return c.storageService

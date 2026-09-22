@@ -16,6 +16,7 @@ common:
     docs_user: admin
     docs_password: admin123
     default_user_password: "123456"
+    amap_api_key: ""
 
   server:
     host: localhost

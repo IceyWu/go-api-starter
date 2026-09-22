@@ -85,6 +85,7 @@ type AppConfig struct {
 	DocsUser            string `mapstructure:"docs_user"`
 	DocsPassword        string `mapstructure:"docs_password"`
 	DefaultUserPassword string `mapstructure:"default_user_password"`
+	AMapAPIKey          string `mapstructure:"amap_api_key"`
 }
 
 // ServerConfig holds HTTP server settings.

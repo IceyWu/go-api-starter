@@ -130,6 +130,8 @@ GO_API_APP__JWT_SECRET=replace-with-at-least-32-characters
 
 完整的配置文件职责、加载优先级和环境变量规则见[中文配置说明](docs/configuration.zh-CN.md)。
 
+本地开发时，`task dev` 会加载 `.env.dev` 和可选的、被 Git 忽略的 `.env.dev.local`；对象存储凭据应放在后者。独立上传 Demo 可通过 `task upload-demo` 启动，地址为 `http://127.0.0.1:5501/upload-demo.html`。
+
 ## 开发与验证
 
 ```bash

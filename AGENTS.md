@@ -174,6 +174,8 @@ func (h *XxxHandler) List(c *httpx.Context) {
 
 配置文件为唯一的普通配置来源：`config/config.yaml`。
 
+配置文件职责和加载关系见 [`docs/configuration.md`](docs/configuration.md)。
+
 - `APP_ENV`：选择配置环境，支持 `development`、`dev`、`production`、`prod`，默认是 `development`。
 - `CONFIG_FILE`：可选，指定配置文件路径，默认是 `./config/config.yaml`。
 - `GO_API_*`：覆盖配置文件中的任意字段。

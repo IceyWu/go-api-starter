@@ -118,6 +118,8 @@ GO_API_DATABASE__PASSWORD=replace-me
 GO_API_APP__JWT_SECRET=replace-with-at-least-32-characters
 ```
 
+完整的配置文件职责、加载优先级和环境变量规则见[中文配置说明](docs/configuration.zh-CN.md)。
+
 ## 开发与验证
 
 ```bash

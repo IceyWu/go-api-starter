@@ -128,7 +128,7 @@ GO_API_DATABASE__PASSWORD=replace-me
 GO_API_APP__JWT_SECRET=replace-with-at-least-32-characters
 ```
 
-See [`AGENTS.md`](AGENTS.md#environment-variables) for the complete convention and [`.env.example`](.env.example) for the template. Environment-specific files are kept intentionally small: shared defaults belong in `config/config.yaml`, while deployment secrets belong in the environment or secret manager.
+See the complete [configuration guide](docs/configuration.md), [`AGENTS.md`](AGENTS.md#environment-variables), and [`.env.example`](.env.example).
 
 ## Development and verification
 

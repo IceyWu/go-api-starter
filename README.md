@@ -1,99 +1,165 @@
-# 🚀 Go API Starter
+<p align="center">
+  <img src="https://raw.githubusercontent.com/IceyWu/go-api-starter/main/public/logo.svg" alt="go-api-starter logo" width="112" height="112" />
+</p>
 
-一个生产就绪的 Go RESTful API 脚手架。
+<h1 align="center">go-api-starter</h1>
 
-## ✨ 特性
+<p align="center">
+  A production-oriented Go API starter for authentication, RBAC, file uploads, and asynchronous media processing.
+</p>
 
-- 🏗️ 清晰分层（model / repository / service / handler / router）+ DI container
-- 🔐 JWT + Argon2 双令牌认证，Token Blacklist
-- 🗝️ 位图 RBAC 权限体系（权限空间 + 角色 + 路由级自动收集）
-- 📧 邮箱验证码（注册/登录/重置密码）
-- ☁️ OSS 文件管理（直传、分片、秒传）
-- 🌐 WebSocket Hub（心跳、指令/ack、认证）
-- 💬 微信小程序一键登录
-- ⏱️ 多级限流（单机 + Redis 分布式）
-- 🔴 Redis + 内存自动降级
-- 📝 Huma OpenAPI + Scalar UI + LLMs.txt
+<p align="center">
+  <a href="README.zh-CN.md">简体中文</a> · English
+</p>
 
-## 🚀 快速开始
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/IceyWu/go-api-starter" alt="License" /></a>
+  <a href="https://github.com/IceyWu/go-api-starter/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/IceyWu/go-api-starter/ci.yml?label=CI" alt="CI status" /></a>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/IceyWu/go-api-starter" alt="Go version" /></a>
+</p>
+
+`go-api-starter` is built with Chi, Huma, sqlc, Atlas, and Task. It provides a structured foundation for production APIs while keeping infrastructure concerns explicit and replaceable.
+
+## Highlights
+
+- Layered architecture with `handler`, `service`, `repository`, `router`, and dependency injection.
+- JWT access/refresh authentication, Argon2 password hashing, and token blacklist support.
+- Permission spaces, roles, CRUD permissions, and route-level authorization.
+- Alibaba Cloud OSS direct upload, multipart upload, resumable upload, instant upload, and persisted metadata.
+- Independent Alibaba Cloud MPS Worker for asynchronous video transcoding, polling, and result persistence.
+- WebSocket Hub with API key authentication, heartbeat, commands, and acknowledgements.
+- WeChat Mini Program login, Redis distributed rate limiting, and in-memory fallback.
+- Health checks, Prometheus metrics, Scalar API documentation, OpenAPI JSON, and `llms.txt`.
+
+## Architecture
+
+```text
+HTTP client
+    -> Chi transport and middleware
+    -> Huma / compatibility route adapters
+    -> handlers
+    -> services
+    -> repositories and platform adapters
+    -> MySQL or SQLite / Redis / OSS / MPS
+
+MPS Worker
+    -> task manager
+    -> Alibaba Cloud MPS
+    -> polling and result persistence
+    -> optional webhook notification
+```
+
+The API process does not perform local video transcoding. It creates and tracks MPS tasks; the independent Worker polls MPS and persists the resulting video variants.
+
+## Quick start
+
+### Requirements
+
+- Go 1.26.6+
+- [Task](https://taskfile.dev/)
+- MySQL 8+ and Redis for a production-like environment
+- Docker Compose (optional)
+
+### Local development
 
 ```bash
-git clone https://github.com/IceyWu/go-api-starter
+git clone https://github.com/IceyWu/go-api-starter.git
 cd go-api-starter
 
-# 安装并使用 Task（项目命令统一由 Taskfile 管理）
+# Install the repository-pinned Task version.
 go install github.com/go-task/task/v3/cmd/task@v3.53.1
-task deps
 
+task deps
 task dev
 ```
 
-常用校验命令：`task test`、`task check`、`task sqlc`、`task migrate`。
-
-生产环境需要先安装 Atlas，执行迁移并单独运行 API 和 MPS Worker：
+All project commands are managed by `Taskfile.yml`:
 
 ```bash
+task --list
+task test
+task check
+task security
 task migrate
-task prod
 task worker
 ```
 
-CI 会自动执行 `task check`、`task security`、Atlas migration 校验和 Linux 构建。生产环境必须通过环境变量覆盖 JWT、文档账号、管理员密码、默认用户密码、CORS 来源及外部服务凭据。
-
 ### Docker Compose
 
-本地可直接使用 Docker Compose 启动 MySQL、Redis 和 API，并自动执行 Atlas 迁移：
+Start MySQL, Redis, and the API with automatic Atlas migrations:
 
 ```bash
 docker compose up --build api
 ```
 
-API 健康检查地址为 `http://localhost:8080/health/ready`。需要运行 MPS Worker 时使用：
+Start the MPS Worker as well:
 
 ```bash
 docker compose --profile worker up --build
 ```
 
-## 📖 文档
+Compose credentials are intended for local development only. Replace every credential and secret before using another environment.
 
-| 地址 | 说明 |
-|------|------|
-| `/docs` | Scalar API 文档 |
-| `/openapi.json` | Complete OpenAPI JSON (Basic Auth) |
-| `/huma-openapi.json` | Huma generated operation document |
-| `/llms.txt` | AI 可读接口概览 |
-| `/llms-full.txt` | AI 可读完整文档 |
-| `/ws` | WebSocket 入口 |
+## API documentation
 
-## 🔌 核心 API
+| Path | Description |
+| --- | --- |
+| `/docs` | Scalar API documentation (Basic Auth) |
+| `/openapi.json` | Complete OpenAPI document (Basic Auth) |
+| `/swagger/doc.json` | OpenAPI endpoint for legacy clients |
+| `/llms.txt` | AI-readable API overview |
+| `/llms-full.txt` | AI-readable full API documentation |
+| `/health` | Liveness check |
+| `/health/ready` | Database and cache readiness check |
+| `/metrics` | Prometheus metrics |
+| `/ws` | WebSocket entry point |
 
-| 模块 | 端点 | 说明 |
-|------|------|------|
-| 认证 | `POST /api/v1/auth/register` | 注册（需验证码） |
-| | `POST /api/v1/auth/login` | 登录 |
-| | `POST /api/v1/auth/wx-login` | 微信登录 |
-| | `POST /api/v1/auth/self-reset-password` | 自助重置密码 |
-| 验证码 | `POST /api/v1/verification/send` | 发送验证码 |
-| | `POST /api/v1/verification/verify` | 校验验证码 |
-| 用户 | `GET/PUT /api/v1/users/me` | 当前用户 |
-| | `CRUD /api/v1/users/:uid` | 用户管理 |
-| 权限 | `/api/v1/permissions/*` | 空间/权限/角色 CRUD |
-| 文件 | `POST /api/v1/file/upload/init` | 上传初始化 |
-| | `POST /api/v1/file/upload/complete` | 完成上传 |
-| WebSocket | `GET /ws` | 长连接 |
+The default development port is `9527`; the default production port is `8080`.
 
-## ⚙️ 配置
+## Configuration
 
-配置统一维护在 [`config/config.yaml`](config/config.yaml) 中，`APP_ENV` 选择 `development` 或 `production` 配置段。
+The single configuration source is [`config/config.yaml`](config/config.yaml). Select the environment with `APP_ENV=development` or `APP_ENV=production`.
 
-环境变量使用 `GO_API_` 前缀覆盖配置，双下划线表示层级，例如 `GO_API_SERVER__PORT=9000` 覆盖 `server.port`。完整规则见 [AGENTS.md](./AGENTS.md#environment-variables)，示例见 [.env.example](.env.example)。
+Environment variables use the `GO_API_` prefix and override the final configuration. Double underscores represent nested keys:
 
-视频转码统一提交到阿里云 MPS。API server 只负责创建任务，独立的 MPS Worker 负责轮询和结果落库；项目不再包含本地转码 worker。
+```text
+GO_API_SERVER__PORT=9000
+GO_API_DATABASE__PASSWORD=replace-me
+GO_API_APP__JWT_SECRET=replace-with-at-least-32-characters
+```
 
-## 🤖 AI Agents
+See [`AGENTS.md`](AGENTS.md#environment-variables) for the complete convention and [`.env.example`](.env.example) for the template. Environment-specific files are kept intentionally small: shared defaults belong in `config/config.yaml`, while deployment secrets belong in the environment or secret manager.
 
-项目包含 [AGENTS.md](./AGENTS.md)，为 AI 编码代理提供构建命令、代码规范和架构上下文。
+## Development and verification
 
-## 📜 License
+```bash
+task fmt
+task sqlc
+task test
+task test-integration
+task check
+task atlas-validate
+task security
+task build-linux-all
+```
+
+When `MYSQL_TEST_DSN` is configured, integration tests connect to a real MySQL instance. GitHub Actions starts MySQL, applies migrations, and runs the integration suite automatically.
+
+## Project layout
+
+```text
+cmd/                 server, worker, and migration entry points
+config/              shared and environment-specific configuration
+db/                  SQL schema and sqlc queries
+docs/                version-controlled OpenAPI documentation
+internal/            application code and platform adapters
+migrations/          SQLite and MySQL Atlas migrations
+public/              logo and static assets
+Taskfile.yml         project command constraints
+Dockerfile           production container build
+docker-compose.yml   API, MySQL, Redis, and Worker orchestration
+```
+
+## License
 
 MIT

@@ -250,16 +250,16 @@ func (tm *TaskManager) UpdateTaskStatus(taskID string, status string, results []
 
 					// 检查是否已存在
 					var existing model.VideoVariant
-					err := tm.db.Get(&existing, `SELECT id,file_id,quality,key,format,size,width,height,bitrate,fps,duration,created_at FROM video_variants WHERE file_id=? AND quality=? LIMIT 1`, *task.FileID, result.Resolution)
+					err := tm.db.Get(&existing, `SELECT id,file_id,quality,`+"`key`"+`,format,size,width,height,bitrate,fps,duration,created_at FROM video_variants WHERE file_id=? AND quality=? LIMIT 1`, *task.FileID, result.Resolution)
 					if err == nil {
 						// 已存在,更新
 						if existing.Key != "" && existing.Key != variant.Key {
 							deleteOSSObject(existing.Key)
 						}
-						_, _ = tm.db.Exec(`UPDATE video_variants SET key=?,format=?,size=? WHERE id=?`, variant.Key, variant.Format, variant.Size, existing.ID)
+						_, _ = tm.db.Exec(`UPDATE video_variants SET `+"`key`"+`=?,format=?,size=? WHERE id=?`, variant.Key, variant.Format, variant.Size, existing.ID)
 					} else {
 						// 不存在,创建
-						if _, err := tm.db.Exec(`INSERT INTO video_variants(file_id,quality,key,format,size,created_at) VALUES(?,?,?,?,?,?)`, variant.FileID, variant.Quality, variant.Key, variant.Format, variant.Size, time.Now()); err != nil {
+						if _, err := tm.db.Exec(`INSERT INTO video_variants(file_id,quality,`+"`key`"+`,format,size,created_at) VALUES(?,?,?,?,?,?)`, variant.FileID, variant.Quality, variant.Key, variant.Format, variant.Size, time.Now()); err != nil {
 							logger.Log.Errorf("Failed to save video variant: %v", err)
 						} else {
 							logger.Log.Infof("Saved video variant: %s for file %d", result.Resolution, *task.FileID)

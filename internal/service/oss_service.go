@@ -97,7 +97,7 @@ func (s *OSSService) GetUploadTokenWithFileName(userID uint, fileName string) (*
 // (scoped to the user when userID > 0, used for instant upload).
 func (s *OSSService) CheckFileExists(md5 string, userID uint) (*model.File, bool) {
 	var file model.File
-	query := `SELECT id,uid,user_id,name,path,type,file_md5,size,key,extension,width,height,blurhash,arthash,arthash_codec,lng,lat,country,country_code,province,city,district,address,altitude,taken_at,device_make,device_model,lens_model,f_number,exposure_time,iso,focal_length,exif_raw,duration,codec,bitrate,frame_rate,video_metadata,transcoding_task_id,is_private,created_at,updated_at FROM files WHERE file_md5 = ?`
+	query := `SELECT id,uid,user_id,name,path,type,file_md5,size,` + "`key`" + `,extension,width,height,blurhash,arthash,arthash_codec,lng,lat,country,country_code,province,city,district,address,altitude,taken_at,device_make,device_model,lens_model,f_number,exposure_time,iso,focal_length,exif_raw,duration,codec,bitrate,frame_rate,video_metadata,transcoding_task_id,is_private,created_at,updated_at FROM files WHERE file_md5 = ?`
 	args := []any{md5}
 	if userID > 0 {
 		query += " AND user_id = ?"

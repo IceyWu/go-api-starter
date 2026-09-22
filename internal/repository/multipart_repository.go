@@ -14,7 +14,7 @@ func (r *MultipartRepository) CreateUpload(v *model.MultipartUpload) error {
 	n := modelTime()
 	v.CreatedAt = n
 	v.UpdatedAt = n
-	_, e := r.db.Exec(`INSERT INTO multipart_uploads(upload_id,key,md5,file_name,file_size,content_type,total_parts,chunk_size,user_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, v.UploadID, v.Key, v.MD5, v.FileName, v.FileSize, v.ContentType, v.TotalParts, v.ChunkSize, v.UserID, v.Status, n, n)
+	_, e := r.db.Exec(`INSERT INTO multipart_uploads(upload_id,`+"`key`"+`,md5,file_name,file_size,content_type,total_parts,chunk_size,user_id,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, v.UploadID, v.Key, v.MD5, v.FileName, v.FileSize, v.ContentType, v.TotalParts, v.ChunkSize, v.UserID, v.Status, n, n)
 	return e
 }
 func (r *MultipartRepository) GetUploadByMD5(m string, u uint) (*model.MultipartUpload, error) {

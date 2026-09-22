@@ -267,7 +267,16 @@ func (h *StorageHandler) UpdateFile(c *transport.Context) {
 	response.Success(c, file)
 }
 
-// AbortUpload cancels an upload session owned by the current user.
+// AbortUpload godoc
+// @Summary 取消上传
+// @Description 取消当前用户的上传会话并清理远端对象
+// @Tags 文件管理
+// @Produce json
+// @Param upload_id path string true "上传会话 ID"
+// @Success 200 {object} response.Response
+// @Failure 401 {object} response.Response
+// @Failure 404 {object} response.Response
+// @Router /api/v1/uploads/{upload_id} [delete]
 func (h *StorageHandler) AbortUpload(c *transport.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {

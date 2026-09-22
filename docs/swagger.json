@@ -15,6 +15,7 @@
     "paths": {
         "/api/v1/system/ping": {
             "get": {
+                "description": "检查 API 服务是否正常运行",
                 "tags": [
                     "System"
                 ],
@@ -458,19 +459,22 @@
                         "type": "integer",
                         "description": "页码（默认 1）",
                         "name": "page",
-                        "in": "query"
+                        "in": "query",
+                        "default": 1
                     },
                     {
                         "type": "integer",
                         "description": "每页数量（默认 10）",
                         "name": "page_size",
-                        "in": "query"
+                        "in": "query",
+                        "default": 10
                     },
                     {
                         "type": "string",
                         "description": "排序（如 created_at,desc）",
                         "name": "sort",
-                        "in": "query"
+                        "in": "query",
+                        "default": "id desc"
                     },
                     {
                         "type": "string",
@@ -1567,19 +1571,22 @@
                         "type": "integer",
                         "description": "页码（默认：1）",
                         "name": "page",
-                        "in": "query"
+                        "in": "query",
+                        "default": 1
                     },
                     {
                         "type": "integer",
                         "description": "每页数量（默认：10）",
                         "name": "page_size",
-                        "in": "query"
+                        "in": "query",
+                        "default": 10
                     },
                     {
                         "type": "string",
                         "description": "排序，例如 created_at,desc",
                         "name": "sort",
-                        "in": "query"
+                        "in": "query",
+                        "default": "id desc"
                     }
                 ],
                 "responses": {
@@ -1650,6 +1657,7 @@
         },
         "/api/v1/users/me": {
             "get": {
+                "description": "根据当前登录用户身份获取个人信息",
                 "security": [
                     {
                         "BearerAuth": []
@@ -1690,6 +1698,7 @@
                 }
             },
             "put": {
+                "description": "更新当前登录用户的个人信息",
                 "security": [
                     {
                         "BearerAuth": []

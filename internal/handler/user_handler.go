@@ -170,6 +170,7 @@ func (h *UserHandler) Delete(c *transport.Context) {
 
 // GetMe godoc
 // @Summary 获取当前用户信息
+// @Description 根据当前登录用户身份获取个人信息
 // @Tags 用户管理
 // @Produce json
 // @Security BearerAuth
@@ -194,6 +195,7 @@ func (h *UserHandler) GetMe(c *transport.Context) {
 
 // UpdateMe godoc
 // @Summary 更新当前用户信息
+// @Description 更新当前登录用户的个人信息
 // @Tags 用户管理
 // @Accept json
 // @Produce json

@@ -35,6 +35,7 @@ func Setup(db *sqlx.DB) (*transport.Engine, *middleware.PermissionMiddleware, *c
 		Method:      http.MethodGet,
 		Path:        "/api/v1/system/ping",
 		Summary:     "System ping",
+		Description: "检查 API 服务是否正常运行",
 		Tags:        []string{"System"},
 	}, func(context.Context, *struct{}) (*struct {
 		Body struct {

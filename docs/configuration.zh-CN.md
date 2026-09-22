@@ -53,9 +53,9 @@ YAML 配置按照功能划分：
 | `server` | 监听地址、HTTP 超时、关闭超时和请求限制。 |
 | `database` | MySQL/SQLite 连接、连接池和迁移设置。 |
 | `log` | 日志级别、格式和输出目标。 |
-| `oss` | 阿里云 OSS 凭据、Bucket、Endpoint 和上传设置。 |
+| `storage` | S3 兼容存储的 Endpoint、Bucket、凭据、公开 URL 和上传设置。 |
 | `redis` | 可选缓存、Token 黑名单、限流和降级设置。 |
-| `transcoding` | 阿里云 MPS 地域、管道、模板、轮询和 Worker 设置。 |
+| `transcoding` | 可选的阿里云 MPS 地域、管道、模板、轮询和 Worker 设置。只有配置 MPS 时才设置 `enabled: true`。 |
 | `cors` | 允许的来源和跨域行为。 |
 | `rate_limit` | 全局、用户、登录、上传和降级限流。 |
 | `mail` | SMTP 服务和验证码邮件设置。 |

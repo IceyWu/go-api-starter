@@ -20,7 +20,7 @@ type Config struct {
 	Server      ServerConfig      `mapstructure:"server"`
 	Database    DatabaseConfig    `mapstructure:"database"`
 	Log         LogConfig         `mapstructure:"log"`
-	OSS         OSSConfig         `mapstructure:"oss"`
+	Storage     StorageConfig     `mapstructure:"storage"`
 	Redis       RedisConfig       `mapstructure:"redis"`
 	Transcoding TranscodingConfig `mapstructure:"transcoding"`
 	CORS        CORSConfig        `mapstructure:"cors"`
@@ -125,17 +125,16 @@ type LogConfig struct {
 	FilePath string `mapstructure:"file_path"`
 }
 
-// OSSConfig holds Aliyun OSS settings.
-type OSSConfig struct {
+// StorageConfig holds provider-neutral S3-compatible object storage settings.
+type StorageConfig struct {
 	Endpoint          string   `mapstructure:"endpoint"`
 	Bucket            string   `mapstructure:"bucket"`
-	BucketName        string   `mapstructure:"bucket_name"`
 	Region            string   `mapstructure:"region"`
 	AccessKeyID       string   `mapstructure:"access_key_id"`
 	AccessKeySecret   string   `mapstructure:"access_key_secret"`
 	UploadDir         string   `mapstructure:"upload_dir"`
-	Domain            string   `mapstructure:"domain"`
-	CallbackURL       string   `mapstructure:"callback_url"`
+	PublicBaseURL     string   `mapstructure:"public_base_url"`
+	ForcePathStyle    bool     `mapstructure:"force_path_style"`
 	MaxFileSize       int64    `mapstructure:"max_file_size"`
 	AllowedExtensions []string `mapstructure:"allowed_extensions"`
 	TokenExpire       int64    `mapstructure:"token_expire"`
@@ -165,6 +164,7 @@ func (r *RedisConfig) Addr() string {
 }
 
 type TranscodingConfig struct {
+	Enabled             bool   `mapstructure:"enabled"`
 	StorageRoot         string `mapstructure:"storage_root"`
 	MPSRegion           string `mapstructure:"mps_region"`
 	MPSPipelineID       string `mapstructure:"mps_pipeline_id"`

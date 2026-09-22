@@ -4,7 +4,7 @@
 
 Go API Starter — 基于 Go + Chi + Huma + sqlc + Atlas 的 RESTful API 脚手架。采用清晰分层架构：model → repository → service → handler → router，通过 DI container 管理依赖。
 
-技术栈：Chi、Huma、sqlc、Atlas、slog 日志、Koanf 配置、Redis 缓存（可选）、阿里云 OSS、WebSocket、JWT + Argon2 认证、位图 RBAC 权限。
+技术栈：Chi、Huma、sqlc、Atlas、slog 日志、Koanf 配置、Redis 缓存（可选）、AWS SDK for Go v2 S3 兼容存储、WebSocket、JWT + Argon2 认证、位图 RBAC 权限。
 
 ## Setup commands
 
@@ -96,7 +96,7 @@ internal/router/            → 路由注册（按模块分文件）
 internal/middleware/        → HTTP 中间件
 internal/ws/                → WebSocket Hub
 internal/seed/              → 权限/管理员种子数据
-internal/platform/          → 应用私有基础设施（数据库、缓存、OSS、日志、指标等）
+internal/platform/          → 应用私有基础设施（数据库、缓存、S3 存储、日志、指标等）
 internal/transport/         → Chi HTTP transport helpers and response writers
 ```
 
@@ -188,7 +188,7 @@ APP_ENV=production
 GO_API_SERVER__PORT=9000
 GO_API_DATABASE__PASSWORD=change-me
 GO_API_APP__JWT_SECRET=replace-with-at-least-32-characters
-GO_API_OSS__ACCESS_KEY_SECRET=...
+GO_API_STORAGE__ACCESS_KEY_SECRET=...
 ```
 
 映射规则：

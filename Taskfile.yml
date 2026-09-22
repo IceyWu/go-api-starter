@@ -17,10 +17,12 @@ tasks:
 
   dev:
     desc: Run the API server with the development profile
+    dotenv: ['.env.dev']
     deps: [swagger]
     env:
       APP_ENV: development
     cmds:
+      - task: stop-dev
       - cmd: go build -o bin/server.exe ./cmd/server
         platforms: [windows]
       - cmd: go build -o bin/server ./cmd/server
@@ -28,6 +30,26 @@ tasks:
       - cmd: ./bin/server.exe
         platforms: [windows]
       - cmd: ./bin/server
+        platforms: [linux, darwin]
+
+  upload-demo:
+    desc: Serve the standalone upload demo without live reload
+    dir: examples
+    cmds:
+      - cmd: python -m http.server 5501
+        platforms: [windows]
+      - cmd: python3 -m http.server 5501
+        platforms: [linux, darwin]
+
+  stop-dev:
+    desc: Stop the current development server owned by this project
+    internal: true
+    cmds:
+      - cmd: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-dev.ps1
+        platforms: [windows]
+      - cmd: |
+          target="$(pwd)/bin/server"
+          for pid in $(pgrep -f "$target" || true); do kill "$pid"; done
         platforms: [linux, darwin]
 
   prod:

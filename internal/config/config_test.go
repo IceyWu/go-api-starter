@@ -41,6 +41,7 @@ func TestProductionValidationRejectsInsecureDefaults(t *testing.T) {
 		Database: DatabaseConfig{Driver: "sqlite"},
 		CORS:     CORSConfig{AllowOrigins: []string{"*"}},
 		Transcoding: TranscodingConfig{
+			Enabled:       false,
 			MPSRegion:     "",
 			MPSPipelineID: "",
 		},
@@ -78,12 +79,42 @@ func TestProductionValidationAcceptsSecureOverrides(t *testing.T) {
 		Database: DatabaseConfig{Driver: "sqlite"},
 		CORS:     CORSConfig{AllowOrigins: []string{"https://app.example.com"}},
 		Transcoding: TranscodingConfig{
-			MPSRegion:     "cn-hangzhou",
-			MPSPipelineID: "pipeline-id",
+			Enabled:       false,
+			MPSRegion:     "",
+			MPSPipelineID: "",
 		},
 	}
 
 	if errs := cfg.Validate(); errs.HasErrors() {
-		t.Fatalf("expected secure production configuration to pass, got %v", errs)
+		t.Fatalf("expected secure production configuration without MPS to pass, got %v", errs)
 	}
+}
+
+func TestProductionValidationRequiresMPSWhenEnabled(t *testing.T) {
+	cfg := &Config{
+		App: AppConfig{
+			Env:                 "production",
+			JWTSecret:           "secure-jwt-secret-that-is-at-least-32-chars",
+			DocsUser:            "docs-admin",
+			DocsPassword:        "secure-docs-password",
+			AdminPassword:       "secure-admin-password",
+			DefaultUserPassword: "secure-default-password",
+		},
+		Server:   ServerConfig{Port: "8080"},
+		Database: DatabaseConfig{Driver: "sqlite"},
+		CORS:     CORSConfig{AllowOrigins: []string{"https://app.example.com"}},
+		Transcoding: TranscodingConfig{
+			Enabled:       true,
+			MPSRegion:     "",
+			MPSPipelineID: "pipeline-id",
+		},
+	}
+
+	errs := cfg.Validate()
+	for _, err := range errs {
+		if err.Field == "transcoding.mps_region" {
+			return
+		}
+	}
+	t.Fatalf("expected MPS region validation error, got %v", errs)
 }

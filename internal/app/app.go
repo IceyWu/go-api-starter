@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,7 +17,7 @@ import (
 	"go-api-starter/internal/platform/database"
 	"go-api-starter/internal/platform/logger"
 	"go-api-starter/internal/platform/netutil"
-	"go-api-starter/internal/platform/oss"
+	"go-api-starter/internal/platform/storage"
 	"go-api-starter/internal/router"
 	"go-api-starter/internal/seed"
 )
@@ -43,16 +45,16 @@ func Run() error {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	if cfg.OSS.AccessKeyID != "" && cfg.OSS.AccessKeySecret != "" {
-		if err := oss.InitOSS(&cfg.OSS); err != nil {
-			logger.Log.Warnf("Failed to initialize OSS: %v", err)
+	if cfg.Storage.AccessKeyID != "" && cfg.Storage.AccessKeySecret != "" {
+		if _, err := storage.NewS3Provider(context.Background(), &cfg.Storage); err != nil {
+			logger.Log.Warnf("Failed to initialize object storage: %v", err)
 		} else {
-			logger.Log.Info("OSS client initialized successfully")
+			logger.Log.Info("object storage client configured successfully")
 		}
 	} else {
-		logger.Log.Warn("OSS credentials not configured, OSS features will be disabled")
+		logger.Log.Warn("object storage credentials not configured, upload features will be disabled")
 	}
-	setOSSBaseURL(cfg)
+	setStorageBaseURL(cfg)
 
 	r, permMw, container := router.Setup(db)
 	seed.SyncPermissions(db, permMw.CollectedCodes())
@@ -155,16 +157,22 @@ func closeDB(db interface{ Close() error }) error {
 	return db.Close()
 }
 
-func setOSSBaseURL(cfg *config.Config) {
-	if cfg.OSS.Domain != "" {
-		model.SetOSSBaseURL(cfg.OSS.Domain)
+func setStorageBaseURL(cfg *config.Config) {
+	if cfg.Storage.PublicBaseURL != "" {
+		model.SetStorageBaseURL(cfg.Storage.PublicBaseURL)
 		return
 	}
-	bucket := cfg.OSS.Bucket
-	if bucket == "" {
-		bucket = cfg.OSS.BucketName
-	}
-	if bucket != "" && cfg.OSS.Endpoint != "" {
-		model.SetOSSBaseURL("https://" + bucket + "." + cfg.OSS.Endpoint)
+	if cfg.Storage.Bucket != "" && cfg.Storage.Endpoint != "" {
+		endpoint := strings.TrimRight(cfg.Storage.Endpoint, "/")
+		if parsed, err := url.Parse(endpoint); err == nil && parsed.Host != "" {
+			if cfg.Storage.ForcePathStyle {
+				parsed.Path = strings.TrimRight(parsed.Path, "/") + "/" + cfg.Storage.Bucket
+			} else if !strings.HasPrefix(parsed.Host, cfg.Storage.Bucket+".") {
+				parsed.Host = cfg.Storage.Bucket + "." + parsed.Host
+			}
+			model.SetStorageBaseURL(parsed.String())
+			return
+		}
+		model.SetStorageBaseURL(endpoint)
 	}
 }

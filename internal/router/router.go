@@ -66,6 +66,10 @@ func Setup(db *sqlx.DB) (*transport.Engine, *middleware.PermissionMiddleware, *c
 	// Compression and CORS are implemented by the internal transport adapter.
 	r.Use(transport.Gzip())
 	r.Use(transport.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowMethods, cfg.CORS.AllowHeaders))
+	// Chi only dispatches middleware after a method matches. Register a catch-all
+	// OPTIONS route so browser preflight requests receive CORS headers instead of
+	// a 405 before the CORS middleware can run.
+	r.OPTIONS("/*", transport.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowMethods, cfg.CORS.AllowHeaders))
 
 	// Rate limiting
 	if cfg.Redis.Enabled {

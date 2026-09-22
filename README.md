@@ -25,8 +25,8 @@
 - Layered architecture with `handler`, `service`, `repository`, `router`, and dependency injection.
 - JWT access/refresh authentication, Argon2 password hashing, and token blacklist support.
 - Permission spaces, roles, CRUD permissions, and route-level authorization.
-- Alibaba Cloud OSS direct upload, multipart upload, resumable upload, instant upload, and persisted metadata.
-- Independent Alibaba Cloud MPS Worker for asynchronous video transcoding, polling, and result persistence.
+- S3-compatible direct upload, multipart upload, resumable upload, instant upload, and persisted file records.
+- Optional independent Alibaba Cloud MPS Worker for asynchronous video transcoding, polling, and result persistence.
 - WebSocket Hub with API key authentication, heartbeat, commands, and acknowledgements.
 - WeChat Mini Program login, Redis distributed rate limiting, and in-memory fallback.
 - Health checks, Prometheus metrics, Scalar API documentation, OpenAPI JSON, and `llms.txt`.
@@ -40,7 +40,7 @@ HTTP client
     -> handlers
     -> services
     -> repositories and platform adapters
-    -> MySQL or SQLite / Redis / OSS / MPS
+    -> MySQL or SQLite / Redis / S3-compatible storage / MPS
 
 MPS Worker
     -> task manager
@@ -49,7 +49,7 @@ MPS Worker
     -> optional webhook notification
 ```
 
-The API process does not perform local video transcoding. It creates and tracks MPS tasks; the independent Worker polls MPS and persists the resulting video variants.
+The API process does not perform local video transcoding. When enabled, it creates and tracks MPS tasks; the independent Worker polls MPS and persists the resulting video variants.
 
 ## Quick start
 
@@ -113,6 +113,17 @@ Compose credentials are intended for local development only. Replace every crede
 | `/health/ready` | Database and cache readiness check |
 | `/metrics` | Prometheus metrics |
 | `/ws` | WebSocket entry point |
+
+Upload sessions use a provider-neutral flow:
+
+```text
+POST   /api/v1/uploads
+POST   /api/v1/uploads/{id}/complete
+DELETE /api/v1/uploads/{id}
+```
+
+The client only receives presigned URLs and submits part ETags. Object keys,
+size, and content type are controlled and verified by the server.
 
 The default development port is `9527`; the default production port is `8080`.
 

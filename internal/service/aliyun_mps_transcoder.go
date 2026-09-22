@@ -59,7 +59,7 @@ type AliyunMPSClient struct {
 }
 
 // NewAliyunMPSClient creates an MPS client when all mandatory settings exist.
-func NewAliyunMPSClient(ossCfg *config.OSSConfig, transcodingCfg *config.TranscodingConfig) (*AliyunMPSClient, error) {
+func NewAliyunMPSClient(ossCfg *config.StorageConfig, transcodingCfg *config.TranscodingConfig) (*AliyunMPSClient, error) {
 	if ossCfg == nil || transcodingCfg == nil {
 		return nil, fmt.Errorf("OSS and transcoding configuration are required")
 	}
@@ -68,10 +68,7 @@ func NewAliyunMPSClient(ossCfg *config.OSSConfig, transcodingCfg *config.Transco
 	}
 	bucket := ossCfg.Bucket
 	if bucket == "" {
-		bucket = ossCfg.BucketName
-	}
-	if bucket == "" {
-		return nil, fmt.Errorf("OSS bucket is not configured")
+		return nil, fmt.Errorf("storage bucket is not configured")
 	}
 	ossLocation := ossCfg.Region
 	region := transcodingCfg.MPSRegion

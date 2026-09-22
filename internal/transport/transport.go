@@ -28,6 +28,7 @@ type IRouter interface {
 	POST(string, ...HandlerFunc)
 	PUT(string, ...HandlerFunc)
 	DELETE(string, ...HandlerFunc)
+	OPTIONS(string, ...HandlerFunc)
 }
 
 type Accounts map[string]string
@@ -241,6 +242,9 @@ func (g *RouterGroup) PUT(path string, handlers ...HandlerFunc) {
 }
 func (g *RouterGroup) DELETE(path string, handlers ...HandlerFunc) {
 	g.handle(http.MethodDelete, path, handlers...)
+}
+func (g *RouterGroup) OPTIONS(path string, handlers ...HandlerFunc) {
+	g.handle(http.MethodOptions, path, handlers...)
 }
 
 func (g *RouterGroup) handle(method, path string, handlers ...HandlerFunc) {

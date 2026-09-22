@@ -443,7 +443,7 @@
                 }
             }
         },
-        "/api/v1/file": {
+        "/api/v1/files": {
             "get": {
                 "description": "获取文件分页列表，未登录只返回公开文件",
                 "produces": [
@@ -495,9 +495,9 @@
                 }
             }
         },
-        "/api/v1/file/public/upload": {
+        "/api/v1/files/public/upload": {
             "post": {
-                "description": "直接上传文件到 OSS 的 public 目录，不落库。适合头像等小文件场景。",
+                "description": "直接上传文件到对象存储的 public 目录，不落库。适合头像等小文件场景。",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -527,28 +527,22 @@
                 }
             }
         },
-        "/api/v1/file/upload/abort": {
-            "post": {
-                "description": "取消分片上传并清理已上传的分片",
-                "consumes": [
-                    "application/json"
-                ],
+        "/api/v1/uploads/{upload_id}": {
+            "delete": {
+                "description": "取消上传会话并清理远端对象",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "文件管理"
                 ],
-                "summary": "取消分片上传",
+                "summary": "取消上传",
                 "parameters": [
                     {
-                        "description": "取消请求",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.AbortMultipartRequest"
-                        }
+                        "type": "string",
+                        "name": "upload_id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -561,7 +555,7 @@
                 }
             }
         },
-        "/api/v1/file/upload/complete": {
+        "/api/v1/uploads/{upload_id}/complete": {
             "post": {
                 "description": "统一的上传完成接口，支持普通上传和分片上传",
                 "consumes": [
@@ -613,7 +607,7 @@
                 }
             }
         },
-        "/api/v1/file/upload/init": {
+        "/api/v1/uploads": {
             "post": {
                 "description": "统一的上传初始化接口，自动检查秒传，根据文件大小决定普通/分片上传",
                 "consumes": [
@@ -653,41 +647,7 @@
                 }
             }
         },
-        "/api/v1/file/upload/urls": {
-            "post": {
-                "description": "获取分片上传的预签名 URL",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "文件管理"
-                ],
-                "summary": "获取分片上传URL",
-                "parameters": [
-                    {
-                        "description": "请求参数",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.GetPartURLRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/response.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/file/{uid}": {
+        "/api/v1/files/{uid}": {
             "get": {
                 "description": "根据 UID 获取文件信息",
                 "consumes": [
@@ -793,7 +753,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "从 OSS 和数据库中删除文件",
+                "description": "从对象存储和数据库中删除文件",
                 "produces": [
                     "application/json"
                 ],
@@ -2082,43 +2042,6 @@
         }
     },
     "definitions": {
-        "handler.AbortMultipartRequest": {
-            "type": "object",
-            "required": [
-                "key",
-                "upload_id"
-            ],
-            "properties": {
-                "key": {
-                    "type": "string"
-                },
-                "upload_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "handler.GetPartURLRequest": {
-            "type": "object",
-            "required": [
-                "key",
-                "part_numbers",
-                "upload_id"
-            ],
-            "properties": {
-                "key": {
-                    "type": "string"
-                },
-                "part_numbers": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "upload_id": {
-                    "type": "string"
-                }
-            }
-        },
         "handler.HealthResponse": {
             "type": "object",
             "properties": {
@@ -2173,42 +2096,15 @@
         },
         "handler.UploadCompleteRequest": {
             "type": "object",
-            "required": [
-                "file_name",
-                "file_size",
-                "key",
-                "md5",
-                "metadata"
-            ],
             "properties": {
-                "file_name": {
-                    "type": "string"
-                },
-                "file_size": {
-                    "type": "integer"
-                },
                 "is_private": {
                     "type": "boolean"
                 },
-                "key": {
-                    "type": "string"
-                },
-                "md5": {
-                    "type": "string"
-                },
-                "metadata": {
-                    "$ref": "#/definitions/service.ClientMediaMetadata"
-                },
                 "parts": {
-                    "description": "分片上传专用",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/service.CompletePart"
                     }
-                },
-                "upload_id": {
-                    "description": "分片上传专用",
-                    "type": "string"
                 }
             }
         },
@@ -2216,22 +2112,19 @@
             "type": "object",
             "required": [
                 "file_name",
-                "file_size",
-                "md5"
+                "size",
+                "checksum"
             ],
             "properties": {
-                "chunk_size": {
-                    "description": "可选，不传则使用默认值或普通上传",
-                    "type": "integer"
+                "checksum": {
+                    "description": "文件 MD5，用于秒传和断点恢复",
+                    "type": "string"
                 },
                 "file_name": {
                     "type": "string"
                 },
-                "file_size": {
+                "size": {
                     "type": "integer"
-                },
-                "md5": {
-                    "type": "string"
                 }
             }
         },
@@ -2482,7 +2375,7 @@
                     "type": "integer"
                 },
                 "key": {
-                    "description": "OSS 存储路径（相对路径）",
+                    "description": "对象存储路径（相对路径）",
                     "type": "string"
                 },
                 "lat": {

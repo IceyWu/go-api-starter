@@ -24,8 +24,8 @@
 - 清晰分层：model、repository、service、handler、router 和 DI container。
 - JWT access/refresh 双 Token 认证和 Token 黑名单。
 - 权限空间、CRUD 权限、角色以及路由级权限控制。
-- 阿里云 OSS 直传、分片上传、断点续传、秒传和文件元数据持久化。
-- 独立 MPS Worker，负责异步视频转码、轮询和结果落库。
+- S3 兼容对象存储直传、分片上传、断点续传、秒传和文件记录持久化。
+- 可选的独立 MPS Worker，负责异步视频转码、轮询和结果落库。
 - 支持 API Key、心跳、指令和 ack 的 WebSocket Hub。
 - 微信小程序登录、Redis 分布式限流和内存降级。
 - 健康检查、Prometheus Metrics、Scalar API 文档、OpenAPI JSON 和 `llms.txt`。
@@ -79,7 +79,7 @@ HTTP 客户端
     -> handler
     -> service
     -> repository 和 platform 适配层
-    -> MySQL 或 SQLite / Redis / OSS / MPS
+    -> MySQL 或 SQLite / Redis / S3 兼容对象存储 / MPS
 
 MPS Worker
     -> 任务管理器
@@ -88,7 +88,7 @@ MPS Worker
     -> 可选 Webhook 通知
 ```
 
-API 进程不执行本地视频转码，只负责创建和跟踪 MPS 任务；独立 Worker 轮询 MPS 并写入最终视频变体。
+API 进程不执行本地视频转码。启用 MPS 时，API 负责创建和跟踪任务，独立 Worker 轮询 MPS 并写入最终视频变体。
 
 ## 文档和接口
 
@@ -103,6 +103,16 @@ API 进程不执行本地视频转码，只负责创建和跟踪 MPS 任务；�
 | `/health/ready` | 数据库和缓存就绪检查 |
 | `/metrics` | Prometheus 指标 |
 | `/ws` | WebSocket 入口 |
+
+文件上传使用与存储厂商无关的上传会话流程：
+
+```text
+POST   /api/v1/uploads
+POST   /api/v1/uploads/{id}/complete
+DELETE /api/v1/uploads/{id}
+```
+
+客户端只接收预签名 URL 并提交分片 ETag；对象 Key、大小和类型由服务端生成并校验。
 
 开发环境默认端口为 `9527`，生产环境默认为 `8080`。
 

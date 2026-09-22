@@ -10,9 +10,9 @@ import (
 )
 
 func registerFileRoutes(api *transport.RouterGroup, c *container.Container, authMw *middleware.AuthMiddleware) {
-	h := c.OSSHandler()
+	h := c.StorageHandler()
 
-	file := api.Group("/file")
+	file := api.Group("/files")
 
 	// 公开上传（无需鉴权）
 	file.POST("/public/upload", h.PublicUpload)
@@ -24,8 +24,9 @@ func registerFileRoutes(api *transport.RouterGroup, c *container.Container, auth
 	// 需要认证
 	file.Use(authMw.RequireAuth())
 	{
-		upload := file.Group("/upload")
+		uploads := api.Group("/uploads")
 		{
+			uploads.Use(authMw.RequireAuth())
 			cfg := c.Config()
 			limit := 120
 			if cfg != nil && cfg.RateLimit.UploadPerMinute > 0 {
@@ -45,11 +46,9 @@ func registerFileRoutes(api *transport.RouterGroup, c *container.Container, auth
 				return append([]transport.HandlerFunc{uploadActionMw}, handlers...)
 			}
 
-			upload.POST("/init", withLimit(h.UploadInit)...)
-			upload.POST("/complete", withLimit(h.UploadComplete)...)
-			// 辅助接口：总在 /init 之后调用，不再限流
-			upload.POST("/urls", h.GetPartUploadURLs)
-			upload.POST("/abort", h.AbortMultipart)
+			uploads.POST("", withLimit(h.UploadInit)...)
+			uploads.POST("/:upload_id/complete", withLimit(h.UploadComplete)...)
+			uploads.DELETE("/:upload_id", h.AbortUpload)
 		}
 
 		file.PUT("/:uid", h.UpdateFile)

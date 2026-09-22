@@ -2,39 +2,39 @@ package apperrors
 
 import "net/http"
 
-// OSS-related error codes
+// Object-storage error codes.
 const (
-	CodeOSSNotInitialized      = "OSS_NOT_INITIALIZED"
-	CodeOSSInitError           = "OSS_INIT_ERROR"
-	CodeOSSUploadError         = "OSS_UPLOAD_ERROR"
+	CodeStorageNotInitialized  = "STORAGE_NOT_INITIALIZED"
+	CodeStorageInitError       = "STORAGE_INIT_ERROR"
+	CodeStorageUploadError     = "STORAGE_UPLOAD_ERROR"
 	CodeMultipartInitError     = "MULTIPART_INIT_ERROR"
 	CodeMultipartCompleteError = "MULTIPART_COMPLETE_ERROR"
 	CodeMultipartAbortError    = "MULTIPART_ABORT_ERROR"
-	CodeOSSDeleteError         = "OSS_DELETE_ERROR"
-	CodeOSSListError           = "OSS_LIST_ERROR"
+	CodeStorageDeleteError     = "STORAGE_DELETE_ERROR"
+	CodeStorageListError       = "STORAGE_LIST_ERROR"
 )
 
-// ErrOSSNotInitialized is returned when OSS client is not initialized
-var ErrOSSNotInitialized = &AppError{
-	Code:       CodeOSSNotInitialized,
-	Message:    "OSS client not initialized",
+// ErrStorageNotInitialized is returned when the object-storage client is not initialized.
+var ErrStorageNotInitialized = &AppError{
+	Code:       CodeStorageNotInitialized,
+	Message:    "object storage client not initialized",
 	HTTPStatus: http.StatusServiceUnavailable,
 }
 
-// OSSInitError creates an error for OSS initialization failures
-func OSSInitError(err error) *AppError {
+// StorageInitError creates an error for object-storage initialization failures.
+func StorageInitError(err error) *AppError {
 	return &AppError{
-		Code:       CodeOSSInitError,
-		Message:    "failed to initialize OSS",
+		Code:       CodeStorageInitError,
+		Message:    "failed to initialize object storage",
 		HTTPStatus: http.StatusServiceUnavailable,
 		Err:        err,
 	}
 }
 
-// OSSUploadError creates an error for OSS upload failures
-func OSSUploadError(err error, details string) *AppError {
+// StorageUploadError creates an error for object-storage upload failures.
+func StorageUploadError(err error, details string) *AppError {
 	return &AppError{
-		Code:       CodeOSSUploadError,
+		Code:       CodeStorageUploadError,
 		Message:    "failed to upload file",
 		HTTPStatus: http.StatusBadGateway,
 		Err:        err,
@@ -72,22 +72,22 @@ func MultipartAbortError(err error) *AppError {
 	}
 }
 
-// OSSDeleteError creates an error for OSS file deletion failures
-func OSSDeleteError(err error, key string) *AppError {
+// StorageDeleteError creates an error for object deletion failures.
+func StorageDeleteError(err error, key string) *AppError {
 	return &AppError{
-		Code:       CodeOSSDeleteError,
-		Message:    "failed to delete file from OSS",
+		Code:       CodeStorageDeleteError,
+		Message:    "failed to delete object",
 		HTTPStatus: http.StatusBadGateway,
 		Err:        err,
 		Details:    key,
 	}
 }
 
-// OSSListError creates an error for OSS list operations failures
-func OSSListError(err error) *AppError {
+// StorageListError creates an error for object listing failures.
+func StorageListError(err error) *AppError {
 	return &AppError{
-		Code:       CodeOSSListError,
-		Message:    "failed to list files from OSS",
+		Code:       CodeStorageListError,
+		Message:    "failed to list objects",
 		HTTPStatus: http.StatusBadGateway,
 		Err:        err,
 	}

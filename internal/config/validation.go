@@ -111,39 +111,41 @@ func (c *Config) Validate() ValidationErrors {
 			}
 		}
 
-		// OSS validation if endpoint is configured
-		if c.OSS.Endpoint != "" {
-			if c.OSS.AccessKeyID == "" {
+		// Object-storage validation if endpoint is configured
+		if c.Storage.Endpoint != "" {
+			if c.Storage.AccessKeyID == "" {
 				errors = append(errors, ValidationError{
-					Field:   "oss.access_key_id",
-					Message: "OSS access key ID must be configured when OSS is enabled in production",
+					Field:   "storage.access_key_id",
+					Message: "storage access key ID must be configured when storage is enabled in production",
 				})
 			}
-			if c.OSS.AccessKeySecret == "" {
+			if c.Storage.AccessKeySecret == "" {
 				errors = append(errors, ValidationError{
-					Field:   "oss.access_key_secret",
-					Message: "OSS access key secret must be configured when OSS is enabled in production",
+					Field:   "storage.access_key_secret",
+					Message: "storage access key secret must be configured when storage is enabled in production",
 				})
 			}
-			if c.OSS.BucketName == "" && c.OSS.Bucket == "" {
+			if c.Storage.Bucket == "" {
 				errors = append(errors, ValidationError{
-					Field:   "oss.bucket_name",
-					Message: "OSS bucket name must be configured when OSS is enabled in production",
+					Field:   "storage.bucket",
+					Message: "storage bucket must be configured when storage is enabled in production",
 				})
 			}
 		}
 
-		if c.Transcoding.MPSRegion == "" {
-			errors = append(errors, ValidationError{
-				Field:   "transcoding.mps_region",
-				Message: "MPS region must be configured in production",
-			})
-		}
-		if c.Transcoding.MPSPipelineID == "" {
-			errors = append(errors, ValidationError{
-				Field:   "transcoding.mps_pipeline_id",
-				Message: "MPS pipeline ID must be configured in production",
-			})
+		if c.Transcoding.Enabled {
+			if c.Transcoding.MPSRegion == "" {
+				errors = append(errors, ValidationError{
+					Field:   "transcoding.mps_region",
+					Message: "MPS region must be configured when transcoding is enabled",
+				})
+			}
+			if c.Transcoding.MPSPipelineID == "" {
+				errors = append(errors, ValidationError{
+					Field:   "transcoding.mps_pipeline_id",
+					Message: "MPS pipeline ID must be configured when transcoding is enabled",
+				})
+			}
 		}
 
 		if len(c.CORS.AllowOrigins) == 0 || containsWildcard(c.CORS.AllowOrigins) {

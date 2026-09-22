@@ -35,18 +35,23 @@ func (c *Container) PermissionHandler() *handler.PermissionHandler {
 	return c.permHandler
 }
 
-func (c *Container) OSSHandler() *handler.OSSHandler {
-	c.ossHandlerOnce.Do(func() {
-		c.ossHandler = handler.NewOSSHandler(c.OSSService(), c.UserService())
-		c.ossHandler.SetTaskManager(c.TranscodingTaskManager())
+func (c *Container) StorageHandler() *handler.StorageHandler {
+	c.storageHandlerOnce.Do(func() {
+		c.storageHandler = handler.NewStorageHandler(c.StorageService(), c.UserService())
+		c.storageHandler.SetTaskManager(c.TranscodingTaskManager())
 	})
-	return c.ossHandler
+	return c.storageHandler
 }
 
 func (c *Container) TranscodingTaskManager() *service.TaskManager {
 	c.taskManagerOnce.Do(func() {
 		c.taskManager = service.NewTaskManager(c.db)
-		transcoder, err := service.NewAliyunMPSClient(&c.config.OSS, &c.config.Transcoding)
+		c.taskManager.SetEnabled(c.config.Transcoding.Enabled)
+		c.taskManager.SetStorageProvider(c.StorageProvider())
+		if !c.config.Transcoding.Enabled {
+			return
+		}
+		transcoder, err := service.NewAliyunMPSClient(&c.config.Storage, &c.config.Transcoding)
 		if err != nil {
 			c.taskManager.SetProviderError(err)
 			return

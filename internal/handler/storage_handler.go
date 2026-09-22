@@ -13,38 +13,33 @@ import (
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/platform/apperrors"
 	"go-api-starter/internal/platform/logger"
-	"go-api-starter/internal/platform/oss"
 	"go-api-starter/internal/platform/response"
 	"go-api-starter/internal/service"
 )
 
-// Imports referenced for swagger auto-generation
-var (
-	_ = oss.UploadToken{}
-	_ = model.File{}
-)
+// Imports referenced for swagger auto-generation.
+var _ = model.File{}
 
-type OSSHandler struct {
-	service     service.OSSServiceInterface
+type StorageHandler struct {
+	service     service.StorageServiceInterface
 	userService service.UserServiceInterface
 	taskManager *service.TaskManager
 }
 
-// NewOSSHandler creates a new OSSHandler.
-func NewOSSHandler(svc service.OSSServiceInterface, userSvc service.UserServiceInterface) *OSSHandler {
-	return &OSSHandler{service: svc, userService: userSvc}
+// NewStorageHandler creates a new StorageHandler.
+func NewStorageHandler(svc service.StorageServiceInterface, userSvc service.UserServiceInterface) *StorageHandler {
+	return &StorageHandler{service: svc, userService: userSvc}
 }
 
-func (h *OSSHandler) SetTaskManager(tm *service.TaskManager) { h.taskManager = tm }
+func (h *StorageHandler) SetTaskManager(tm *service.TaskManager) { h.taskManager = tm }
 
 // ============ 统一上传接口 ============
 
 // UploadInitRequest 统一的上传初始化请求
 type UploadInitRequest struct {
-	FileName  string `json:"file_name" binding:"required"`
-	FileSize  int64  `json:"file_size" binding:"required"`
-	MD5       string `json:"md5" binding:"required"`
-	ChunkSize int64  `json:"chunk_size"` // 可选，不传则使用默认值或普通上传
+	FileName string `json:"file_name" binding:"required"`
+	Size     int64  `json:"size" binding:"required"`
+	Checksum string `json:"checksum" binding:"required"`
 }
 
 // UploadInit godoc
@@ -56,78 +51,31 @@ type UploadInitRequest struct {
 // @Param request body UploadInitRequest true "初始化请求"
 // @Success 200 {object} response.Response
 // @Failure 400 {object} response.Response
-// @Router /api/v1/file/upload/init [post]
-func (h *OSSHandler) UploadInit(c *transport.Context) {
+// @Router /api/v1/uploads [post]
+func (h *StorageHandler) UploadInit(c *transport.Context) {
 	var req UploadInitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
 		return
 	}
 
-	userID := GetOptionalUserID(c)
-
-	// 1. 检查秒传
-	if req.MD5 != "" {
-		file, exists := h.service.CheckFileExists(req.MD5, userID)
-		if exists {
-			response.Success(c, transport.H{
-				"exists": true,
-				"file":   file,
-			})
-			return
-		}
-	}
-
-	// 2. 根据文件大小决定上传方式：< 5MB 普通上传，>= 5MB 分片上传
-	const multipartThreshold = 5 * 1024 * 1024
-
-	if req.FileSize < multipartThreshold {
-		token, err := h.service.GetUploadTokenWithFileName(userID, req.FileName)
-		if err != nil {
-			c.Error(err)
-			return
-		}
-		response.Success(c, transport.H{
-			"exists": false,
-			"mode":   "simple",
-			"token":  token,
-		})
+	userID, ok := GetUserID(c)
+	if !ok {
 		return
 	}
-
-	chunkSize := req.ChunkSize
-	if chunkSize <= 0 {
-		chunkSize = 5 * 1024 * 1024 // 默认 5MB
-	}
-
-	result, err := h.service.InitMultipartUpload(req.FileName, req.MD5, req.FileSize, chunkSize, userID)
+	result, err := h.service.CreateUpload(req.FileName, "", req.Checksum, req.Size, 0, userID)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	response.Success(c, transport.H{
-		"exists":         false,
-		"mode":           "multipart",
-		"upload_id":      result.UploadID,
-		"key":            result.Key,
-		"host":           result.Host,
-		"total_parts":    result.TotalParts,
-		"chunk_size":     result.ChunkSize,
-		"uploaded_parts": result.UploadedParts,
-	})
+	response.Success(c, result)
 }
 
 // UploadCompleteRequest 统一的上传完成请求
 type UploadCompleteRequest struct {
-	Key       string                       `json:"key" binding:"required"`
-	MD5       string                       `json:"md5" binding:"required"`
-	FileName  string                       `json:"file_name" binding:"required"`
-	FileSize  int64                        `json:"file_size" binding:"required"`
-	IsPrivate *bool                        `json:"is_private"`
-	UploadID  string                       `json:"upload_id"` // 分片上传专用
-	Parts     []service.CompletePart       `json:"parts"`     // 分片上传专用
-	Metadata  *service.ClientMediaMetadata `json:"metadata" binding:"required"`
+	Parts     []service.CompletePart `json:"parts,omitempty"`
+	IsPrivate bool                   `json:"is_private"`
 }
 
 // UploadComplete godoc
@@ -139,40 +87,30 @@ type UploadCompleteRequest struct {
 // @Param request body UploadCompleteRequest true "完成请求"
 // @Success 200 {object} response.Response{data=model.File}
 // @Failure 400 {object} response.Response
-// @Router /api/v1/file/upload/complete [post]
-func (h *OSSHandler) UploadComplete(c *transport.Context) {
+// @Router /api/v1/uploads/{upload_id}/complete [post]
+func (h *StorageHandler) UploadComplete(c *transport.Context) {
 	var req UploadCompleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
 		return
 	}
 
-	userID := GetOptionalUserID(c)
-
-	var (
-		file *model.File
-		err  error
-	)
-
-	if req.UploadID != "" && len(req.Parts) > 0 {
-		file, err = h.service.CompleteMultipartUpload(
-			req.Key, req.UploadID, req.MD5, req.FileName,
-			req.FileSize, req.Parts, userID, req.Metadata,
-		)
-	} else {
-		file, err = h.service.SaveFileRecord(req.Key, req.MD5, req.FileName, req.FileSize, userID, req.Metadata)
+	userID, ok := GetUserID(c)
+	if !ok {
+		return
 	}
+	file, err := h.service.CompleteUpload(c.Param("upload_id"), userID, req.Parts)
 	if err != nil {
 		c.Error(err)
 		return
 	}
 
-	if req.IsPrivate != nil && *req.IsPrivate {
+	if req.IsPrivate {
 		isPrivate := true
 		_ = h.service.UpdateFile(file.UID, &model.UpdateFileRequest{IsPrivate: &isPrivate})
 		file.IsPrivate = true
 	}
-	if h.taskManager != nil && strings.HasPrefix(file.Type, "video/") && file.TranscodingTaskID == nil {
+	if h.taskManager != nil && h.taskManager.Enabled() && strings.HasPrefix(file.Type, "video/") && file.TranscodingTaskID == nil {
 		if taskID, taskErr := h.taskManager.CreateTask(model.CreateTaskRequest{FileID: &file.ID, SourceURL: file.URL, Resolutions: []string{"original", "1080p", "720p", "480p"}}); taskErr == nil {
 			file.TranscodingTaskID = &taskID
 			_ = h.service.UpdateFileTranscodingTask(file.UID, taskID)
@@ -191,8 +129,8 @@ func (h *OSSHandler) UploadComplete(c *transport.Context) {
 // @Param uid path string true "文件 UID"
 // @Success 200 {object} response.Response{data=model.File}
 // @Failure 404 {object} response.Response
-// @Router /api/v1/file/{uid} [get]
-func (h *OSSHandler) GetFile(c *transport.Context) {
+// @Router /api/v1/files/{uid} [get]
+func (h *StorageHandler) GetFile(c *transport.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -216,8 +154,8 @@ func (h *OSSHandler) GetFile(c *transport.Context) {
 // @Param user_uid query string false "按用户 UID 筛选"
 // @Param is_private query bool false "是否仅返回私密文件（需认证）"
 // @Success 200 {object} response.Response
-// @Router /api/v1/file [get]
-func (h *OSSHandler) ListFiles(c *transport.Context) {
+// @Router /api/v1/files [get]
+func (h *StorageHandler) ListFiles(c *transport.Context) {
 	p, ok := BindPagination(c)
 	if !ok {
 		return
@@ -263,14 +201,14 @@ func (h *OSSHandler) ListFiles(c *transport.Context) {
 
 // DeleteFile godoc
 // @Summary 删除文件
-// @Description 从 OSS 和数据库中删除文件
+// @Description 从对象存储和数据库中删除文件
 // @Tags 文件管理
 // @Produce json
 // @Security BearerAuth
 // @Param uid path string true "文件 UID"
 // @Success 200 {object} response.Response
-// @Router /api/v1/file/{uid} [delete]
-func (h *OSSHandler) DeleteFile(c *transport.Context) {
+// @Router /api/v1/files/{uid} [delete]
+func (h *StorageHandler) DeleteFile(c *transport.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -291,8 +229,8 @@ func (h *OSSHandler) DeleteFile(c *transport.Context) {
 // @Param uid path string true "文件 UID"
 // @Param request body model.UpdateFileRequest true "更新请求"
 // @Success 200 {object} response.Response{data=model.File}
-// @Router /api/v1/file/{uid} [put]
-func (h *OSSHandler) UpdateFile(c *transport.Context) {
+// @Router /api/v1/files/{uid} [put]
+func (h *StorageHandler) UpdateFile(c *transport.Context) {
 	uid, ok := GetUID(c)
 	if !ok {
 		return
@@ -328,59 +266,13 @@ func (h *OSSHandler) UpdateFile(c *transport.Context) {
 	response.Success(c, file)
 }
 
-// ============ 分片上传辅助接口 ============
-
-type GetPartURLRequest struct {
-	Key         string `json:"key" binding:"required"`
-	UploadID    string `json:"upload_id" binding:"required"`
-	PartNumbers []int  `json:"part_numbers" binding:"required"`
-}
-
-// GetPartUploadURLs godoc
-// @Summary 获取分片上传URL
-// @Description 获取分片上传的预签名 URL
-// @Tags 文件管理
-// @Accept json
-// @Produce json
-// @Param request body GetPartURLRequest true "请求参数"
-// @Success 200 {object} response.Response
-// @Router /api/v1/file/upload/urls [post]
-func (h *OSSHandler) GetPartUploadURLs(c *transport.Context) {
-	var req GetPartURLRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
+// AbortUpload cancels an upload session owned by the current user.
+func (h *StorageHandler) AbortUpload(c *transport.Context) {
+	userID, ok := GetUserID(c)
+	if !ok {
 		return
 	}
-	urls, err := h.service.GetPartUploadURLs(req.Key, req.UploadID, req.PartNumbers)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	response.Success(c, transport.H{"urls": urls})
-}
-
-// AbortMultipartRequest represents the request to abort a multipart upload
-type AbortMultipartRequest struct {
-	Key      string `json:"key" binding:"required"`
-	UploadID string `json:"upload_id" binding:"required"`
-}
-
-// AbortMultipart godoc
-// @Summary 取消分片上传
-// @Description 取消分片上传并清理已上传的分片
-// @Tags 文件管理
-// @Accept json
-// @Produce json
-// @Param request body AbortMultipartRequest true "取消请求"
-// @Success 200 {object} response.Response
-// @Router /api/v1/file/upload/abort [post]
-func (h *OSSHandler) AbortMultipart(c *transport.Context) {
-	var req AbortMultipartRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(apperrors.BadRequest("invalid request: " + err.Error()))
-		return
-	}
-	if err := h.service.AbortMultipartUpload(req.Key, req.UploadID); err != nil {
+	if err := h.service.AbortUpload(c.Param("upload_id"), userID); err != nil {
 		c.Error(err)
 		return
 	}
@@ -391,14 +283,14 @@ func (h *OSSHandler) AbortMultipart(c *transport.Context) {
 
 // PublicUpload godoc
 // @Summary 公开文件上传（无需鉴权）
-// @Description 直接上传文件到 OSS 的 public 目录，不落库。适合头像等小文件场景。
+// @Description 直接上传文件到对象存储的 public 目录，不落库。适合头像等小文件场景。
 // @Tags 文件管理
 // @Accept multipart/form-data
 // @Produce json
 // @Param file formData file true "要上传的文件"
 // @Success 200 {object} response.Response
-// @Router /api/v1/file/public/upload [post]
-func (h *OSSHandler) PublicUpload(c *transport.Context) {
+// @Router /api/v1/files/public/upload [post]
+func (h *StorageHandler) PublicUpload(c *transport.Context) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		c.Error(apperrors.BadRequest("file is required: " + err.Error()))
@@ -418,8 +310,8 @@ func (h *OSSHandler) PublicUpload(c *transport.Context) {
 
 	cfg := config.GetConfig()
 	var objectKey string
-	if cfg != nil && cfg.OSS.UploadDir != "" {
-		objectKey = fmt.Sprintf("%s/public/%s/%s", cfg.OSS.UploadDir, dateDir, fileName)
+	if cfg != nil && cfg.Storage.UploadDir != "" {
+		objectKey = fmt.Sprintf("%s/public/%s/%s", cfg.Storage.UploadDir, dateDir, fileName)
 	} else {
 		objectKey = fmt.Sprintf("public/%s/%s", dateDir, fileName)
 	}
@@ -429,10 +321,10 @@ func (h *OSSHandler) PublicUpload(c *transport.Context) {
 		contentType = inferContentTypeFromExt(ext)
 	}
 
-	result, err := oss.UploadFile(file, fileHeader, objectKey)
+	result, err := h.service.UploadPublic(c.Request.Context(), objectKey, file, contentType)
 	if err != nil {
 		logger.Log.Errorf("public upload failed: %v", err)
-		c.Error(apperrors.Internal(err, "failed to upload file to OSS"))
+		c.Error(apperrors.Internal(err, "failed to upload file to object storage"))
 		return
 	}
 

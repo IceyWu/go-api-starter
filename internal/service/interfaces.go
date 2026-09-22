@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
+	"io"
 
 	"go-api-starter/internal/model"
-	"go-api-starter/internal/platform/oss"
+	"go-api-starter/internal/platform/storage"
 )
 
 // AuthServiceInterface defines the interface for authentication service operations
@@ -70,13 +71,14 @@ type PermissionServiceInterface interface {
 	CheckUserPermission(ctx context.Context, userID uint, permissionCode string) (bool, error)
 }
 
-// OSSServiceInterface defines the interface for OSS service operations
-type OSSServiceInterface interface {
-	// Simple upload operations
-	GetUploadToken(userID uint) (*oss.UploadToken, error)
-	GetUploadTokenWithFileName(userID uint, fileName string) (*oss.UploadToken, error)
+// StorageServiceInterface defines file and object-storage operations.
+type StorageServiceInterface interface {
+	// Upload session operations
+	CreateUpload(fileName, contentType, checksum string, fileSize, partSize int64, userID uint) (*UploadSession, error)
+	CompleteUpload(uploadID string, userID uint, parts []CompletePart) (*model.File, error)
+	AbortUpload(uploadID string, userID uint) error
+	UploadPublic(ctx context.Context, key string, body io.Reader, contentType string) (*storage.ObjectInfo, error)
 	CheckFileExists(md5 string, userID uint) (*model.File, bool)
-	SaveFileRecord(key, md5, fileName string, fileSize int64, userID uint, metadata *ClientMediaMetadata) (*model.File, error)
 
 	// File operations (all use uid)
 	GetFileByUID(uid string) (*model.File, error)
@@ -84,16 +86,4 @@ type OSSServiceInterface interface {
 	ListFiles(userID uint, isPrivate *bool, offset, limit int, sort string) ([]model.File, int64, error)
 	DeleteFile(uid string) error
 	UpdateFileTranscodingTask(uid, taskID string) error
-
-	// Multipart upload operations
-	InitMultipartUpload(fileName string, md5 string, fileSize int64, chunkSize int64, userID uint) (*MultipartInitResult, error)
-	GetPartUploadURL(key, uploadID string, partNumber int) (*PartUploadInfo, error)
-	GetPartUploadURLs(key, uploadID string, partNumbers []int) ([]PartUploadInfo, error)
-	CompleteMultipartUpload(key, uploadID, md5, fileName string, fileSize int64, parts []CompletePart, userID uint, metadata *ClientMediaMetadata) (*model.File, error)
-	AbortMultipartUpload(key, uploadID string) error
-	ListUploadedParts(key, uploadID string) ([]CompletePart, error)
-
-	// Resumable upload support
-	SaveUploadedPart(uploadID string, partNumber int, etag string, size int64) error
-	GetUploadedPartsFromDB(uploadID string) ([]CompletePart, error)
 }

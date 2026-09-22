@@ -15,7 +15,7 @@ var UsernamePrefix = "go"
 type User struct {
 	ID               uint    `json:"-"`                  // 内部ID，不对外暴露
 	UID              string  `json:"uid"`                // 对外唯一标识
-	LPID             string  `json:"lp_id"`              // LP号，类似抖音号
+	LPID             string  `json:"lp_id" db:"lp_id"`   // LP号，类似抖音号
 	Username         *string `json:"username,omitempty"` // 用户账号
 	Mobile           *string `json:"mobile,omitempty"`   // 手机号，可选
 	Email            *string `json:"email,omitempty"`    // 邮箱，可选

@@ -53,9 +53,9 @@ The YAML file is organized by capability:
 | `server` | Bind address, HTTP timeouts, shutdown timeout, and request limits. |
 | `database` | MySQL/SQLite connection, pool, and migration settings. |
 | `log` | Log level, format, and output destination. |
-| `oss` | Alibaba Cloud OSS credentials, bucket, endpoint, and upload settings. |
+| `storage` | S3-compatible endpoint, bucket, credentials, public URL, and upload settings. |
 | `redis` | Optional cache, blacklist, rate-limit, and fallback settings. |
-| `transcoding` | Alibaba Cloud MPS region, pipeline, templates, polling, and worker settings. |
+| `transcoding` | Optional Alibaba Cloud MPS region, pipeline, templates, polling, and worker settings. Set `enabled: true` only when MPS is configured. |
 | `cors` | Allowed origins and HTTP cross-origin behavior. |
 | `rate_limit` | Global, user, login, upload, and fallback rate limits. |
 | `mail` | SMTP server and verification-mail settings. |

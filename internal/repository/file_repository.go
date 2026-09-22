@@ -24,7 +24,12 @@ func (r *FileRepository) Create(c context.Context, v *model.File) error {
 	n := modelTime()
 	v.CreatedAt = n
 	v.UpdatedAt = n
-	x, e := r.db.ExecContext(c, `INSERT INTO files(uid,user_id,name,path,type,file_md5,size,`+fileKeyColumn+`,extension,width,height,blurhash,arthash,arthash_codec,lng,lat,country,country_code,province,city,district,address,altitude,taken_at,device_make,device_model,lens_model,f_number,exposure_time,iso,focal_length,exif_raw,duration,codec,bitrate,frame_rate,video_metadata,transcoding_task_id,is_private,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, v.UID, v.UserID, v.Name, v.Path, v.Type, v.FileMd5, v.Size, v.Key, v.Extension, v.Width, v.Height, v.Blurhash, v.Arthash, v.ArthashCodec, v.Lng, v.Lat, v.Country, v.CountryCode, v.Province, v.City, v.District, v.Address, v.Altitude, v.TakenAt, v.DeviceMake, v.DeviceModel, v.LensModel, v.FNumber, v.ExposureTime, v.ISO, v.FocalLength, v.ExifRaw, v.Duration, v.Codec, v.Bitrate, v.FrameRate, v.VideoMetadata, v.TranscodingTaskID, v.IsPrivate, n, n)
+	x, e := r.db.ExecContext(c, `INSERT INTO files(uid,user_id,name,path,type,file_md5,size,`+fileKeyColumn+`,extension,width,height,blurhash,arthash,arthash_codec,lng,lat,country,country_code,province,city,district,address,altitude,taken_at,device_make,device_model,lens_model,f_number,exposure_time,iso,focal_length,exif_raw,duration,codec,bitrate,frame_rate,video_metadata,transcoding_task_id,is_private,created_at,updated_at) VALUES(
+?,?,?,?,?,?,?,?,?, ?,
+?,?,?,?,?,?,?,?,?, ?,
+?,?,?,?,?,?,?,?,?, ?,
+?,?,?,?,?,?,?,?,?, ?,
+?)`, v.UID, v.UserID, v.Name, v.Path, v.Type, v.FileMd5, v.Size, v.Key, v.Extension, v.Width, v.Height, v.Blurhash, v.Arthash, v.ArthashCodec, v.Lng, v.Lat, v.Country, v.CountryCode, v.Province, v.City, v.District, v.Address, v.Altitude, v.TakenAt, v.DeviceMake, v.DeviceModel, v.LensModel, v.FNumber, v.ExposureTime, v.ISO, v.FocalLength, v.ExifRaw, v.Duration, v.Codec, v.Bitrate, v.FrameRate, v.VideoMetadata, v.TranscodingTaskID, v.IsPrivate, n, n)
 	if e == nil {
 		if id, z := x.LastInsertId(); z == nil {
 			v.ID = uint(id)

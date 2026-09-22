@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,13 +12,15 @@ import (
 
 	"go-api-starter/internal/model"
 	"go-api-starter/internal/platform/logger"
-	"go-api-starter/internal/platform/oss"
+	"go-api-starter/internal/platform/storage"
 )
 
 // TaskManager manages transcoding tasks
 type TaskManager struct {
 	db              *sqlx.DB
+	enabled         bool
 	cloudTranscoder CloudTranscoder
+	storageProvider storage.ObjectStorage
 	providerError   error
 }
 
@@ -33,6 +36,21 @@ func NewTaskManager(db *sqlx.DB) *TaskManager {
 func (tm *TaskManager) SetCloudTranscoder(transcoder CloudTranscoder) {
 	tm.cloudTranscoder = transcoder
 	tm.providerError = nil
+}
+
+// SetEnabled controls whether uploads should create cloud transcoding tasks.
+func (tm *TaskManager) SetEnabled(enabled bool) {
+	tm.enabled = enabled
+}
+
+// SetStorageProvider supplies the object storage used for transcoded variants.
+func (tm *TaskManager) SetStorageProvider(provider storage.ObjectStorage) {
+	tm.storageProvider = provider
+}
+
+// Enabled reports whether cloud transcoding is enabled for this process.
+func (tm *TaskManager) Enabled() bool {
+	return tm != nil && tm.enabled
 }
 
 // SetProviderError makes MPS configuration failures visible to upload callers.
@@ -222,14 +240,14 @@ func (tm *TaskManager) UpdateTaskStatus(taskID string, status string, results []
 			if err := tm.db.Get(&file, `SELECT id,transcoding_task_id FROM files WHERE id=?`, *task.FileID); err != nil {
 				// The file may have been deleted while a remote job was running.
 				logger.Log.Infof("Skipping variants for task %s because its file no longer exists", taskID)
-				cleanupTranscodingKeys(results)
+				tm.cleanupTranscodingKeys(results)
 				return nil
 			}
 			if file.TranscodingTaskID == nil || *file.TranscodingTaskID != taskID {
 				// A later reprocess owns the file now. Do not let an old MPS
 				// callback resurrect stale variants.
 				logger.Log.Infof("Skipping stale variants for task %s", taskID)
-				cleanupTranscodingKeys(results)
+				tm.cleanupTranscodingKeys(results)
 				return nil
 			}
 
@@ -254,7 +272,7 @@ func (tm *TaskManager) UpdateTaskStatus(taskID string, status string, results []
 					if err == nil {
 						// 已存在,更新
 						if existing.Key != "" && existing.Key != variant.Key {
-							deleteOSSObject(existing.Key)
+							tm.deleteObject(existing.Key)
 						}
 						_, _ = tm.db.Exec(`UPDATE video_variants SET `+"`key`"+`=?,format=?,size=? WHERE id=?`, variant.Key, variant.Format, variant.Size, existing.ID)
 					} else {
@@ -273,23 +291,19 @@ func (tm *TaskManager) UpdateTaskStatus(taskID string, status string, results []
 	return nil
 }
 
-func deleteOSSObject(key string) {
-	if key == "" {
+func (tm *TaskManager) deleteObject(key string) {
+	if key == "" || tm.storageProvider == nil {
 		return
 	}
-	bucket := oss.GetBucket()
-	if bucket == nil {
-		return
-	}
-	if err := bucket.DeleteObject(key); err != nil {
+	if err := tm.storageProvider.DeleteObject(context.Background(), key); err != nil {
 		logger.Log.Warnf("failed to delete transcoding object %s: %v", key, err)
 	}
 }
 
-func cleanupTranscodingKeys(results []model.TranscodingResult) {
+func (tm *TaskManager) cleanupTranscodingKeys(results []model.TranscodingResult) {
 	for _, result := range results {
 		if result.Status == "success" {
-			deleteOSSObject(result.URL)
+			tm.deleteObject(result.URL)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"github.com/jmoiron/sqlx"
 	"io"
 	"log/slog"
@@ -14,6 +15,7 @@ import (
 	"go-api-starter/internal/platform/cache"
 	"go-api-starter/internal/platform/logger"
 	"go-api-starter/internal/platform/mail"
+	"go-api-starter/internal/platform/storage"
 	"go-api-starter/internal/repository"
 	"go-api-starter/internal/service"
 	"go-api-starter/internal/ws"
@@ -45,20 +47,22 @@ type Container struct {
 	fileRepoOnce      sync.Once
 
 	// Services
-	authService        service.AuthServiceInterface
-	authServiceOnce    sync.Once
-	userService        service.UserServiceInterface
-	userServiceOnce    sync.Once
-	permService        service.PermissionServiceInterface
-	permServiceOnce    sync.Once
-	ossService         service.OSSServiceInterface
-	ossServiceOnce     sync.Once
-	taskManager        *service.TaskManager
-	taskManagerOnce    sync.Once
-	tokenBlacklist     service.TokenBlacklist
-	tokenBlacklistOnce sync.Once
-	wechatService      *service.WechatService
-	wechatServiceOnce  sync.Once
+	authService         service.AuthServiceInterface
+	authServiceOnce     sync.Once
+	userService         service.UserServiceInterface
+	userServiceOnce     sync.Once
+	permService         service.PermissionServiceInterface
+	permServiceOnce     sync.Once
+	storageService      service.StorageServiceInterface
+	storageServiceOnce  sync.Once
+	storageProvider     storage.ObjectStorage
+	storageProviderOnce sync.Once
+	taskManager         *service.TaskManager
+	taskManagerOnce     sync.Once
+	tokenBlacklist      service.TokenBlacklist
+	tokenBlacklistOnce  sync.Once
+	wechatService       *service.WechatService
+	wechatServiceOnce   sync.Once
 
 	// Permission components
 	permManager     *service.BitPermissionManager
@@ -81,18 +85,18 @@ type Container struct {
 	rateLimiterOnce sync.Once
 
 	// Handlers
-	authHandler       *handler.AuthHandler
-	authHandlerOnce   sync.Once
-	userHandler       *handler.UserHandler
-	userHandlerOnce   sync.Once
-	permHandler       *handler.PermissionHandler
-	permHandlerOnce   sync.Once
-	ossHandler        *handler.OSSHandler
-	ossHandlerOnce    sync.Once
-	healthHandler     *handler.HealthHandler
-	healthHandlerOnce sync.Once
-	verifyHandler     *handler.VerificationHandler
-	verifyHandlerOnce sync.Once
+	authHandler        *handler.AuthHandler
+	authHandlerOnce    sync.Once
+	userHandler        *handler.UserHandler
+	userHandlerOnce    sync.Once
+	permHandler        *handler.PermissionHandler
+	permHandlerOnce    sync.Once
+	storageHandler     *handler.StorageHandler
+	storageHandlerOnce sync.Once
+	healthHandler      *handler.HealthHandler
+	healthHandlerOnce  sync.Once
+	verifyHandler      *handler.VerificationHandler
+	verifyHandlerOnce  sync.Once
 
 	// Mail
 	mailClient     *mail.Client
@@ -193,14 +197,28 @@ func (c *Container) PermissionService() service.PermissionServiceInterface {
 	return c.permService
 }
 
-func (c *Container) OSSService() service.OSSServiceInterface {
-	c.ossServiceOnce.Do(func() {
-		c.ossService = service.NewOSSService(
+func (c *Container) StorageService() service.StorageServiceInterface {
+	c.storageServiceOnce.Do(func() {
+		c.storageService = service.NewStorageService(
 			c.db, c.FileRepository(), c.MultipartRepository(),
-			&c.config.OSS, c.config.App.Env,
+			c.StorageProvider(), &c.config.Storage, c.config.App.Env,
 		)
 	})
-	return c.ossService
+	return c.storageService
+}
+
+// StorageProvider returns the configured provider-neutral object storage client.
+func (c *Container) StorageProvider() storage.ObjectStorage {
+	c.storageProviderOnce.Do(func() {
+		if c.config.Storage.Endpoint == "" || c.config.Storage.Bucket == "" || c.config.Storage.AccessKeyID == "" || c.config.Storage.AccessKeySecret == "" {
+			return
+		}
+		provider, err := storage.NewS3Provider(context.Background(), &c.config.Storage)
+		if err == nil {
+			c.storageProvider = provider
+		}
+	})
+	return c.storageProvider
 }
 
 func (c *Container) TokenBlacklist() service.TokenBlacklist {

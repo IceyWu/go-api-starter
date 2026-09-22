@@ -13,7 +13,7 @@ import (
 	"go-api-starter/internal/container"
 	"go-api-starter/internal/platform/database"
 	"go-api-starter/internal/platform/logger"
-	"go-api-starter/internal/platform/oss"
+	"go-api-starter/internal/platform/storage"
 	"go-api-starter/internal/service"
 )
 
@@ -23,6 +23,10 @@ import (
 func RunWorker() error {
 	cfg := config.Load()
 	logger.Init(cfg.Log.Level, cfg.Log.Format, cfg.Log.Output, cfg.Log.FilePath)
+	if !cfg.Transcoding.Enabled {
+		logger.Log.Info("Alibaba Cloud MPS worker is disabled")
+		return nil
+	}
 
 	db, err := database.Init(&database.Config{
 		Driver:          cfg.Database.Driver,
@@ -42,9 +46,9 @@ func RunWorker() error {
 	}
 	defer closeDB(db)
 
-	if cfg.OSS.AccessKeyID != "" && cfg.OSS.AccessKeySecret != "" {
-		if err := oss.InitOSS(&cfg.OSS); err != nil {
-			logger.Log.Warn("failed to initialize OSS", "error", err)
+	if cfg.Storage.AccessKeyID != "" && cfg.Storage.AccessKeySecret != "" {
+		if _, err := storage.NewS3Provider(context.Background(), &cfg.Storage); err != nil {
+			logger.Log.Warn("failed to initialize object storage", "error", err)
 		}
 	}
 

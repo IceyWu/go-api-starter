@@ -17,7 +17,7 @@ type File struct {
 	FileMd5 string  `json:"file_md5"`
 	Size    uint    `json:"size"`
 
-	Key       string `json:"key"` // OSS 存储路径（相对路径）
+	Key       string `json:"key"` // 对象存储路径（相对路径）
 	Extension string `json:"extension"`
 
 	// URL 由 Key + BaseURL 动态生成，不存数据库
@@ -153,21 +153,21 @@ func (f *File) PrepareForCreate() {
 	}
 }
 
-// OSSBaseURL is the base URL for constructing full URLs from keys.
+// StorageBaseURL is the base URL for constructing full URLs from object keys.
 // Set once at startup from config (e.g. "https://bucket.oss-cn-hangzhou.aliyuncs.com").
-var OSSBaseURL string
+var StorageBaseURL string
 
-// SetOSSBaseURL sets the global base URL for OSS file access.
-func SetOSSBaseURL(baseURL string) {
-	OSSBaseURL = strings.TrimRight(baseURL, "/")
+// SetStorageBaseURL sets the global base URL for object access.
+func SetStorageBaseURL(baseURL string) {
+	StorageBaseURL = strings.TrimRight(baseURL, "/")
 }
 
 // BuildURL constructs the full URL from the key using the global base URL.
 func BuildURL(key string) string {
-	if key == "" || OSSBaseURL == "" {
+	if key == "" || StorageBaseURL == "" {
 		return key
 	}
-	return OSSBaseURL + "/" + key
+	return StorageBaseURL + "/" + key
 }
 
 // AfterFind SQL hook: auto-populate URL from Key after loading from DB.

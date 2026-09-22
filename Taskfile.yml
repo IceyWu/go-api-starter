@@ -17,7 +17,7 @@ tasks:
 
   dev:
     desc: Run the API server with the development profile
-    dotenv: ['.env.dev']
+    dotenv: ['.env.dev', '.env.dev.local']
     deps: [swagger]
     env:
       APP_ENV: development

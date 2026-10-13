@@ -135,14 +135,29 @@ tasks:
   check:
     desc: Verify formatting, generate, test, lint, build, and check whitespace
     cmds:
+      - task: check-source
+        vars:
+          TEST_ARGS: '{{.TEST_ARGS | default ""}}'
+      - task: build
+      - task: diff-check
+
+  check-ci:
+    desc: Verify source and tests; Docker build validates production binaries
+    cmds:
+      - task: check-source
+        vars:
+          TEST_ARGS: '{{.TEST_ARGS | default ""}}'
+      - task: diff-check
+
+  check-source:
+    internal: true
+    cmds:
       - test -z "$(gofmt -l .)"
       - task: sqlc
       - task: test
         vars:
-          CLI_ARGS: '{{.TEST_ARGS}}'
+          CLI_ARGS: '{{.TEST_ARGS | default ""}}'
       - task: lint
-      - task: build
-      - task: diff-check
 
   diff-check:
     desc: Verify patch whitespace

@@ -94,6 +94,15 @@ Start MySQL, Redis, and the API with automatic Atlas migrations:
 docker compose up --build api
 ```
 
+Docker 镜像构建默认将 Go 包编译并发限制为 2，避免在资源较小的部署服务器上占满内存。资源受限时可显式设为 1：
+
+```bash
+docker compose build --build-arg GO_BUILD_PARALLELISM=1 api
+docker compose up api
+```
+
+有更多构建资源时，可通过 `GO_BUILD_PARALLELISM` build arg 提高并发；该值只限制 Docker 构建阶段，不限制运行中的 API 容器。
+
 Start the MPS Worker as well:
 
 ```bash

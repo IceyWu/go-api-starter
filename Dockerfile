@@ -3,6 +3,10 @@
 FROM golang:1.27.2-alpine AS build
 
 WORKDIR /src
+# Bound package-level compile concurrency on small deployment builders.
+# Override with --build-arg GO_BUILD_PARALLELISM=<n> when the builder has more capacity.
+ARG GO_BUILD_PARALLELISM=2
+ENV GOFLAGS=-p=${GO_BUILD_PARALLELISM}
 RUN apk add --no-cache git
 
 COPY go.mod go.sum ./

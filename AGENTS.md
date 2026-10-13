@@ -65,7 +65,7 @@ task lint
 ```
 
 - 单包测试使用 `task test-package PACKAGE=<package>`；项目完整验证必须使用 `task test` 或 `task check`
-- CI 使用 `task check TEST_ARGS="-race -tags=integration -count=1"`，单元、集成及竞态测试只运行一次。有效测试与对应 Go 包放在一起，外部服务测试使用 `integration` build tag；临时验证程序和操作记录不放进模板。
+- CI 使用 `task check-ci TEST_ARGS="-race -tags=integration -count=1"`，随后构建 Docker 镜像验证生产二进制，避免重复编译。单元、集成及竞态测试只运行一次。有效测试与对应 Go 包放在一起，外部服务测试使用 `integration` build tag；临时验证程序和操作记录不放进模板。
 - 修改代码后务必确保 `task build` 或 `task check` 通过
 - `/openapi.json` 是完整业务 OpenAPI 契约；`/huma-openapi.json` 仅用于查看当前已注册的 Huma typed operations
 - 当前 HTTP 处理器通过 `internal/transport` 的 Chi transport helpers 运行，不再使用 Gin/Gin-compatible 命名

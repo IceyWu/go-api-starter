@@ -92,7 +92,7 @@ jobs:
           MYSQL_TEST_DSN: root:test@tcp(127.0.0.1:3306)/go_api_starter?parseTime=true&multiStatements=true
           REDIS_TEST_ADDR: 127.0.0.1:6379
           REQUIRE_INTEGRATION: "true"
-        run: task check TEST_ARGS="-race -tags=integration -count=1"
+        run: task check-ci TEST_ARGS="-race -tags=integration -count=1"
 
       - name: Verify generated code is committed
         run: git diff --exit-code

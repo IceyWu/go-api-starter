@@ -151,10 +151,12 @@ tasks:
 
   docker-smoke:
     desc: Build and verify an isolated API/MySQL/Redis stack
+    vars:
+      DOCKER_BUILD_ARGS: '{{.DOCKER_BUILD_ARGS | default "--build"}}'
     cmds:
       - defer: docker compose -p go-api-starter-ci -f docker-compose.ci.yml down --volumes --remove-orphans
       - defer: docker compose -p go-api-starter-ci -f docker-compose.ci.yml logs --no-color
-      - docker compose -p go-api-starter-ci -f docker-compose.ci.yml up --build --wait --wait-timeout 180
+      - docker compose -p go-api-starter-ci -f docker-compose.ci.yml up {{.DOCKER_BUILD_ARGS}} --wait --wait-timeout 90
       - docker compose -p go-api-starter-ci -f docker-compose.ci.yml exec -T api wget -q -O - http://127.0.0.1:8080/health/ready
       - docker compose -p go-api-starter-ci -f docker-compose.ci.yml exec -T api wget -q -O - http://127.0.0.1:8080/api/v1/system/ping
 

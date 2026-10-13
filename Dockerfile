@@ -6,20 +6,21 @@ WORKDIR /src
 RUN apk add --no-cache git
 
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
+# Keep dependencies in a normal layer so the remote cache preserves them.
+RUN go mod download
 
 # Atlas releases are distributed as binaries, not versioned Go modules.
 ADD --checksum=sha256:10d7913e3dce43ab99b8d71534a4cbadaf11a16dc293adf3b91d10e83a0ac70b \
     https://release.ariga.io/atlas/atlas-community-linux-amd64-v1.3.0 /go/bin/atlas
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go install github.com/go-task/task/v3/cmd/task@v3.54.0 \
-    && chmod +x /go/bin/atlas
+ADD --checksum=sha256:680859dbb4d881a9c72d4d9a8f510825450849af8567deacd7302c01124416fb \
+    https://github.com/go-task/task/releases/download/v3.54.0/task_linux_amd64.tar.gz /tmp/task.tar.gz
+RUN tar -xzf /tmp/task.tar.gz -C /go/bin task \
+    && chmod +x /go/bin/atlas \
+    && rm /tmp/task.tar.gz
 
 COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
     task build-all TARGET_OS=linux TARGET_ARCH=amd64
 
 FROM alpine:3.24.2

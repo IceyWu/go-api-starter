@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -52,7 +56,13 @@ jobs:
           version: 3.54.0
 
       - name: Install sqlc
-        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+        run: |
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/sqlc.tar.gz" \
+            https://github.com/sqlc-dev/sqlc/releases/download/v1.31.1/sqlc_1.31.1_linux_amd64.tar.gz
+          echo "497ae4fcdfa64c5b0c311ffe4c2bd991e43991e82e5367792ed78bc2dca27354  $RUNNER_TEMP/sqlc.tar.gz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/sqlc-bin"
+          tar -xzf "$RUNNER_TEMP/sqlc.tar.gz" -C "$RUNNER_TEMP/sqlc-bin" sqlc
+          echo "$RUNNER_TEMP/sqlc-bin" >> "$GITHUB_PATH"
 
       - name: Install Atlas
         uses: ariga/setup-atlas@2f3c785c89a15e1c0d07bcae3900fb5feb969eea # v0.3
@@ -87,5 +97,17 @@ jobs:
       - name: Verify generated code is committed
         run: git diff --exit-code
 
-      - name: Build and smoke-test Docker stack
-        run: task docker-smoke
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build Docker image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: go-api-starter:ci
+          cache-from: type=gha,scope=go-api-starter
+          cache-to: type=gha,scope=go-api-starter,mode=max
+
+      - name: Smoke-test Docker stack
+        run: task docker-smoke DOCKER_BUILD_ARGS=--no-build

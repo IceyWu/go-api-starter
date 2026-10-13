@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -20,7 +19,6 @@ type CacheStats struct {
 type PermissionCache struct {
 	cacheRepo repository.UserPermissionCacheRepositoryInterface
 	ttl       time.Duration
-	mu        sync.RWMutex
 	stats     CacheStats
 }
 

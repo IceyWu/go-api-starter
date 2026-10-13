@@ -33,6 +33,23 @@ func NewStorageHandler(svc service.StorageServiceInterface, userSvc service.User
 
 func (h *StorageHandler) SetTaskManager(tm *service.TaskManager) { h.taskManager = tm }
 
+func (h *StorageHandler) requireFileOwner(c *transport.Context, uid string) bool {
+	userID, ok := GetUserID(c)
+	if !ok {
+		return false
+	}
+	file, err := h.service.GetFileByUID(uid)
+	if err != nil {
+		c.Error(err)
+		return false
+	}
+	if file.UserID != userID {
+		c.Error(apperrors.Forbidden("you don't have permission to modify this file"))
+		return false
+	}
+	return true
+}
+
 // ============ 统一上传接口 ============
 
 // UploadInitRequest 统一的上传初始化请求
@@ -108,7 +125,10 @@ func (h *StorageHandler) UploadComplete(c *transport.Context) {
 
 	if req.IsPrivate {
 		isPrivate := true
-		_ = h.service.UpdateFile(file.UID, &model.UpdateFileRequest{IsPrivate: &isPrivate})
+		if err := h.service.UpdateFile(file.UID, &model.UpdateFileRequest{IsPrivate: &isPrivate}); err != nil {
+			c.Error(err)
+			return
+		}
 		file.IsPrivate = true
 	}
 	if h.taskManager != nil && h.taskManager.Enabled() && strings.HasPrefix(file.Type, "video/") && file.TranscodingTaskID == nil {
@@ -139,6 +159,10 @@ func (h *StorageHandler) GetFile(c *transport.Context) {
 	file, err := h.service.GetFileByUID(uid)
 	if err != nil {
 		c.Error(err)
+		return
+	}
+	if file.IsPrivate && file.UserID != GetOptionalUserID(c) {
+		c.Error(apperrors.Forbidden("you don't have permission to view this file"))
 		return
 	}
 	response.Success(c, file.ToSimpleResponse())
@@ -214,6 +238,9 @@ func (h *StorageHandler) DeleteFile(c *transport.Context) {
 	if !ok {
 		return
 	}
+	if !h.requireFileOwner(c, uid) {
+		return
+	}
 	if err := h.service.DeleteFile(uid); err != nil {
 		c.Error(err)
 		return
@@ -236,6 +263,9 @@ func (h *StorageHandler) UpdateFile(c *transport.Context) {
 	if !ok {
 		return
 	}
+	if !h.requireFileOwner(c, uid) {
+		return
+	}
 
 	var req model.UpdateFileRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -243,23 +273,12 @@ func (h *StorageHandler) UpdateFile(c *transport.Context) {
 		return
 	}
 
-	userID := GetOptionalUserID(c)
-
-	file, err := h.service.GetFileByUID(uid)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-	if file.UserID != userID {
-		c.Error(apperrors.Forbidden("you don't have permission to update this file"))
-		return
-	}
 	if err := h.service.UpdateFile(uid, &req); err != nil {
 		c.Error(err)
 		return
 	}
 
-	file, err = h.service.GetFileByUID(uid)
+	file, err := h.service.GetFileByUID(uid)
 	if err != nil {
 		c.Error(err)
 		return
@@ -312,7 +331,7 @@ func (h *StorageHandler) PublicUpload(c *transport.Context) {
 		c.Error(apperrors.Internal(err, "failed to open uploaded file"))
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
 	dateDir := time.Now().Format("2006-01-02")

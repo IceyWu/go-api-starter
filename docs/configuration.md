@@ -2,7 +2,7 @@
 
 [简体中文](configuration.zh-CN.md)
 
-This project has one normal application configuration source: [`../config/config.yaml`](../config/config.yaml). The `task dev` command additionally loads `.env.dev` and the optional `.env.dev.local` file as environment-variable overrides.
+This project has one normal application configuration source: [`../config/config.yaml`](../config/config.yaml). `task dev` and `task prod` load their matching environment file and optional local override before starting the application.
 
 ## Configuration files
 
@@ -10,14 +10,16 @@ This project has one normal application configuration source: [`../config/config
 | --- | --- | --- |
 | `config/config.yaml` | Shared defaults plus `development` and `production` profiles. | Yes |
 | `.env.example` | Documented environment-variable template for local setup and deployment reference. | No |
-| `.env.dev` | Development overrides loaded by `task dev`. Keep non-secret local defaults here. | By `task dev` |
-| `.env.dev.local` | Ignored local development overrides for credentials and machine-specific values. | By `task dev` when present |
-| `.env.prod` | Deprecated production compatibility file. Use `APP_ENV=production` and a secret manager or deployment environment instead. | No |
+| `.env.dev` | Development overrides loaded by `task dev` and `task migrate`. Keep non-secret local defaults here. | By `task dev` and `task migrate` |
+| `.env.dev.local` | Ignored local development overrides for credentials and machine-specific values. | By `task dev` and `task migrate` when present |
+| `.env.prod` | Production environment-variable overrides. Keep secrets in `.env.prod.local` or the deployment secret manager. | By `task prod` |
 | `CONFIG_FILE` target | Optional replacement YAML file selected by the `CONFIG_FILE` environment variable. | Only when explicitly configured |
 
-The Go application itself reads `config/config.yaml` and normal environment variables. `task dev` loads `.env.dev` first and `.env.dev.local` second, so the local file is the right place for secrets. `.env.prod` remains a deployment template and is not loaded by the application.
+The Go application reads `config/config.yaml` and normal environment variables. `task dev` loads `.env.dev` then `.env.dev.local`; `task prod` loads `.env.prod` then `.env.prod.local`. Later files override earlier values, so local-only credentials belong in the ignored `*.local` files or a deployment secret manager.
 
 ## Profile and override order
+
+Only `.env.example` is version-controlled. Create `.env.dev` or `.env.prod` from that template for your environment; local configuration values are not committed.
 
 Set `APP_ENV` to choose a profile. Supported values are `development`, `dev`, `production`, and `prod`; the default is `development`.
 
@@ -81,18 +83,21 @@ The YAML file is organized by capability:
 | --- | --- |
 | `app` | Application identity, JWT, documentation credentials, and default account settings. |
 | `server` | Bind address, HTTP timeouts, shutdown timeout, and request limits. |
-| `database` | MySQL/SQLite connection, pool, and migration settings. |
+| `database` | MySQL connection, pool, and migration settings. SQLite remains available only for tests and explicit alternate configurations. |
 | `log` | Log level, format, and output destination. |
 | `storage` | S3-compatible endpoint, bucket, credentials, public URL, and upload settings. |
 | `redis` | Optional cache, blacklist, rate-limit, and fallback settings. |
 | `transcoding` | Optional Alibaba Cloud MPS region, pipeline, templates, polling, and worker settings. Set `enabled: true` only when MPS is configured. |
-| `cors` | Allowed origins and HTTP cross-origin behavior. |
+| `cors` | Allowed origins and HTTP cross-origin behavior; `*` is accepted when explicitly configured. |
+| `skip_auth` | Optional shared-secret authentication bypass restricted to explicitly configured paths. An empty secret disables it. |
 | `rate_limit` | Global, user, login, upload, and fallback rate limits. |
 | `mail` | SMTP server and verification-mail settings. |
 | `wechat` | WeChat Mini Program credentials and login settings. |
 | `ws` | WebSocket origin, authentication, heartbeat, and connection limits. |
 
 Video transcoding uses Alibaba Cloud MPS. The API creates and tracks tasks; the independent Worker polls MPS and persists results.
+
+On MySQL startup, the server validates the connection settings and schema name, checks `INFORMATION_SCHEMA`, and creates the schema only if it is missing. Existing databases are never dropped or replaced. The configured MySQL account needs `CREATE DATABASE` permission only when the schema must be created; otherwise create it ahead of time and grant the app account access.
 
 ## Recommended usage
 
@@ -104,13 +109,7 @@ $env:GO_API_APP__JWT_SECRET = "local-only-secret"
 task dev
 ```
 
-`task dev` loads `.env.dev` and then `.env.dev.local`. The standalone upload page can be served without live reload:
-
-```powershell
-task upload-demo
-```
-
-Open `http://127.0.0.1:5501/upload-demo.html`. This avoids Live Server refreshing the page when the API updates the local database.
+`task dev` loads `.env.dev` and then `.env.dev.local`.
 
 Production:
 
@@ -121,7 +120,7 @@ GO_API_APP__DOCS_PASSWORD=<secret-manager-value>
 GO_API_DATABASE__PASSWORD=<secret-manager-value>
 ```
 
-Do not commit real credentials. Production must replace JWT secrets, documentation credentials, administrator credentials, default user credentials, CORS origins, and external-service credentials.
+Do not commit real credentials. Production must replace JWT secrets, documentation credentials, administrator credentials, default user credentials, and external-service credentials. CORS accepts `*` when intentionally configured. Skip-auth remains disabled unless both a secret and allowed paths are configured.
 
 ## Adding a setting
 

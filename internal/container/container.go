@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"errors"
 	"github.com/jmoiron/sqlx"
 	"io"
 	"log/slog"
@@ -303,11 +304,12 @@ func (c *Container) WsHub() *ws.Hub {
 
 // Close closes all resources
 func (c *Container) Close() error {
+	var closeErrors []error
 	if c.redisCache != nil {
-		c.redisCache.Close()
+		closeErrors = append(closeErrors, c.redisCache.Close())
 	}
 	if c.memoryCache != nil {
-		c.memoryCache.Close()
+		closeErrors = append(closeErrors, c.memoryCache.Close())
 	}
-	return nil
+	return errors.Join(closeErrors...)
 }

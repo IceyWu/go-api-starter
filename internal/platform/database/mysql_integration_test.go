@@ -14,6 +14,9 @@ import (
 func TestMySQLConnectionAndSchema(t *testing.T) {
 	dsn := os.Getenv("MYSQL_TEST_DSN")
 	if dsn == "" {
+		if os.Getenv("REQUIRE_INTEGRATION") == "true" {
+			t.Fatal("MYSQL_TEST_DSN is required")
+		}
 		t.Skip("MYSQL_TEST_DSN is not configured")
 	}
 

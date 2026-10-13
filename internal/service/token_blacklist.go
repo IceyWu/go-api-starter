@@ -101,7 +101,9 @@ func (b *RedisTokenBlacklist) IsUserTokenInvalidated(ctx context.Context, userID
 	}
 
 	var invalidateBefore int64
-	fmt.Sscanf(string(data), "%d", &invalidateBefore)
+	if _, err := fmt.Sscanf(string(data), "%d", &invalidateBefore); err != nil {
+		return false, fmt.Errorf("parse token invalidation timestamp: %w", err)
+	}
 	return issuedAt <= invalidateBefore, nil
 }
 

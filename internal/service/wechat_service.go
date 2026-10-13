@@ -262,7 +262,7 @@ func (s *WechatService) getPhoneNumber(ctx context.Context, phoneCode string) (s
 		logger.Log.Warnf("[WxPhone] ❌ HTTP 请求失败: %v", err)
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxWechatResponse+1))
 	if err != nil {
@@ -322,7 +322,7 @@ func (s *WechatService) getAccessToken(ctx context.Context) (string, error) {
 		logger.Log.Warnf("[WxToken] ❌ HTTP 请求失败: %v", err)
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxWechatResponse+1))
 	if err != nil {
@@ -371,7 +371,7 @@ func (s *WechatService) code2Session(ctx context.Context, jsCode string) (*wxSes
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxWechatResponse+1))
 	if err != nil {

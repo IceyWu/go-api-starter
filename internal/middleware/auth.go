@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"crypto/subtle"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +34,9 @@ type AuthMiddleware struct {
 	jwtSecret        string
 	blacklistChecker TokenBlacklistChecker
 	userRepo         UserRepository
+	skipAuthHeader   string
+	skipAuthSecret   string
+	skipAuthPaths    []string
 
 	// User freeze status cache (short TTL to reduce DB queries)
 	freezeCacheMu  sync.RWMutex
@@ -41,11 +45,14 @@ type AuthMiddleware struct {
 }
 
 // NewAuthMiddleware creates an auth middleware with all features
-func NewAuthMiddleware(jwtSecret string, checker TokenBlacklistChecker, userRepo UserRepository) *AuthMiddleware {
+func NewAuthMiddleware(jwtSecret string, checker TokenBlacklistChecker, userRepo UserRepository, skipAuthHeader, skipAuthSecret string, skipAuthPaths []string) *AuthMiddleware {
 	m := &AuthMiddleware{
 		jwtSecret:        jwtSecret,
 		blacklistChecker: checker,
 		userRepo:         userRepo,
+		skipAuthHeader:   skipAuthHeader,
+		skipAuthSecret:   skipAuthSecret,
+		skipAuthPaths:    append([]string(nil), skipAuthPaths...),
 		freezeCache:      make(map[uint]*userFreezeEntry),
 		freezeCacheTTL:   5 * time.Minute,
 	}
@@ -112,6 +119,16 @@ func (m *AuthMiddleware) InvalidateUserFreezeCache(userID uint) {
 // RequireAuth validates JWT token and sets userID in context
 func (m *AuthMiddleware) RequireAuth() transport.HandlerFunc {
 	return func(c *transport.Context) {
+		if m.skipAuthSecret != "" && m.skipAuthHeader != "" && subtle.ConstantTimeCompare([]byte(c.GetHeader(m.skipAuthHeader)), []byte(m.skipAuthSecret)) == 1 {
+			for _, pattern := range m.skipAuthPaths {
+				if matchSkipAuthPath(c.Request.URL.Path, pattern) {
+					c.Set("userID", uint(1))
+					c.Set("token", "skip-auth")
+					c.Next()
+					return
+				}
+			}
+		}
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			response.Unauthorized(c, "缺少认证令牌")
@@ -190,6 +207,30 @@ func (m *AuthMiddleware) RequireAuth() transport.HandlerFunc {
 		c.Set("token", tokenString)
 		c.Next()
 	}
+}
+
+// matchSkipAuthPath supports an exact path, descendant paths, and single-segment wildcards.
+func matchSkipAuthPath(requestPath, pattern string) bool {
+	if pattern == "" {
+		return false
+	}
+	if !strings.Contains(pattern, "*") {
+		return requestPath == pattern || strings.HasPrefix(requestPath, strings.TrimRight(pattern, "/")+"/")
+	}
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	pathParts := strings.Split(strings.Trim(requestPath, "/"), "/")
+	if len(patternParts) != len(pathParts) {
+		return false
+	}
+	for i, part := range patternParts {
+		if part != "*" && part != pathParts[i] {
+			return false
+		}
+		if part == "*" && pathParts[i] == "" {
+			return false
+		}
+	}
+	return true
 }
 
 // OptionalAuth tries to parse JWT token and set userID if present, but does not block the request

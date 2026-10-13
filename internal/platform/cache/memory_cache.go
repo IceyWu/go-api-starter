@@ -1,53 +1,49 @@
 package cache
 
 import (
+	"bytes"
 	"context"
+	"math"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-// cacheItem represents a cached item with expiration
 type cacheItem struct {
 	value     []byte
 	expiresAt time.Time
 }
 
-// isExpired checks if the item has expired
-func (i *cacheItem) isExpired() bool {
-	if i.expiresAt.IsZero() {
-		return false
-	}
-	return time.Now().After(i.expiresAt)
+func (i *cacheItem) isExpired(now time.Time) bool {
+	return !i.expiresAt.IsZero() && !now.Before(i.expiresAt)
 }
 
-// MemoryCache implements CacheBackend using in-memory storage
+// MemoryCache keeps values and counters in the same TTL-aware keyspace.
 type MemoryCache struct {
-	data      sync.Map
-	counters  sync.Map
+	mu        sync.Mutex
+	data      map[string]*cacheItem
+	now       func() time.Time
 	available atomic.Bool
 	stopCh    chan struct{}
+	closeOnce sync.Once
 }
 
-// NewMemoryCache creates a new memory cache backend
 func NewMemoryCache() *MemoryCache {
-	mc := &MemoryCache{
-		stopCh: make(chan struct{}),
-	}
-	mc.available.Store(true)
-
-	// Start cleanup goroutine
-	go mc.cleanupLoop()
-
-	return mc
+	return newMemoryCache(time.Now)
 }
 
-// cleanupLoop periodically removes expired items
+func newMemoryCache(now func() time.Time) *MemoryCache {
+	m := &MemoryCache{data: make(map[string]*cacheItem), now: now, stopCh: make(chan struct{})}
+	m.available.Store(true)
+	go m.cleanupLoop()
+	return m
+}
+
 func (m *MemoryCache) cleanupLoop() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
-
 	for {
 		select {
 		case <-ticker.C:
@@ -58,123 +54,164 @@ func (m *MemoryCache) cleanupLoop() {
 	}
 }
 
-// cleanup removes expired items
 func (m *MemoryCache) cleanup() {
-	m.data.Range(func(key, value interface{}) bool {
-		if item, ok := value.(*cacheItem); ok && item.isExpired() {
-			m.data.Delete(key)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := m.now()
+	for key, item := range m.data {
+		if item.isExpired(now) {
+			delete(m.data, key)
 		}
-		return true
-	})
+	}
 }
 
-// Get retrieves a value by key
-func (m *MemoryCache) Get(ctx context.Context, key string) ([]byte, error) {
-	value, ok := m.data.Load(key)
-	if !ok {
-		return nil, ErrKeyNotFound
+func (m *MemoryCache) itemLocked(key string) (*cacheItem, bool) {
+	item, ok := m.data[key]
+	if ok && item.isExpired(m.now()) {
+		delete(m.data, key)
+		return nil, false
 	}
-
-	item, ok := value.(*cacheItem)
-	if !ok || item.isExpired() {
-		m.data.Delete(key)
-		return nil, ErrKeyNotFound
-	}
-
-	return item.value, nil
+	return item, ok
 }
 
-// Set stores a value with TTL
-func (m *MemoryCache) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
-	item := &cacheItem{
-		value: value,
-	}
+func (m *MemoryCache) newItem(value []byte, ttl time.Duration) *cacheItem {
+	item := &cacheItem{value: bytes.Clone(value)}
 	if ttl > 0 {
-		item.expiresAt = time.Now().Add(ttl)
+		item.expiresAt = m.now().Add(ttl)
 	}
-	m.data.Store(key, item)
-	return nil
+	return item
 }
 
-// Delete removes a key
-func (m *MemoryCache) Delete(ctx context.Context, key string) error {
-	m.data.Delete(key)
-	return nil
-}
-
-// DeleteByPrefix removes all keys matching the prefix
-func (m *MemoryCache) DeleteByPrefix(ctx context.Context, prefix string) error {
-	m.data.Range(func(key, value interface{}) bool {
-		if k, ok := key.(string); ok && strings.HasPrefix(k, prefix) {
-			m.data.Delete(key)
-		}
-		return true
-	})
-	return nil
-}
-
-// Exists checks if a key exists
-func (m *MemoryCache) Exists(ctx context.Context, key string) (bool, error) {
-	value, ok := m.data.Load(key)
+func (m *MemoryCache) Get(ctx context.Context, key string) ([]byte, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	item, ok := m.itemLocked(key)
 	if !ok {
+		return nil, ErrKeyNotFound
+	}
+	return bytes.Clone(item.value), nil
+}
+
+func (m *MemoryCache) Set(ctx context.Context, key string, value []byte, ttl time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.data[key] = m.newItem(value, ttl)
+	return nil
+}
+
+func (m *MemoryCache) SetIfAbsent(ctx context.Context, key string, value []byte, ttl time.Duration) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.itemLocked(key); ok {
 		return false, nil
 	}
-
-	item, ok := value.(*cacheItem)
-	if !ok || item.isExpired() {
-		m.data.Delete(key)
-		return false, nil
-	}
-
+	m.data[key] = m.newItem(value, ttl)
 	return true, nil
 }
 
-// Incr increments a counter and returns the new value
-func (m *MemoryCache) Incr(ctx context.Context, key string) (int64, error) {
-	for {
-		value, loaded := m.counters.LoadOrStore(key, &atomic.Int64{})
-		counter := value.(*atomic.Int64)
-		if loaded {
-			return counter.Add(1), nil
-		}
-		counter.Store(1)
-		return 1, nil
+func (m *MemoryCache) CompareAndDelete(ctx context.Context, key string, expected []byte) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	item, ok := m.itemLocked(key)
+	if !ok {
+		return false, ErrKeyNotFound
+	}
+	if !bytes.Equal(item.value, expected) {
+		return false, nil
+	}
+	delete(m.data, key)
+	return true, nil
 }
 
-// IncrWithExpire increments a counter with TTL and returns the new value
+func (m *MemoryCache) Delete(ctx context.Context, key string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.data, key)
+	return nil
+}
+
+func (m *MemoryCache) DeleteByPrefix(ctx context.Context, prefix string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for key := range m.data {
+		if strings.HasPrefix(key, prefix) {
+			delete(m.data, key)
+		}
+	}
+	return nil
+}
+
+func (m *MemoryCache) Exists(ctx context.Context, key string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.itemLocked(key)
+	return ok, nil
+}
+
+func (m *MemoryCache) Incr(ctx context.Context, key string) (int64, error) {
+	return m.IncrWithExpire(ctx, key, 0)
+}
+
 func (m *MemoryCache) IncrWithExpire(ctx context.Context, key string, ttl time.Duration) (int64, error) {
-	result, err := m.Incr(ctx, key)
-	if err != nil {
+	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-
-	// Store expiration info
-	item := &cacheItem{
-		value:     nil,
-		expiresAt: time.Now().Add(ttl),
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	item, exists := m.itemLocked(key)
+	var value int64
+	if exists {
+		var err error
+		value, err = strconv.ParseInt(string(item.value), 10, 64)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		item = m.newItem(nil, ttl)
 	}
-	m.data.Store(key+"_exp", item)
-
-	return result, nil
+	if value == math.MaxInt64 {
+		return 0, strconv.ErrRange
+	}
+	value++
+	item.value = []byte(strconv.FormatInt(value, 10))
+	m.data[key] = item
+	return value, nil
 }
 
-// Ping checks if the cache is available
 func (m *MemoryCache) Ping(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if !m.available.Load() {
 		return ErrCacheUnavailable
 	}
 	return nil
 }
 
-// IsAvailable returns whether the cache backend is currently available
-func (m *MemoryCache) IsAvailable() bool {
-	return m.available.Load()
-}
+func (m *MemoryCache) IsAvailable() bool { return m.available.Load() }
 
-// Close stops the cleanup goroutine
 func (m *MemoryCache) Close() error {
-	close(m.stopCh)
-	m.available.Store(false)
+	m.closeOnce.Do(func() { m.available.Store(false); close(m.stopCh) })
 	return nil
 }

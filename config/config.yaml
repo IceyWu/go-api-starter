@@ -34,6 +34,9 @@ common:
     max_idle_conns: 10
     max_open_conns: 100
     conn_max_lifetime: 3600
+    connect_timeout: 10
+    read_timeout: 30
+    write_timeout: 30
 
   log:
     level: debug
@@ -96,6 +99,13 @@ common:
       - Authorization
       - X-Request-ID
 
+  # Optional shared-secret bypass for explicitly trusted paths.
+  # Leave the secret empty to require normal JWT authentication everywhere.
+  skip_auth:
+    header_name: X-Skip-Auth
+    secret: ""
+    paths: []
+
   rate_limit:
     global_per_minute: 3000
     user_per_minute: 600
@@ -130,13 +140,12 @@ development:
     mode: debug
 
   database:
-    driver: sqlite
-    path: ./data.db
-    allow_dirty_migrations: true
+    driver: mysql
+    allow_dirty_migrations: false
     host: localhost
     port: 3306
     username: root
-    password: "123456"
+    password: ""
     dbname: go_api_starter
 
 production:

@@ -32,12 +32,15 @@
 
 ## 快速开始
 
+需要 Go 1.27.2+。
+
 ```bash
 git clone https://github.com/IceyWu/go-api-starter.git
 cd go-api-starter
+cp .env.example .env.dev
 
 # 安装固定版本的 Task。
-go install github.com/go-task/task/v3/cmd/task@v3.53.1
+go install github.com/go-task/task/v3/cmd/task@v3.54.0
 
 task deps
 task dev
@@ -49,6 +52,7 @@ task dev
 task --list
 task test
 task check
+task test CLI_ARGS="-race"
 task security
 task migrate
 task worker
@@ -70,7 +74,15 @@ docker compose --profile worker up --build
 
 Compose 中的账号和密钥仅用于本地开发，部署到其他环境前必须全部替换。
 
+`task docker-smoke` 验证独立的 API/MySQL/Redis 临时栈，不映射宿主机端口、不使用持久化卷。`task test-integration` 接收 `MYSQL_TEST_DSN` 和 `REDIS_TEST_ADDR`；`REQUIRE_INTEGRATION=true` 禁止缺少配置时跳过。竞态检测使用 `task test CLI_ARGS="-race"`，需要 C 编译器和 `CGO_ENABLED=1`。
+
+Compose 固定使用 MySQL 26.7.0 和 Redis 8.10.2。MySQL 使用独立的 `mysql-data-26-7` 卷，已有 `mysql-data` 卷保留。复用 MySQL 8.4 数据前，先备份并按[官方升级路径](https://dev.mysql.com/doc/refman/26.7/en/upgrade-paths.html)经过 MySQL 9.7 LTS，不能直接挂载旧卷。
+
+`task update` 会升级稳定版 Go 工具链及应用、测试依赖，之后运行 `task check`、`task lint`、`task security` 和 `task atlas-validate`。工具与容器版本分别固定在 Taskfile、Dockerfile、Compose 和 CI 中。
+
 ## 项目架构
+
+`cmd/` 只保留 server、worker、migrate 运行入口；测试与对应 Go 包放在一起，外部服务测试使用 `integration` build tag。CI 启动 MySQL 和 Redis，迁移后将单元、集成及竞态测试合并运行一次，再检查 Docker 栈。
 
 ```text
 HTTP 客户端
@@ -79,7 +91,7 @@ HTTP 客户端
     -> handler
     -> service
     -> repository 和 platform 适配层
-    -> MySQL 或 SQLite / Redis / S3 兼容对象存储 / MPS
+    -> MySQL / Redis / S3 兼容对象存储 / MPS
 
 MPS Worker
     -> 任务管理器
@@ -130,7 +142,7 @@ GO_API_APP__JWT_SECRET=replace-with-at-least-32-characters
 
 完整的配置文件职责、加载优先级和环境变量规则见[中文配置说明](docs/configuration.zh-CN.md)。
 
-本地开发时，`task dev` 会加载 `.env.dev` 和可选的、被 Git 忽略的 `.env.dev.local`；对象存储凭据应放在后者。独立上传 Demo 可通过 `task upload-demo` 启动，地址为 `http://127.0.0.1:5501/upload-demo.html`。
+本地开发时，`task dev` 会加载 `.env.dev` 和可选的、被 Git 忽略的 `.env.dev.local`；对象存储凭据应放在后者。
 
 ## 开发与验证
 
@@ -142,7 +154,7 @@ task test-integration
 task check
 task atlas-validate
 task security
-task build-linux-all
+task build-all TARGET_OS=linux TARGET_ARCH=amd64
 ```
 
 如果配置了 `MYSQL_TEST_DSN`，集成测试会连接真实 MySQL。GitHub Actions 会自动启动 MySQL、执行迁移并运行集成测试。

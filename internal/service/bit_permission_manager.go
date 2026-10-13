@@ -222,10 +222,18 @@ func (m *BitPermissionManager) DeleteRole(ctx context.Context, id uint) error {
 	if role.IsSystem {
 		return ErrSystemRoleCannotBeDeleted
 	}
-	if uids, _ := m.userRoleRepo.GetUserIDsByRoleID(ctx, id); len(uids) > 0 {
-		m.cacheRepo.DeleteByUserIDs(ctx, uids)
+	uids, err := m.userRoleRepo.GetUserIDsByRoleID(ctx, id)
+	if err != nil {
+		return err
 	}
-	m.rolePermRepo.DeleteByRoleID(ctx, id)
+	if len(uids) > 0 {
+		if err := m.cacheRepo.DeleteByUserIDs(ctx, uids); err != nil {
+			return err
+		}
+	}
+	if err := m.rolePermRepo.DeleteByRoleID(ctx, id); err != nil {
+		return err
+	}
 	return m.roleRepo.Delete(ctx, id)
 }
 
@@ -310,7 +318,9 @@ func (m *BitPermissionManager) RemovePermissionFromRole(ctx context.Context, rol
 	if err != nil {
 		return err
 	}
-	m.rolePermRepo.Delete(ctx, roleID, p.ID)
+	if err := m.rolePermRepo.Delete(ctx, roleID, p.ID); err != nil {
+		return err
+	}
 	return m.clearCacheForRole(ctx, roleID)
 }
 
@@ -418,7 +428,9 @@ func (m *BitPermissionManager) HasPermission(ctx context.Context, userID uint, c
 }
 
 func (m *BitPermissionManager) CalculateUserPermissions(ctx context.Context, userID uint) error {
-	m.cacheRepo.DeleteByUserID(ctx, userID)
+	if err := m.cacheRepo.DeleteByUserID(ctx, userID); err != nil {
+		return err
+	}
 	urs, err := m.userRoleRepo.FindByUserID(ctx, userID)
 	if err != nil {
 		return err
@@ -432,7 +444,9 @@ func (m *BitPermissionManager) CalculateUserPermissions(ctx context.Context, use
 	}
 	now := time.Now()
 	for sid, v := range sv {
-		m.cacheRepo.Upsert(ctx, &model.UserPermissionCache{UserID: userID, SpaceID: sid, Value: v, CreatedAt: now, UpdatedAt: now})
+		if err := m.cacheRepo.Upsert(ctx, &model.UserPermissionCache{UserID: userID, SpaceID: sid, Value: v, CreatedAt: now, UpdatedAt: now}); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -78,7 +78,7 @@ func (tm *TaskManager) CreateTask(req model.CreateTaskRequest) (string, error) {
 	}
 
 	if tm.cloudTranscoder == nil {
-		return "", fmt.Errorf("Alibaba Cloud MPS is not configured")
+		return "", fmt.Errorf("alibaba Cloud MPS is not configured")
 	}
 
 	// Create task record

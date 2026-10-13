@@ -1,5 +1,9 @@
 version: '3'
 
+vars:
+  TARGET_OS: '{{OS}}'
+  TARGET_ARCH: '{{ARCH}}'
+
 tasks:
   default:
     desc: Show available tasks
@@ -7,42 +11,51 @@ tasks:
       - task --list
 
   build:
-    desc: Build the API server after validating OpenAPI docs
-    deps: [swagger]
+    desc: Build an application binary (COMMAND=server, worker, or migrate)
+    vars:
+      COMMAND: '{{.COMMAND | default "server"}}'
+    env:
+      GOOS: '{{.TARGET_OS}}'
+      GOARCH: '{{.TARGET_ARCH}}'
+      CGO_ENABLED: '0'
     cmds:
-      - cmd: go build -o bin/server.exe ./cmd/server
-        platforms: [windows]
-      - cmd: go build -o bin/server ./cmd/server
-        platforms: [linux, darwin]
+      - go build {{.BUILD_FLAGS}} -o bin/{{.COMMAND}}{{if eq .TARGET_OS "windows"}}.exe{{end}} ./cmd/{{.COMMAND}}
+
+  build-all:
+    desc: Build server, migration, and worker binaries
+    cmds:
+      - task: build
+        vars: {COMMAND: server, BUILD_FLAGS: '-ldflags="-s -w"'}
+      - task: build
+        vars: {COMMAND: migrate, BUILD_FLAGS: '-ldflags="-s -w"'}
+      - task: build
+        vars: {COMMAND: worker, BUILD_FLAGS: '-ldflags="-s -w"'}
 
   dev:
-    desc: Run the API server with the development profile
+    desc: Build and run the development server
     dotenv: ['.env.dev', '.env.dev.local']
-    deps: [swagger]
     env:
       APP_ENV: development
     cmds:
       - task: stop-dev
-      - cmd: go build -o bin/server.exe ./cmd/server
-        platforms: [windows]
-      - cmd: go build -o bin/server ./cmd/server
-        platforms: [linux, darwin]
-      - cmd: ./bin/server.exe
-        platforms: [windows]
-      - cmd: ./bin/server
-        platforms: [linux, darwin]
+      - task: build
+      - task: run-server
 
-  upload-demo:
-    desc: Serve the standalone upload demo without live reload
-    dir: examples
+  prod:
+    desc: Build and run the production server
+    dotenv: ['.env.prod', '.env.prod.local']
+    env:
+      APP_ENV: production
     cmds:
-      - cmd: python -m http.server 5501
-        platforms: [windows]
-      - cmd: python3 -m http.server 5501
-        platforms: [linux, darwin]
+      - task: build
+      - task: run-server
+
+  run-server:
+    internal: true
+    cmds:
+      - ./bin/server{{if eq OS "windows"}}.exe{{end}}
 
   stop-dev:
-    desc: Stop the current development server owned by this project
     internal: true
     cmds:
       - cmd: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-dev.ps1
@@ -52,27 +65,14 @@ tasks:
           for pid in $(pgrep -f "$target" || true); do kill "$pid"; done
         platforms: [linux, darwin]
 
-  prod:
-    desc: Run the API server with the production profile
-    env:
-      APP_ENV: production
-    cmds:
-      - cmd: go build -o bin/server.exe ./cmd/server
-        platforms: [windows]
-      - cmd: go build -o bin/server ./cmd/server
-        platforms: [linux, darwin]
-      - cmd: ./bin/server.exe
-        platforms: [windows]
-      - cmd: ./bin/server
-        platforms: [linux, darwin]
-
   worker:
-    desc: Run the Alibaba Cloud MPS polling worker
+    desc: Run the MPS polling worker
     cmds:
       - go run ./cmd/worker
 
   migrate:
     desc: Apply versioned SQL migrations with Atlas
+    dotenv: ['.env.dev', '.env.dev.local']
     cmds:
       - go run ./cmd/migrate
 
@@ -82,40 +82,23 @@ tasks:
       - sqlc generate
 
   test:
-    desc: Run all tests
+    desc: Run tests (CLI_ARGS supports -race, -count, or -tags)
     cmds:
-      - go test -v ./...
+      - go test {{.CLI_ARGS}} ./...
 
   test-package:
-    desc: Run tests for one package (use PACKAGE=internal/model/...)
+    desc: Run tests for one package
     requires:
       vars: [PACKAGE]
     cmds:
-      - go test -v ./{{.PACKAGE}}
+      - go test {{.CLI_ARGS}} ./{{.PACKAGE}}
 
   test-integration:
-    desc: Run integration tests that require external services
+    desc: Run MySQL and Redis integration tests
     cmds:
-      - go test -tags=integration -v ./...
-
-  clean:
-    desc: Remove build artifacts and local database files
-    cmds:
-      - cmd: Remove-Item -Recurse -Force -ErrorAction SilentlyContinue bin, *.db, server.exe, server
-        platforms: [windows]
-      - cmd: rm -rf bin *.db server.exe server
-        platforms: [linux, darwin]
-
-  swagger:
-    desc: Validate the checked-in OpenAPI document
-    cmds:
-      - go test ./docs
-
-  deps:
-    desc: Tidy and download Go dependencies
-    cmds:
-      - go mod tidy
-      - go mod download
+      - task: test
+        vars:
+          CLI_ARGS: '-tags=integration {{.CLI_ARGS}}'
 
   fmt:
     desc: Format Go source files
@@ -125,86 +108,73 @@ tasks:
   lint:
     desc: Run golangci-lint
     cmds:
-      - golangci-lint run
-
-  security:
-    desc: Scan Go dependencies for known vulnerabilities
-    cmds:
-      - go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
-
-  atlas-validate:
-    desc: Validate Atlas migration directories
-    cmds:
-      - atlas migrate validate --dir file://migrations/sqlite
-      - atlas migrate validate --dir file://migrations/mysql
-
-  atlas-hash:
-    desc: Generate Atlas migration checksums after adding or changing migrations
-    cmds:
-      - atlas migrate hash --dir file://migrations/sqlite
-      - atlas migrate hash --dir file://migrations/mysql
+      - go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0 run
 
   vet:
     desc: Run go vet
     cmds:
       - go vet ./...
 
-  check:
-    desc: Format, generate, test, build, vet, and verify the diff
+  security:
+    desc: Scan Go dependencies for known vulnerabilities
     cmds:
-      - task: fmt
+      - go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 {{.CLI_ARGS}} ./...
+
+  atlas-validate:
+    desc: Validate migration checksums
+    cmds:
+      - atlas migrate validate --dir file://migrations/sqlite
+      - atlas migrate validate --dir file://migrations/mysql
+
+  atlas-hash:
+    desc: Refresh checksums after editing migrations
+    cmds:
+      - atlas migrate hash --dir file://migrations/sqlite
+      - atlas migrate hash --dir file://migrations/mysql
+
+  check:
+    desc: Verify formatting, generate, test, lint, build, and check whitespace
+    cmds:
+      - test -z "$(gofmt -l .)"
       - task: sqlc
       - task: test
+        vars:
+          CLI_ARGS: '{{.TEST_ARGS}}'
+      - task: lint
       - task: build
-      - task: vet
       - task: diff-check
 
   diff-check:
     desc: Verify patch whitespace
     cmds:
-      - git diff --check
+      - git -c core.safecrlf=false diff --check
 
-  build-linux:
-    desc: Build a stripped Linux production binary
-    env:
-      CGO_ENABLED: '0'
-      GOOS: linux
-      GOARCH: amd64
+  docker-smoke:
+    desc: Build and verify an isolated API/MySQL/Redis stack
     cmds:
-      - go build -ldflags="-s -w" -o bin/server ./cmd/server
+      - defer: docker compose -p go-api-starter-ci -f docker-compose.ci.yml down --volumes --remove-orphans
+      - defer: docker compose -p go-api-starter-ci -f docker-compose.ci.yml logs --no-color
+      - docker compose -p go-api-starter-ci -f docker-compose.ci.yml up --build --wait --wait-timeout 180
+      - docker compose -p go-api-starter-ci -f docker-compose.ci.yml exec -T api wget -q -O - http://127.0.0.1:8080/health/ready
+      - docker compose -p go-api-starter-ci -f docker-compose.ci.yml exec -T api wget -q -O - http://127.0.0.1:8080/api/v1/system/ping
 
-  build-linux-all:
-    desc: Build all Linux production binaries
-    env:
-      CGO_ENABLED: '0'
-      GOOS: linux
-      GOARCH: amd64
+  clean:
+    desc: Remove build artifacts
     cmds:
-      - go build -ldflags="-s -w" -o bin/server ./cmd/server
-      - go build -ldflags="-s -w" -o bin/migrate ./cmd/migrate
-      - go build -ldflags="-s -w" -o bin/worker ./cmd/worker
+      - cmd: powershell -NoProfile -Command "Remove-Item -LiteralPath bin -Recurse -Force -ErrorAction SilentlyContinue"
+        platforms: [windows]
+      - cmd: rm -rf bin
+        platforms: [linux, darwin]
 
-  build-windows:
-    desc: Build a stripped Windows production binary
-    env:
-      CGO_ENABLED: '0'
-      GOOS: windows
-      GOARCH: amd64
+  deps:
+    desc: Tidy and download Go dependencies
     cmds:
-      - go build -ldflags="-s -w" -o bin/server.exe ./cmd/server
-
-  hooks:
-    desc: Install pre-commit hooks
-    cmds:
-      - pre-commit install
-
-  hooks-run:
-    desc: Run pre-commit against all files
-    cmds:
-      - pre-commit run --all-files
+      - go mod tidy
+      - go mod download
 
   update:
-    desc: Upgrade Go dependencies
+    desc: Upgrade the Go toolchain and application/test dependencies
     cmds:
-      - go get -u ./...
+      - go get go@latest
+      - go get -u -t ./... {{.MODULES}}
       - go mod tidy

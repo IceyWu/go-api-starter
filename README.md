@@ -40,7 +40,7 @@ HTTP client
     -> handlers
     -> services
     -> repositories and platform adapters
-    -> MySQL or SQLite / Redis / S3-compatible storage / MPS
+    -> MySQL / Redis / S3-compatible storage / MPS
 
 MPS Worker
     -> task manager
@@ -55,7 +55,7 @@ The API process does not perform local video transcoding. When enabled, it creat
 
 ### Requirements
 
-- Go 1.26.6+
+- Go 1.27.2+
 - [Task](https://taskfile.dev/)
 - MySQL 8+ and Redis for a production-like environment
 - Docker Compose (optional)
@@ -65,9 +65,10 @@ The API process does not perform local video transcoding. When enabled, it creat
 ```bash
 git clone https://github.com/IceyWu/go-api-starter.git
 cd go-api-starter
+cp .env.example .env.dev
 
 # Install the repository-pinned Task version.
-go install github.com/go-task/task/v3/cmd/task@v3.53.1
+go install github.com/go-task/task/v3/cmd/task@v3.54.0
 
 task deps
 task dev
@@ -79,6 +80,7 @@ All project commands are managed by `Taskfile.yml`:
 task --list
 task test
 task check
+task test CLI_ARGS="-race"
 task security
 task migrate
 task worker
@@ -99,6 +101,12 @@ docker compose --profile worker up --build
 ```
 
 Compose credentials are intended for local development only. Replace every credential and secret before using another environment.
+
+`task docker-smoke` verifies a disposable API/MySQL/Redis stack without host ports or persistent volumes. `task test-integration` accepts `MYSQL_TEST_DSN` and `REDIS_TEST_ADDR`; `REQUIRE_INTEGRATION=true` rejects missing service configuration. Race tests use `task test CLI_ARGS="-race"` and require a C compiler with `CGO_ENABLED=1`.
+
+Compose pins MySQL 26.7.0 and Redis 8.10.2. MySQL uses a separate `mysql-data-26-7` volume; existing `mysql-data` volumes are preserved. To reuse data from MySQL 8.4, back it up and follow the [supported upgrade path](https://dev.mysql.com/doc/refman/26.7/en/upgrade-paths.html) through MySQL 9.7 LTS, rather than attaching the old volume directly.
+
+`task update` upgrades the stable Go toolchain and application/test modules. Run `task check`, `task lint`, `task security`, and `task atlas-validate` afterward. Tool and container versions are pinned separately in Taskfile, Dockerfile, Compose, and CI.
 
 ## API documentation
 
@@ -141,7 +149,7 @@ GO_API_APP__JWT_SECRET=replace-with-at-least-32-characters
 
 See the complete [configuration guide](docs/configuration.md), [`AGENTS.md`](AGENTS.md#environment-variables), and [`.env.example`](.env.example).
 
-For local development, `task dev` loads `.env.dev` and the optional ignored `.env.dev.local`; keep storage credentials in the latter. The standalone upload demo is available with `task upload-demo` at `http://127.0.0.1:5501/upload-demo.html`.
+For local development, `task dev` loads `.env.dev` and the optional ignored `.env.dev.local`; keep storage credentials in the latter.
 
 ## Development and verification
 
@@ -153,10 +161,10 @@ task test-integration
 task check
 task atlas-validate
 task security
-task build-linux-all
+task build-all TARGET_OS=linux TARGET_ARCH=amd64
 ```
 
-When `MYSQL_TEST_DSN` is configured, integration tests connect to a real MySQL instance. GitHub Actions starts MySQL, applies migrations, and runs the integration suite automatically.
+CI starts MySQL and Redis, applies migrations, and runs unit/integration tests together with the race detector once. It also verifies the Docker stack. Tests stay alongside their Go packages; external-service tests use the `integration` build tag. `cmd/` contains only server, worker, and migration entry points.
 
 ## Project layout
 

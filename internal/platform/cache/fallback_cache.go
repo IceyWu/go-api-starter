@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"sync/atomic"
@@ -96,10 +97,19 @@ func (f *FallbackCache) current() CacheBackend {
 	return f.primary
 }
 
+// SecurityBackend keeps a complete security workflow on one authoritative backend.
+// Memory fallback remains available to ordinary caching, but cannot weaken shared reservations.
+func SecurityBackend(backend CacheBackend) CacheBackend {
+	if fallback, ok := backend.(*FallbackCache); ok {
+		return fallback.primary
+	}
+	return backend
+}
+
 // Get retrieves a value by key
 func (f *FallbackCache) Get(ctx context.Context, key string) ([]byte, error) {
 	result, err := f.current().Get(ctx, key)
-	if err != nil && f.mode.Load() == modePrimary {
+	if err != nil && !errors.Is(err, ErrKeyNotFound) && f.mode.Load() == modePrimary {
 		// Try fallback on primary failure
 		f.mode.Store(modeFallback)
 		f.logger.Warn("Primary cache failed, falling back", "error", err)
@@ -117,6 +127,15 @@ func (f *FallbackCache) Set(ctx context.Context, key string, value []byte, ttl t
 		return f.fallback.Set(ctx, key, value, ttl)
 	}
 	return err
+}
+
+// Never retry atomic security operations on a different backend after an ambiguous error.
+func (f *FallbackCache) SetIfAbsent(ctx context.Context, key string, value []byte, ttl time.Duration) (bool, error) {
+	return f.primary.SetIfAbsent(ctx, key, value, ttl)
+}
+
+func (f *FallbackCache) CompareAndDelete(ctx context.Context, key string, expected []byte) (bool, error) {
+	return f.primary.CompareAndDelete(ctx, key, expected)
 }
 
 // Delete removes a key
@@ -187,7 +206,5 @@ func (f *FallbackCache) IsDegraded() bool {
 // Close closes both cache backends
 func (f *FallbackCache) Close() error {
 	close(f.stopCh)
-	f.primary.Close()
-	f.fallback.Close()
-	return nil
+	return errors.Join(f.primary.Close(), f.fallback.Close())
 }

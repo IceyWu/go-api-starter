@@ -1,6 +1,9 @@
 package config
 
 import (
+	"os"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -9,7 +12,11 @@ func TestLoadAppliesProfileAndEnvironmentOverrides(t *testing.T) {
 	t.Setenv("APP_ENV", "development")
 	t.Setenv("GO_API_SERVER__PORT", "9123")
 	t.Setenv("GO_API_DATABASE__PORT", "3307")
+	t.Setenv("GO_API_DATABASE__CONNECT_TIMEOUT", "7")
+	t.Setenv("GO_API_DATABASE__READ_TIMEOUT", "21")
+	t.Setenv("GO_API_DATABASE__WRITE_TIMEOUT", "22")
 	t.Setenv("GO_API_REDIS__ENABLED", "true")
+	t.Setenv("GO_API_SKIP_AUTH__PATHS", "/api/v1/test/callback,/api/v1/test/hooks/*/complete")
 
 	cfg := Load()
 
@@ -25,6 +32,57 @@ func TestLoadAppliesProfileAndEnvironmentOverrides(t *testing.T) {
 	if !cfg.Redis.Enabled {
 		t.Fatal("expected environment override for redis.enabled")
 	}
+	if cfg.Database.ConnectTimeout != 7 || cfg.Database.ReadTimeout != 21 || cfg.Database.WriteTimeout != 22 {
+		t.Fatal("database timeout overrides were not applied")
+	}
+	if want := []string{"/api/v1/test/callback", "/api/v1/test/hooks/*/complete"}; !reflect.DeepEqual(cfg.SkipAuth.Paths, want) {
+		t.Fatalf("expected comma-separated skip auth paths, got %#v", cfg.SkipAuth.Paths)
+	}
+}
+
+func TestEnvironmentFilesUseSameKeysAndOrder(t *testing.T) {
+	var expected []string
+	for _, name := range []string{".env.example", ".env.dev", ".env.prod"} {
+		contents, err := os.ReadFile("../../" + name)
+		if os.IsNotExist(err) && name != ".env.example" {
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		keys := []string{}
+		seen := map[string]bool{}
+		hasComment := false
+		for _, line := range strings.Split(string(contents), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			if strings.HasPrefix(line, "#") {
+				hasComment = true
+				continue
+			}
+			if !hasComment {
+				t.Fatalf("%s is missing environment variable comments", name)
+			}
+			key, _, ok := strings.Cut(line, "=")
+			if !ok {
+				t.Fatalf("%s contains an invalid environment assignment", name)
+			}
+			if seen[key] {
+				t.Fatalf("%s contains duplicate key %q", name, key)
+			}
+			seen[key] = true
+			keys = append(keys, key)
+		}
+		if expected == nil {
+			expected = keys
+			continue
+		}
+		if !reflect.DeepEqual(keys, expected) {
+			t.Fatalf("%s keys/order differ from .env.example", name)
+		}
+	}
 }
 
 func TestProductionValidationRejectsInsecureDefaults(t *testing.T) {
@@ -38,8 +96,8 @@ func TestProductionValidationRejectsInsecureDefaults(t *testing.T) {
 			DefaultUserPassword: "123456",
 		},
 		Server:   ServerConfig{Port: "8080"},
-		Database: DatabaseConfig{Driver: "sqlite"},
-		CORS:     CORSConfig{AllowOrigins: []string{"*"}},
+		Database: DatabaseConfig{Driver: "mysql"},
+		CORS:     CORSConfig{},
 		Transcoding: TranscodingConfig{
 			Enabled:       false,
 			MPSRegion:     "",
@@ -76,8 +134,8 @@ func TestProductionValidationAcceptsSecureOverrides(t *testing.T) {
 			DefaultUserPassword: "secure-default-password",
 		},
 		Server:   ServerConfig{Port: "8080"},
-		Database: DatabaseConfig{Driver: "sqlite"},
-		CORS:     CORSConfig{AllowOrigins: []string{"https://app.example.com"}},
+		Database: DatabaseConfig{Driver: "mysql", Host: "db.example.com", Password: "secure-db-password"},
+		CORS:     CORSConfig{AllowOrigins: []string{"*"}},
 		Transcoding: TranscodingConfig{
 			Enabled:       false,
 			MPSRegion:     "",
@@ -87,6 +145,25 @@ func TestProductionValidationAcceptsSecureOverrides(t *testing.T) {
 
 	if errs := cfg.Validate(); errs.HasErrors() {
 		t.Fatalf("expected secure production configuration without MPS to pass, got %v", errs)
+	}
+}
+
+func TestProductionValidationAllowsWildcardCORS(t *testing.T) {
+	cfg := &Config{
+		App: AppConfig{
+			Env:                 "production",
+			JWTSecret:           "secure-jwt-secret-that-is-at-least-32-chars",
+			DocsUser:            "docs-admin",
+			DocsPassword:        "secure-docs-password",
+			AdminPassword:       "secure-admin-password",
+			DefaultUserPassword: "secure-default-password",
+		},
+		Server:   ServerConfig{Port: "8080"},
+		Database: DatabaseConfig{Driver: "mysql", Host: "db.example.com", Password: "secure-db-password"},
+		CORS:     CORSConfig{AllowOrigins: []string{"*"}},
+	}
+	if errs := cfg.Validate(); errs.HasErrors() {
+		t.Fatalf("expected wildcard CORS configuration to pass, got %v", errs)
 	}
 }
 

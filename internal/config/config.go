@@ -11,7 +11,7 @@ import (
 	"github.com/knadh/koanf/providers/confmap"
 	koanfenvironment "github.com/knadh/koanf/providers/env/v2"
 	"github.com/knadh/koanf/v2"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 )
 
 // Config holds all configuration
@@ -28,6 +28,15 @@ type Config struct {
 	Mail        MailConfig        `mapstructure:"mail"`
 	Wechat      WechatConfig      `mapstructure:"wechat"`
 	WS          WebSocketConfig   `mapstructure:"ws"`
+	SkipAuth    SkipAuthConfig    `mapstructure:"skip_auth"`
+}
+
+// SkipAuthConfig allows trusted callers to bypass JWT on explicitly configured paths.
+// An empty secret disables the bypass.
+type SkipAuthConfig struct {
+	HeaderName string   `mapstructure:"header_name"`
+	Secret     string   `mapstructure:"secret"`
+	Paths      []string `mapstructure:"paths"`
 }
 
 // MailConfig holds mail server configuration.
@@ -65,8 +74,7 @@ type RateLimitConfig struct {
 	GlobalPerMinute int `mapstructure:"global_per_minute"`
 	UserPerMinute   int `mapstructure:"user_per_minute"`
 	LoginPerMinute  int `mapstructure:"login_per_minute"`
-	// UploadPerMinute applies only to file upload action endpoints
-	// (POST /file/upload/init and /file/upload/complete).
+	// UploadPerMinute applies only to file upload action endpoints.
 	UploadPerMinute int `mapstructure:"upload_per_minute"`
 	FallbackRPS     int `mapstructure:"fallback_rps"`
 	FallbackBurst   int `mapstructure:"fallback_burst"`
@@ -116,6 +124,9 @@ type DatabaseConfig struct {
 	MaxIdleConns         int    `mapstructure:"max_idle_conns"`
 	MaxOpenConns         int    `mapstructure:"max_open_conns"`
 	ConnMaxLifetime      int    `mapstructure:"conn_max_lifetime"` // seconds
+	ConnectTimeout       int    `mapstructure:"connect_timeout"`   // seconds
+	ReadTimeout          int    `mapstructure:"read_timeout"`      // seconds
+	WriteTimeout         int    `mapstructure:"write_timeout"`     // seconds
 }
 
 // LogConfig holds logger settings.
@@ -243,6 +254,16 @@ func Load() *Config {
 		TransformFunc: func(key, value string) (string, any) {
 			key = strings.TrimPrefix(key, configEnvPrefix)
 			key = strings.ToLower(strings.ReplaceAll(key, "__", "."))
+			switch key {
+			case "skip_auth.paths", "storage.allowed_extensions", "cors.allow_origins", "cors.allow_methods", "cors.allow_headers", "redis.cluster_addrs":
+				values := []string{}
+				for _, item := range strings.Split(value, ",") {
+					if item = strings.TrimSpace(item); item != "" {
+						values = append(values, item)
+					}
+				}
+				return key, values
+			}
 			return key, value
 		},
 	}), nil); err != nil {

@@ -192,14 +192,14 @@ func generateExampleFromDef(def SchemaObject, defs map[string]SchemaObject, dept
 func GenerateLLMsTxt(spec *SwaggerSpec, cfg Config) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("# %s\n\n", spec.Info.Title))
-	sb.WriteString(fmt.Sprintf("> %s\n\n", spec.Info.Description))
-	sb.WriteString(fmt.Sprintf("Base URL: %s\n\n", cfg.BaseURL))
+	fmt.Fprintf(&sb, "# %s\n\n", spec.Info.Title)
+	fmt.Fprintf(&sb, "> %s\n\n", spec.Info.Description)
+	fmt.Fprintf(&sb, "Base URL: %s\n\n", cfg.BaseURL)
 
 	sb.WriteString("## 文档\n\n")
-	sb.WriteString(fmt.Sprintf("- <a href=\"%s/openapi.json\" target=\"_blank\" rel=\"noopener noreferrer\">OpenAPI Spec</a>: 机器可读的完整接口定义（推荐 AI 直接使用）\n", cfg.BaseURL))
-	sb.WriteString(fmt.Sprintf("- <a href=\"%s/docs\" target=\"_blank\" rel=\"noopener noreferrer\">接口文档</a>: 可视化接口文档\n", cfg.BaseURL))
-	sb.WriteString(fmt.Sprintf("- <a href=\"%s/llms-full.txt\" target=\"_blank\" rel=\"noopener noreferrer\">完整文档</a>: Markdown 格式的详细接口说明\n\n", cfg.BaseURL))
+	fmt.Fprintf(&sb, "- <a href=\"%s/openapi.json\" target=\"_blank\" rel=\"noopener noreferrer\">OpenAPI Spec</a>: 机器可读的完整接口定义（推荐 AI 直接使用）\n", cfg.BaseURL)
+	fmt.Fprintf(&sb, "- <a href=\"%s/docs\" target=\"_blank\" rel=\"noopener noreferrer\">接口文档</a>: 可视化接口文档\n", cfg.BaseURL)
+	fmt.Fprintf(&sb, "- <a href=\"%s/llms-full.txt\" target=\"_blank\" rel=\"noopener noreferrer\">完整文档</a>: Markdown 格式的详细接口说明\n\n", cfg.BaseURL)
 
 	sb.WriteString("## 接口概览\n\n")
 
@@ -208,7 +208,7 @@ func GenerateLLMsTxt(spec *SwaggerSpec, cfg Config) string {
 		methods := spec.Paths[path]
 		for _, method := range sortedMethods(methods) {
 			op := methods[method]
-			sb.WriteString(fmt.Sprintf("- %s %s: %s\n", strings.ToUpper(method), path, op.Summary))
+			fmt.Fprintf(&sb, "- %s %s: %s\n", strings.ToUpper(method), path, op.Summary)
 		}
 	}
 	sb.WriteString("\n")
@@ -220,9 +220,9 @@ func GenerateLLMsTxt(spec *SwaggerSpec, cfg Config) string {
 func GenerateLLMsFullTxt(spec *SwaggerSpec, cfg Config) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("# %s - 完整接口文档\n\n", spec.Info.Title))
-	sb.WriteString(fmt.Sprintf("> %s\n\n", spec.Info.Description))
-	sb.WriteString(fmt.Sprintf("Base URL: %s\n\n", cfg.BaseURL))
+	fmt.Fprintf(&sb, "# %s - 完整接口文档\n\n", spec.Info.Title)
+	fmt.Fprintf(&sb, "> %s\n\n", spec.Info.Description)
+	fmt.Fprintf(&sb, "Base URL: %s\n\n", cfg.BaseURL)
 	sb.WriteString("---\n\n")
 
 	paths := sortedPaths(spec.Paths)
@@ -231,15 +231,15 @@ func GenerateLLMsFullTxt(spec *SwaggerSpec, cfg Config) string {
 		for _, method := range sortedMethods(methods) {
 			op := methods[method]
 
-			sb.WriteString(fmt.Sprintf("## %s %s\n\n", strings.ToUpper(method), path))
+			fmt.Fprintf(&sb, "## %s %s\n\n", strings.ToUpper(method), path)
 			if op.Summary != "" {
-				sb.WriteString(fmt.Sprintf("**%s**\n\n", op.Summary))
+				fmt.Fprintf(&sb, "**%s**\n\n", op.Summary)
 			}
 			if op.Description != "" {
 				sb.WriteString(op.Description + "\n\n")
 			}
 			if len(op.Tags) > 0 {
-				sb.WriteString(fmt.Sprintf("标签: %s\n\n", strings.Join(op.Tags, ", ")))
+				fmt.Fprintf(&sb, "标签: %s\n\n", strings.Join(op.Tags, ", "))
 			}
 
 			// Parameters
@@ -260,7 +260,7 @@ func GenerateLLMsFullTxt(spec *SwaggerSpec, cfg Config) string {
 					if desc == "" {
 						desc = p.Name
 					}
-					sb.WriteString(fmt.Sprintf("| %s | %s | %s | %s | %s |\n", p.Name, p.In, pType, required, desc))
+					fmt.Fprintf(&sb, "| %s | %s | %s | %s | %s |\n", p.Name, p.In, pType, required, desc)
 				}
 				sb.WriteString("\n")
 			}
@@ -269,7 +269,7 @@ func GenerateLLMsFullTxt(spec *SwaggerSpec, cfg Config) string {
 			if len(op.Responses) > 0 {
 				sb.WriteString("### 响应\n\n")
 				for code, resp := range op.Responses {
-					sb.WriteString(fmt.Sprintf("- **%s**: %s\n", code, resp.Description))
+					fmt.Fprintf(&sb, "- **%s**: %s\n", code, resp.Description)
 
 					// Generate example if schema is available
 					if resp.Schema != nil {
@@ -277,7 +277,7 @@ func GenerateLLMsFullTxt(spec *SwaggerSpec, cfg Config) string {
 						if example != nil {
 							exJSON, err := json.MarshalIndent(example, "  ", "  ")
 							if err == nil {
-								sb.WriteString(fmt.Sprintf("\n  ```json\n  %s\n  ```\n\n", string(exJSON)))
+								fmt.Fprintf(&sb, "\n  ```json\n  %s\n  ```\n\n", string(exJSON))
 							}
 						}
 					}

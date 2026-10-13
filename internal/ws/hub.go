@@ -66,7 +66,7 @@ func (h *Hub) Register(conn *websocket.Conn) {
 	h.mu.Unlock()
 
 	if old != nil {
-		old.CloseNow()
+		_ = old.CloseNow()
 	}
 
 	logger.Log.Info("wechat_hook connected")
@@ -176,7 +176,7 @@ func (h *Hub) readPump(conn *websocket.Conn) {
 			h.conn = nil
 		}
 		h.mu.Unlock()
-		conn.CloseNow()
+		_ = conn.CloseNow()
 		logger.Log.Info("wechat_hook disconnected")
 	}()
 

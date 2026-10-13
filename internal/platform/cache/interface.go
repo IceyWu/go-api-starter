@@ -20,6 +20,12 @@ type CacheBackend interface {
 	// Set stores a value with TTL
 	Set(ctx context.Context, key string, value []byte, ttl time.Duration) error
 
+	// SetIfAbsent atomically reserves an absent or expired key.
+	SetIfAbsent(ctx context.Context, key string, value []byte, ttl time.Duration) (bool, error)
+
+	// CompareAndDelete atomically consumes a matching value; missing keys return ErrKeyNotFound.
+	CompareAndDelete(ctx context.Context, key string, expected []byte) (bool, error)
+
 	// Delete removes a key
 	Delete(ctx context.Context, key string) error
 
@@ -32,7 +38,7 @@ type CacheBackend interface {
 	// Incr increments a counter and returns the new value
 	Incr(ctx context.Context, key string) (int64, error)
 
-	// IncrWithExpire increments a counter with TTL and returns the new value
+	// IncrWithExpire increments a counter, setting TTL only when the key is created.
 	IncrWithExpire(ctx context.Context, key string, ttl time.Duration) (int64, error)
 
 	// Ping checks if the cache is available

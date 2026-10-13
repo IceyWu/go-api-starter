@@ -1,19 +1,28 @@
 # syntax=docker/dockerfile:1
 
-FROM golang:1.26.6-alpine AS build
+FROM golang:1.27.2-alpine AS build
 
 WORKDIR /src
 RUN apk add --no-cache git
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+# Atlas releases are distributed as binaries, not versioned Go modules.
+ADD --checksum=sha256:10d7913e3dce43ab99b8d71534a4cbadaf11a16dc293adf3b91d10e83a0ac70b \
+    https://release.ariga.io/atlas/atlas-community-linux-amd64-v1.3.0 /go/bin/atlas
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go install github.com/go-task/task/v3/cmd/task@v3.54.0 \
+    && chmod +x /go/bin/atlas
+
 COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    task build-all TARGET_OS=linux TARGET_ARCH=amd64
 
-RUN go install github.com/go-task/task/v3/cmd/task@v3.53.1 \
-    && go install ariga.io/atlas/cmd/atlas@v1.3.0 \
-    && task build-linux-all
-
-FROM alpine:3.21
+FROM alpine:3.24.2
 
 RUN apk add --no-cache ca-certificates wget tzdata
 WORKDIR /app

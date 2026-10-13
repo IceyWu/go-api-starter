@@ -51,15 +51,7 @@ func (u *User) PrepareForCreate() {
 		u.Username = &username
 	}
 	if u.LPID == "" {
-		// 最多重试 5 次确保 LPID 唯一
-		for i := 0; i < 5; i++ {
-			lpID := GenerateLPID()
-			u.LPID = lpID
-			break
-		}
-		if u.LPID == "" {
-			u.LPID = GenerateLPID() // fallback，依赖 uniqueIndex 兜底
-		}
+		u.LPID = GenerateLPID() // 唯一性由数据库约束保证。
 	}
 }
 

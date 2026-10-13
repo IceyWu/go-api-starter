@@ -114,7 +114,7 @@ func (r *UserRepository) Delete(ctx context.Context, id uint) error {
 }
 func safeSort(sort string) bool {
 	for _, r := range sort {
-		if !(r == '_' || r == ',' || r == ' ' || r == '.' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z') {
+		if r != '_' && r != ',' && r != ' ' && r != '.' && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
 			return false
 		}
 	}

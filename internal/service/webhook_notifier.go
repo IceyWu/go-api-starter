@@ -99,13 +99,13 @@ func (w *WebhookNotifier) NotifyWebhook(ctx context.Context, webhookURL string, 
 		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			_, _ = io.CopyN(io.Discard, resp.Body, maxWebhookResponseBytes)
 			logger.Log.Info("webhook notification sent successfully", "host", u.Host, "status", resp.StatusCode)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return nil
 		}
 
 		lastErr = fmt.Errorf("webhook returned non-2xx status: %d", resp.StatusCode)
 		logger.Log.Warn("webhook returned non-2xx status", "status", resp.StatusCode, "attempt", i+1, "max_attempts", w.maxRetries)
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
 			return lastErr
 		}

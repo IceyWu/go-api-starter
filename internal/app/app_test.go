@@ -12,6 +12,15 @@ import (
 	"go-api-starter/internal/config"
 )
 
+func TestHTTPServerHonorsBindHost(t *testing.T) {
+	for host, want := range map[string]string{"": ":8080", "127.0.0.1": "127.0.0.1:8080", "::1": "[::1]:8080"} {
+		server := newHTTPServer(&config.Config{Server: config.ServerConfig{Host: host, Port: "8080"}}, nil)
+		if server.Addr != want {
+			t.Fatalf("bind host ignored: got %q, want %q", server.Addr, want)
+		}
+	}
+}
+
 func TestNewHTTPServerUsesSafeTimeoutDefaults(t *testing.T) {
 	cfg := &config.Config{Server: config.ServerConfig{Port: "9527"}}
 	srv := newHTTPServer(cfg, http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))

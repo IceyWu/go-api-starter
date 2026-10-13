@@ -12,9 +12,10 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       mysql:
-        image: mysql:8.4
+        image: mysql:26.7.0
         env:
           MYSQL_ROOT_PASSWORD: test
           MYSQL_DATABASE: go_api_starter
@@ -25,27 +26,38 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
+      redis:
+        image: redis:8.10.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
+          cache-dependency-path: go.sum
 
       - name: Install Task
-        uses: go-task/setup-task@70f2430ad412f838533de8c0515c749ffb2b8bd3 # v1
+        uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
+        with:
+          version: 3.54.0
 
       - name: Install sqlc
         run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 
       - name: Install Atlas
-        uses: ariga/setup-atlas@d1698c9cc991e6d65a02ce8bb9cd69fba6223cff # v0
-
-      - name: Run project checks
-        run: task check
+        uses: ariga/setup-atlas@2f3c785c89a15e1c0d07bcae3900fb5feb969eea # v0.3
+        with:
+          version: v1.3.0
 
       - name: Run vulnerability scan
         run: task security
@@ -64,10 +76,16 @@ jobs:
           GO_API_DATABASE__DBNAME: go_api_starter
         run: task migrate
 
-      - name: Run MySQL integration tests
+      - name: Check source and run all tests once
         env:
+          CGO_ENABLED: "1"
           MYSQL_TEST_DSN: root:test@tcp(127.0.0.1:3306)/go_api_starter?parseTime=true&multiStatements=true
-        run: task test-integration
+          REDIS_TEST_ADDR: 127.0.0.1:6379
+          REQUIRE_INTEGRATION: "true"
+        run: task check TEST_ARGS="-race -tags=integration -count=1"
 
-      - name: Build Linux binary
-        run: task build-linux
+      - name: Verify generated code is committed
+        run: git diff --exit-code
+
+      - name: Build and smoke-test Docker stack
+        run: task docker-smoke

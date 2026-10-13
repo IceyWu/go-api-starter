@@ -5,15 +5,37 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"time"
 
 	"go-api-starter/internal/config"
+	"go-api-starter/internal/platform/database"
 )
 
 func main() {
 	cfg := config.Load()
 	dir := "migrations/mysql"
-	if cfg.Database.Driver == "sqlite" {
+	switch cfg.Database.Driver {
+	case "sqlite":
 		dir = "migrations/sqlite"
+	case "mysql":
+		if err := database.EnsureMySQLDatabase(&database.Config{
+			Driver:         cfg.Database.Driver,
+			Host:           cfg.Database.Host,
+			Port:           cfg.Database.Port,
+			Username:       cfg.Database.Username,
+			Password:       cfg.Database.Password,
+			DBName:         cfg.Database.DBName,
+			Charset:        cfg.Database.Charset,
+			ConnectTimeout: time.Duration(cfg.Database.ConnectTimeout) * time.Second,
+			ReadTimeout:    time.Duration(cfg.Database.ReadTimeout) * time.Second,
+			WriteTimeout:   time.Duration(cfg.Database.WriteTimeout) * time.Second,
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to initialize MySQL database: %v\n", err)
+			os.Exit(1)
+		}
+	default:
+		fmt.Fprintf(os.Stderr, "unsupported database driver %q\n", cfg.Database.Driver)
+		os.Exit(1)
 	}
 	cmd := exec.Command(
 		"atlas", "migrate", "apply",

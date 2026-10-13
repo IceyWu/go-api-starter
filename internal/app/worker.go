@@ -40,11 +40,18 @@ func RunWorker() error {
 		MaxIdleConns:    cfg.Database.MaxIdleConns,
 		MaxOpenConns:    cfg.Database.MaxOpenConns,
 		ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetime) * time.Second,
+		ConnectTimeout:  time.Duration(cfg.Database.ConnectTimeout) * time.Second,
+		ReadTimeout:     time.Duration(cfg.Database.ReadTimeout) * time.Second,
+		WriteTimeout:    time.Duration(cfg.Database.WriteTimeout) * time.Second,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
-	defer closeDB(db)
+	defer func() {
+		if err := closeDB(db); err != nil {
+			logger.Log.Warn("failed to close worker database", "error", err)
+		}
+	}()
 
 	if cfg.Storage.AccessKeyID != "" && cfg.Storage.AccessKeySecret != "" {
 		if _, err := storage.NewS3Provider(context.Background(), &cfg.Storage); err != nil {
@@ -59,11 +66,15 @@ func RunWorker() error {
 	defer releaseLock()
 
 	workerContainer := container.NewContainer(db, cfg)
-	defer workerContainer.Close()
+	defer func() {
+		if err := workerContainer.Close(); err != nil {
+			logger.Log.Warn("failed to close worker resources", "error", err)
+		}
+	}()
 	manager := workerContainer.TranscodingTaskManager()
 	transcoder := manager.CloudTranscoder()
 	if transcoder == nil {
-		return fmt.Errorf("Alibaba Cloud MPS is not configured")
+		return fmt.Errorf("alibaba Cloud MPS is not configured")
 	}
 
 	workerCtx, cancelWorker := context.WithCancel(context.Background())

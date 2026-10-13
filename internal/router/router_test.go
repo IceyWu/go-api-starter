@@ -28,9 +28,14 @@ func TestSetupRegistersPublicDocumentationAndSystemRoutes(t *testing.T) {
 		Server:   config.ServerConfig{Port: "9527"},
 		Database: config.DatabaseConfig{Driver: "sqlite"},
 		CORS: config.CORSConfig{
-			AllowOrigins: []string{"http://localhost:3000"},
+			AllowOrigins: []string{"*"},
 			AllowMethods: []string{"GET", "POST", "OPTIONS"},
 			AllowHeaders: []string{"Content-Type", "Authorization"},
+		},
+		SkipAuth: config.SkipAuthConfig{
+			HeaderName: "X-Skip-Auth",
+			Secret:     "test-secret",
+			Paths:      []string{"/api/v1/test/callback"},
 		},
 		RateLimit: config.RateLimitConfig{FallbackRPS: 100, FallbackBurst: 100},
 	}
@@ -43,7 +48,7 @@ func TestSetupRegistersPublicDocumentationAndSystemRoutes(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.Exec(string(schema))
 	require.NoError(t, err)
-	r, _, _ := Setup(db)
+	r, _, _ := SetupWithConfig(db, config.GlobalConfig)
 
 	tests := []struct {
 		name   string
@@ -52,11 +57,24 @@ func TestSetupRegistersPublicDocumentationAndSystemRoutes(t *testing.T) {
 		status int
 	}{
 		{name: "system ping", method: http.MethodGet, path: "/api/v1/system/ping", status: http.StatusOK},
+		{name: "protected user route", method: http.MethodGet, path: "/api/v1/users/me", status: http.StatusUnauthorized},
 		{name: "openapi", method: http.MethodGet, path: "/openapi.json", status: http.StatusOK},
 		{name: "llms", method: http.MethodGet, path: "/llms.txt", status: http.StatusOK},
 		{name: "health", method: http.MethodGet, path: "/health", status: http.StatusOK},
 		{name: "readiness", method: http.MethodGet, path: "/health/ready", status: http.StatusOK},
 		{name: "metrics", method: http.MethodGet, path: "/metrics", status: http.StatusOK},
+	}
+
+	for _, origin := range []string{"https://extension.example", "null"} {
+		req := httptest.NewRequest(http.MethodOptions, "/api/v1/test/callback", nil)
+		req.Header.Set("Origin", origin)
+		req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+		req.Header.Set("Access-Control-Request-Headers", "X-Skip-Auth")
+		res := httptest.NewRecorder()
+		r.ServeHTTP(res, req)
+		require.Equal(t, http.StatusNoContent, res.Code)
+		require.Equal(t, "*", res.Header().Get("Access-Control-Allow-Origin"))
+		require.Contains(t, res.Header().Get("Access-Control-Allow-Headers"), "X-Skip-Auth")
 	}
 
 	for _, tt := range tests {

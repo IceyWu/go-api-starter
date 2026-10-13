@@ -100,13 +100,13 @@ func (c *Client) sendMailSSL(addr string, to []string, msg []byte) error {
 	if err != nil {
 		return fmt.Errorf("TLS dial failed: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client, err := smtp.NewClient(conn, c.config.Host)
 	if err != nil {
 		return fmt.Errorf("create client failed: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	auth := smtp.PlainAuth("", c.config.User, c.config.Password, c.config.Host)
 	if err = client.Auth(auth); err != nil {
@@ -132,9 +132,10 @@ func (c *Client) sendMailSSL(addr string, to []string, msg []byte) error {
 		return fmt.Errorf("write failed: %w", err)
 	}
 
-	w.Close()
-	client.Quit()
-	return nil
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("finish mail data failed: %w", err)
+	}
+	return client.Quit()
 }
 
 // sendMailSTARTTLS sends mail using STARTTLS (port 587/25)
@@ -143,13 +144,13 @@ func (c *Client) sendMailSTARTTLS(addr string, to []string, msg []byte) error {
 	if err != nil {
 		return fmt.Errorf("dial failed: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client, err := smtp.NewClient(conn, c.config.Host)
 	if err != nil {
 		return fmt.Errorf("create client failed: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	tlsConfig := &tls.Config{
 		ServerName:         c.config.Host,
@@ -183,7 +184,8 @@ func (c *Client) sendMailSTARTTLS(addr string, to []string, msg []byte) error {
 		return fmt.Errorf("write failed: %w", err)
 	}
 
-	w.Close()
-	client.Quit()
-	return nil
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("finish mail data failed: %w", err)
+	}
+	return client.Quit()
 }

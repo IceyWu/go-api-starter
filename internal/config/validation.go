@@ -91,12 +91,13 @@ func (c *Config) Validate() ValidationErrors {
 
 		// Database validation for non-SQLite databases
 		if c.Database.Driver != "sqlite" {
-			if c.Database.Password == "" {
+			switch c.Database.Password {
+			case "":
 				errors = append(errors, ValidationError{
 					Field:   "database.password",
 					Message: "Database password must be set in production",
 				})
-			} else if c.Database.Password == "123456" || c.Database.Password == "password" {
+			case "123456", "password":
 				errors = append(errors, ValidationError{
 					Field:   "database.password",
 					Message: "Database password must be changed from default value in production",
@@ -148,10 +149,10 @@ func (c *Config) Validate() ValidationErrors {
 			}
 		}
 
-		if len(c.CORS.AllowOrigins) == 0 || containsWildcard(c.CORS.AllowOrigins) {
+		if len(c.CORS.AllowOrigins) == 0 {
 			errors = append(errors, ValidationError{
 				Field:   "cors.allow_origins",
-				Message: "wildcard CORS origins are not allowed in production",
+				Message: "CORS origins must be configured in production",
 			})
 		}
 	}
@@ -175,15 +176,6 @@ func (c *Config) Validate() ValidationErrors {
 	}
 
 	return errors
-}
-
-func containsWildcard(values []string) bool {
-	for _, value := range values {
-		if strings.TrimSpace(value) == "*" {
-			return true
-		}
-	}
-	return false
 }
 
 // MustValidate validates the configuration and panics if there are errors

@@ -2,20 +2,22 @@
 
 [English](configuration.md)
 
-项目只有一个正式的应用配置源：[`../config/config.yaml`](../config/config.yaml)。`task dev` 会额外加载 `.env.dev` 和可选的 `.env.dev.local`，作为环境变量覆盖。
+项目只有一个正式的应用配置源：[`../config/config.yaml`](../config/config.yaml)。`task dev` 和 `task prod` 会分别加载对应环境文件及可选的本地覆盖文件。
 
 ## 配置文件
+
+Git 只跟踪 `.env.example`。本地开发和生产环境文件从该模板创建，实际配置值不提交到仓库。
 
 | 文件 | 用途 | 是否自动加载 |
 | --- | --- | --- |
 | `config/config.yaml` | 维护公共默认值以及 `development`、`production` 配置段。 | 是 |
 | `.env.example` | 环境变量模板和部署参考。 | 否 |
-| `.env.dev` | `task dev` 加载的开发环境覆盖配置。只放非敏感的本地默认值。 | `task dev` 加载 |
-| `.env.dev.local` | 被 Git 忽略的本地开发覆盖配置，用于凭据和机器相关配置。 | 存在时由 `task dev` 加载 |
-| `.env.prod` | 已废弃的生产环境兼容文件。建议使用 `APP_ENV=production` 和部署平台或密钥管理器。 | 否 |
+| `.env.dev` | `task dev` 和 `task migrate` 加载的开发环境覆盖配置。只放非敏感的本地默认值。 | `task dev`、`task migrate` 加载 |
+| `.env.dev.local` | 被 Git 忽略的本地开发覆盖配置，用于凭据和机器相关配置。 | 存在时由 `task dev`、`task migrate` 加载 |
+| `.env.prod` | 生产环境变量覆盖。密钥应放在 `.env.prod.local` 或部署平台的密钥管理器中。 | `task prod` 加载 |
 | `CONFIG_FILE` 指向的文件 | 通过 `CONFIG_FILE` 环境变量显式指定的替代 YAML 配置文件。 | 显式配置时加载 |
 
-Go 应用本身读取 `config/config.yaml` 和普通环境变量。`task dev` 会先加载 `.env.dev`，再加载 `.env.dev.local`，因此本地密钥应放在后者。`.env.prod` 仍然只是部署模板，不由应用自动加载。
+Go 应用读取 `config/config.yaml` 和普通环境变量。`task dev` 依次加载 `.env.dev`、`.env.dev.local`；`task prod` 依次加载 `.env.prod`、`.env.prod.local`。后加载的文件覆盖前者，因此本机密钥应放在被忽略的 `*.local` 文件或部署密钥管理器中。
 
 ## 环境配置和覆盖优先级
 
@@ -81,18 +83,21 @@ YAML 配置按照功能划分：
 | --- | --- |
 | `app` | 应用名称、JWT、文档认证和默认账号设置。 |
 | `server` | 监听地址、HTTP 超时、关闭超时和请求限制。 |
-| `database` | MySQL/SQLite 连接、连接池和迁移设置。 |
+| `database` | MySQL 连接、连接池和迁移设置。SQLite 仅用于测试或显式配置的替代场景。 |
 | `log` | 日志级别、格式和输出目标。 |
 | `storage` | S3 兼容存储的 Endpoint、Bucket、凭据、公开 URL 和上传设置。 |
 | `redis` | 可选缓存、Token 黑名单、限流和降级设置。 |
 | `transcoding` | 可选的阿里云 MPS 地域、管道、模板、轮询和 Worker 设置。只有配置 MPS 时才设置 `enabled: true`。 |
-| `cors` | 允许的来源和跨域行为。 |
+| `cors` | 允许的来源和跨域行为；显式配置时允许使用 `*`。 |
+| `skip_auth` | 可选的共享密钥鉴权跳过规则，仅对明确配置的路径生效；密钥为空时始终关闭。 |
 | `rate_limit` | 全局、用户、登录、上传和降级限流。 |
 | `mail` | SMTP 服务和验证码邮件设置。 |
 | `wechat` | 微信小程序凭据和登录设置。 |
 | `ws` | WebSocket 来源、认证、心跳和连接限制。 |
 
 视频转码统一使用阿里云 MPS。API 只创建和跟踪任务，独立 Worker 负责轮询 MPS 并持久化结果。
+
+MySQL 启动时会先校验连接配置和库名，再查询 `INFORMATION_SCHEMA`；仅当目标库不存在时才创建，不会删除或替换已有数据库。目标库缺失时，配置的 MySQL 账号需要 `CREATE DATABASE` 权限；也可以提前建库并授予应用账号访问权限。
 
 ## 推荐用法
 
@@ -104,13 +109,7 @@ $env:GO_API_APP__JWT_SECRET = "local-only-secret"
 task dev
 ```
 
-`task dev` 会依次加载 `.env.dev` 和 `.env.dev.local`。独立上传页面可使用不带热重载的静态服务器启动：
-
-```powershell
-task upload-demo
-```
-
-然后打开 `http://127.0.0.1:5501/upload-demo.html`，避免 API 更新本地数据库时被 Live Server 自动刷新页面。
+`task dev` 会依次加载 `.env.dev` 和 `.env.dev.local`。
 
 生产环境：
 
@@ -121,7 +120,7 @@ GO_API_APP__DOCS_PASSWORD=<secret-manager-value>
 GO_API_DATABASE__PASSWORD=<secret-manager-value>
 ```
 
-不要提交真实凭据。生产环境必须替换 JWT 密钥、文档账号密码、管理员密码、默认用户密码、CORS 来源以及外部服务凭据。
+不要提交真实凭据。生产环境必须替换 JWT 密钥、文档账号密码、管理员密码、默认用户密码和外部服务凭据。明确配置时允许 CORS 来源为 `*`。只有同时配置密钥和允许路径时才会启用跳过鉴权。
 
 ## 新增配置项
 

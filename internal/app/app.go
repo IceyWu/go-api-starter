@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -40,6 +41,9 @@ func Run() error {
 		MaxIdleConns:    cfg.Database.MaxIdleConns,
 		MaxOpenConns:    cfg.Database.MaxOpenConns,
 		ConnMaxLifetime: time.Duration(cfg.Database.ConnMaxLifetime) * time.Second,
+		ConnectTimeout:  time.Duration(cfg.Database.ConnectTimeout) * time.Second,
+		ReadTimeout:     time.Duration(cfg.Database.ReadTimeout) * time.Second,
+		WriteTimeout:    time.Duration(cfg.Database.WriteTimeout) * time.Second,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
@@ -125,7 +129,7 @@ const (
 
 func newHTTPServer(cfg *config.Config, handler http.Handler) *http.Server {
 	return &http.Server{
-		Addr:              ":" + cfg.Server.Port,
+		Addr:              net.JoinHostPort(cfg.Server.Host, cfg.Server.Port),
 		Handler:           handler,
 		ReadHeaderTimeout: durationOrDefault(cfg.Server.ReadHeaderTimeout, defaultReadHeaderTimeout),
 		ReadTimeout:       durationOrDefault(cfg.Server.ReadTimeout, defaultReadTimeout),

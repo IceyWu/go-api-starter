@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"strings"
 	"time"
 
@@ -32,77 +34,89 @@ type VerificationCodeService struct {
 }
 
 // NewVerificationCodeService creates a new verification code service
-func NewVerificationCodeService(cache cache.CacheBackend, mailClient *mail.Client, appName string) *VerificationCodeService {
+func NewVerificationCodeService(backend cache.CacheBackend, mailClient *mail.Client, appName string) *VerificationCodeService {
 	if appName == "" {
 		appName = "Go API Starter"
 	}
 	return &VerificationCodeService{
-		cache:      cache,
+		cache:      cache.SecurityBackend(backend),
 		mailClient: mailClient,
 		appName:    appName,
 	}
 }
 
 // GenerateCode generates a random verification code
-func (s *VerificationCodeService) GenerateCode() string {
-	rand.Seed(time.Now().UnixNano())
-	code := ""
-	for i := 0; i < VerificationCodeLength; i++ {
-		code += fmt.Sprintf("%d", rand.Intn(10))
+func (s *VerificationCodeService) GenerateCode() (string, error) {
+	number, err := rand.Int(rand.Reader, big.NewInt(1_000_000))
+	if err != nil {
+		return "", err
 	}
-	return code
+	return fmt.Sprintf("%0*d", VerificationCodeLength, number.Int64()), nil
 }
 
 // SendVerificationCode sends a verification code to the email
 func (s *VerificationCodeService) SendVerificationCode(ctx context.Context, email, purpose string) error {
 	rateLimitKey := VerificationCodeRateLimit + email
-	_, err := s.cache.Get(ctx, rateLimitKey)
-	if err == nil {
+	code, err := s.GenerateCode()
+	if err != nil {
+		return apperrors.WrapCode(err, i18n.ErrCodeStoreFailed)
+	}
+	reservation := []byte(rand.Text())
+	reserved, err := s.cache.SetIfAbsent(ctx, rateLimitKey, reservation, VerificationCodeRateLimitExpiry)
+	if err != nil {
+		return apperrors.WrapCode(err, i18n.ErrCodeStoreFailed)
+	}
+	if !reserved {
 		return apperrors.BadRequestCode(i18n.ErrCodeRateLimit)
 	}
 
-	code := s.GenerateCode()
-
-	logger.Infof("\033[35m[验证码]\033[0m %s -> %s (%s)", email, code, purpose)
-
 	codeKey := VerificationCodePrefix + purpose + ":" + email
+	sent := false
+	defer func() {
+		if sent {
+			return
+		}
+		cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		for key, expected := range map[string][]byte{codeKey: []byte(code), rateLimitKey: reservation} {
+			if _, err := s.cache.CompareAndDelete(cleanupCtx, key, expected); err != nil && !errors.Is(err, cache.ErrKeyNotFound) {
+				logger.Log.Warn("failed to clean up verification reservation", "error", err)
+			}
+		}
+	}()
 	if err := s.cache.Set(ctx, codeKey, []byte(code), VerificationCodeExpiry); err != nil {
 		return apperrors.WrapCode(err, i18n.ErrCodeStoreFailed)
-	}
-
-	if err := s.cache.Set(ctx, rateLimitKey, []byte("1"), VerificationCodeRateLimitExpiry); err != nil {
-		// Log but don't fail
-		_ = err
 	}
 
 	subject := fmt.Sprintf("【%s】验证码", s.appName)
 	body := s.buildEmailBody(code, purpose)
 
 	if err := s.mailClient.SendHTMLMail([]string{email}, subject, body, true); err != nil {
-		s.cache.Delete(ctx, codeKey)
 		return apperrors.WrapCode(err, i18n.ErrMailSendFailed)
 	}
-
+	sent = true
 	return nil
 }
 
 // VerifyCode verifies the verification code
 func (s *VerificationCodeService) VerifyCode(ctx context.Context, email, purpose, code string) (bool, error) {
 	codeKey := VerificationCodePrefix + purpose + ":" + email
-	storedCode, err := s.cache.Get(ctx, codeKey)
-	if err != nil {
+	matched, err := s.cache.CompareAndDelete(ctx, codeKey, []byte(code))
+	if errors.Is(err, cache.ErrKeyNotFound) {
 		return false, apperrors.BadRequestCode(i18n.ErrCodeExpired)
 	}
-
-	if string(storedCode) != code {
+	if err != nil {
+		return false, apperrors.WrapCode(err, i18n.ErrCodeStoreFailed)
+	}
+	if !matched {
 		return false, apperrors.BadRequestCode(i18n.ErrCodeInvalid)
 	}
 
-	s.cache.Delete(ctx, codeKey)
-
 	if purpose == "register" {
 		verifiedKey := VerifiedEmailPrefix + email
-		s.cache.Set(ctx, verifiedKey, []byte("1"), VerifiedEmailExpiry)
+		if err := s.cache.Set(ctx, verifiedKey, []byte("1"), VerifiedEmailExpiry); err != nil {
+			return false, apperrors.WrapCode(err, i18n.ErrCodeStoreFailed)
+		}
 	}
 
 	return true, nil
@@ -118,7 +132,9 @@ func (s *VerificationCodeService) IsEmailVerified(ctx context.Context, email str
 // ClearEmailVerified clears the verified status after successful registration
 func (s *VerificationCodeService) ClearEmailVerified(ctx context.Context, email string) {
 	verifiedKey := VerifiedEmailPrefix + email
-	s.cache.Delete(ctx, verifiedKey)
+	if err := s.cache.Delete(ctx, verifiedKey); err != nil {
+		logger.Log.Warn("failed to clear verified email", "error", err)
+	}
 }
 
 // buildEmailBody builds the HTML email body

@@ -83,6 +83,28 @@ func (r *RedisCache) Set(ctx context.Context, key string, value []byte, ttl time
 	return r.client.Set(ctx, key, value, ttl).Err()
 }
 
+func (r *RedisCache) SetIfAbsent(ctx context.Context, key string, value []byte, ttl time.Duration) (bool, error) {
+	return r.client.SetNX(ctx, key, value, ttl).Result()
+}
+
+var compareAndDeleteScript = redis.NewScript(`
+local value = redis.call('GET', KEYS[1])
+if not value then return -1 end
+if value ~= ARGV[1] then return 0 end
+return redis.call('DEL', KEYS[1])
+`)
+
+func (r *RedisCache) CompareAndDelete(ctx context.Context, key string, expected []byte) (bool, error) {
+	result, err := compareAndDeleteScript.Run(ctx, r.client, []string{key}, expected).Int64()
+	if err != nil {
+		return false, err
+	}
+	if result == -1 {
+		return false, ErrKeyNotFound
+	}
+	return result == 1, nil
+}
+
 // Delete removes a key
 func (r *RedisCache) Delete(ctx context.Context, key string) error {
 	return r.client.Del(ctx, key).Err()
@@ -127,15 +149,19 @@ func (r *RedisCache) Incr(ctx context.Context, key string) (int64, error) {
 }
 
 // IncrWithExpire increments a counter with TTL and returns the new value
+var incrWithExpireScript = redis.NewScript(`
+local exists = redis.call('EXISTS', KEYS[1])
+redis.call('INCR', KEYS[1])
+if exists == 0 and tonumber(ARGV[1]) > 0 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
+return redis.call('GET', KEYS[1])
+`)
+
 func (r *RedisCache) IncrWithExpire(ctx context.Context, key string, ttl time.Duration) (int64, error) {
-	pipe := r.client.Pipeline()
-	incr := pipe.Incr(ctx, key)
-	pipe.Expire(ctx, key, ttl)
-	_, err := pipe.Exec(ctx)
-	if err != nil {
-		return 0, err
+	milliseconds := ttl.Milliseconds()
+	if ttl > 0 && milliseconds == 0 {
+		milliseconds = 1
 	}
-	return incr.Val(), nil
+	return incrWithExpireScript.Run(ctx, r.client, []string{key}, milliseconds).Int64()
 }
 
 // Ping checks if the cache is available

@@ -64,7 +64,7 @@ func NewAliyunMPSClient(ossCfg *config.StorageConfig, transcodingCfg *config.Tra
 		return nil, fmt.Errorf("OSS and transcoding configuration are required")
 	}
 	if ossCfg.AccessKeyID == "" || ossCfg.AccessKeySecret == "" {
-		return nil, fmt.Errorf("Alibaba Cloud access key is not configured")
+		return nil, fmt.Errorf("alibaba Cloud access key is not configured")
 	}
 	bucket := ossCfg.Bucket
 	if bucket == "" {

@@ -23,6 +23,14 @@ import (
 
 // Setup configures and returns the router, permission middleware, and DI container.
 func Setup(db *sqlx.DB) (*transport.Engine, *middleware.PermissionMiddleware, *container.Container) {
+	return SetupWithConfig(db, config.GetConfig())
+}
+
+// SetupWithConfig builds an isolated application with the supplied configuration.
+func SetupWithConfig(db *sqlx.DB, cfg *config.Config) (*transport.Engine, *middleware.PermissionMiddleware, *container.Container) {
+	if cfg == nil {
+		panic("router: configuration is required")
+	}
 	r := transport.New()
 	humaConfig := huma.DefaultConfig("go-api-starter", "2.0.0")
 	// The public OpenAPI document is the complete checked-in contract below.
@@ -52,25 +60,29 @@ func Setup(db *sqlx.DB) (*transport.Engine, *middleware.PermissionMiddleware, *c
 	})
 	httpMetrics := metrics.New()
 
-	cfg := config.GetConfig()
 	c := container.NewContainer(db, cfg)
 
 	// Core middleware
-	r.Use(middleware.Recovery())
 	r.Use(middleware.RequestID())
 	r.Use(middleware.BodyLimit(10 << 20)) // 10MB default body limit
 	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.Logger())
-	r.Use(middleware.ErrorHandler())
 	r.Use(httpMetrics.Middleware())
 
 	// Compression and CORS are implemented by the internal transport adapter.
 	r.Use(transport.Gzip())
-	r.Use(transport.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowMethods, cfg.CORS.AllowHeaders))
+	// Recovery and error responses must finish before the compressed writer closes.
+	r.Use(middleware.Recovery())
+	r.Use(middleware.ErrorHandler())
+	allowHeaders := append([]string(nil), cfg.CORS.AllowHeaders...)
+	if cfg.SkipAuth.HeaderName != "" && cfg.SkipAuth.Secret != "" {
+		allowHeaders = append(allowHeaders, cfg.SkipAuth.HeaderName)
+	}
+	r.Use(transport.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowMethods, allowHeaders))
 	// Chi only dispatches middleware after a method matches. Register a catch-all
 	// OPTIONS route so browser preflight requests receive CORS headers instead of
 	// a 405 before the CORS middleware can run.
-	r.OPTIONS("/*", transport.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowMethods, cfg.CORS.AllowHeaders))
+	r.OPTIONS("/*", transport.CORS(cfg.CORS.AllowOrigins, cfg.CORS.AllowMethods, allowHeaders))
 
 	// Rate limiting
 	if cfg.Redis.Enabled {
@@ -94,10 +106,10 @@ func Setup(db *sqlx.DB) (*transport.Engine, *middleware.PermissionMiddleware, *c
 	}
 
 	// Build shared middleware
-	authMw := middleware.NewAuthMiddleware(c.JWTSecret(), c.AuthService(), c.UserRepository())
+	authMw := middleware.NewAuthMiddleware(c.JWTSecret(), c.AuthService(), c.UserRepository(), cfg.SkipAuth.HeaderName, cfg.SkipAuth.Secret, cfg.SkipAuth.Paths)
 	permMw := middleware.NewPermissionMiddleware(c.PermissionService())
 
-	// Global base path group (configurable via BASE_PATH env var)
+	// Global base path group (configurable with GO_API_SERVER__BASE_PATH).
 	base := r.Group(cfg.Server.BasePath)
 
 	// Health check routes (no auth)

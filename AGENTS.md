@@ -34,11 +34,12 @@ task build
 
 - `task build`：编译 API server
 - `task test`：运行全部测试
-- `task check`：执行格式化、sqlc 生成、测试、编译、vet 和 diff 检查
+- `task check`：执行格式检查、sqlc 生成、测试、lint（含 vet）、编译和 diff 检查，不自动格式化源文件
+- `task build-all TARGET_OS=linux TARGET_ARCH=amd64`：交叉编译 server、migrate 和 worker
 - `task fmt` / `task vet`：单独执行格式化或静态检查
 - `task sqlc`：生成类型安全 SQL 代码
 - `task migrate`：执行 Atlas 数据库迁移
-- `task atlas-validate`：校验 SQLite/MySQL Atlas migration
+- `task atlas-validate`：校验 SQLite 测试配置和 MySQL Atlas migration
 - `task security`：执行 Go 依赖漏洞扫描
 - `task dev` / `task prod` / `task worker`：运行对应进程
 
@@ -64,6 +65,7 @@ task lint
 ```
 
 - 单包测试使用 `task test-package PACKAGE=<package>`；项目完整验证必须使用 `task test` 或 `task check`
+- CI 使用 `task check TEST_ARGS="-race -tags=integration -count=1"`，单元、集成及竞态测试只运行一次。有效测试与对应 Go 包放在一起，外部服务测试使用 `integration` build tag；临时验证程序和操作记录不放进模板。
 - 修改代码后务必确保 `task build` 或 `task check` 通过
 - `/openapi.json` 是完整业务 OpenAPI 契约；`/huma-openapi.json` 仅用于查看当前已注册的 Huma typed operations
 - 当前 HTTP 处理器通过 `internal/transport` 的 Chi transport helpers 运行，不再使用 Gin/Gin-compatible 命名
@@ -109,6 +111,8 @@ internal/transport/         → Chi HTTP transport helpers and response writers
 - 权限系统使用位图（bitwise）实现，每个权限空间最多 64 个权限
 - 路由注册时通过中间件自动收集权限码，启动时自动 seed 到数据库
 - 验证码通过 cache backend（Redis/内存）存储，60 秒有效，60 秒内不可重发
+- 验证码使用加密安全随机数，日志不记录验证码；发送预占与校验消费必须使用原子缓存操作。启用 Redis 时，验证码工作流不降级到内存，以免绕过跨实例限流。
+- 数据库 `connect_timeout`、`read_timeout`、`write_timeout` 默认分别为 10、30、30 秒，可通过对应 `GO_API_DATABASE__*` 环境变量覆盖，无需在 dotenv 重复默认值。
 - 邮件验证码通过 SMTP 发送，支持 `MAIL_MOCK_SEND=true` 跳过实际发送（开发模式）
 
 ### 分页接口规范
@@ -141,13 +145,13 @@ internal/transport/         → Chi HTTP transport helpers and response writers
 **Handler 使用方式**：
 
 ```go
-func (h *XxxHandler) List(c *httpx.Context) {
+func (h *XxxHandler) List(c *transport.Context) {
     p, ok := BindPagination(c)
     if !ok {
         return
     }
 
-    items, total, err := h.service.List(ctx, p.GetOffset(), p.GetPageSize(), p.GetSort())
+    items, total, err := h.service.List(c.Request.Context(), p.GetOffset(), p.GetPageSize(), p.GetSort())
     if err != nil {
         c.Error(err)
         return
@@ -172,7 +176,7 @@ func (h *XxxHandler) List(c *httpx.Context) {
 
 ## Environment variables
 
-配置文件为唯一的普通配置来源：`config/config.yaml`。
+配置文件为唯一的普通配置来源：`config/config.yaml`。`task dev` / `task prod` 还会分别加载 `.env.dev` / `.env.prod` 及可选的 `*.local` 覆盖文件。
 
 配置文件职责和加载关系见 [`docs/configuration.md`](docs/configuration.md)。
 
@@ -223,7 +227,7 @@ GO_API_DATABASE__PASSWORD
 
 - 创建 `xxx_repository.go`，实现数据访问
 - 在 `interfaces.go` 中定义对应接口
-- 删除方法使用 `db.Unscoped().Delete()` 硬删除
+- 删除方法按模型策略执行 SQL 删除；本项目默认硬删除，不使用 ORM 软删除约定
 - 错误变量命名：`ErrXxxNotFound`
 
 ### 3. Service (`internal/service/`)
@@ -239,7 +243,7 @@ GO_API_DATABASE__PASSWORD
 - 参数绑定用 `c.ShouldBindJSON` / `c.ShouldBindQuery`
 - 错误统一通过 `c.Error()` 交给全局 error handler
 - 成功响应用 `response.Success` / `response.Created`
-- 添加 Swagger 注释（`// @Summary` 等）
+- 添加 Swagger 注释（`// @Summary`、`// @Router /api/v1/...` 等）
 
 ### 5. Router (`internal/router/`)
 

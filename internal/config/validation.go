@@ -149,12 +149,6 @@ func (c *Config) Validate() ValidationErrors {
 			}
 		}
 
-		if len(c.CORS.AllowOrigins) == 0 {
-			errors = append(errors, ValidationError{
-				Field:   "cors.allow_origins",
-				Message: "CORS origins must be configured in production",
-			})
-		}
 	}
 
 	// Development environment: warn about critical security misconfigurations

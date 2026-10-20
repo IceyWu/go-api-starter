@@ -109,7 +109,7 @@ func TestProductionValidationRejectsInsecureDefaults(t *testing.T) {
 	if !errs.HasErrors() {
 		t.Fatal("expected insecure production defaults to be rejected")
 	}
-	for _, field := range []string{"app.jwt_secret", "app.docs_password", "app.admin_password", "app.default_user_password", "cors.allow_origins"} {
+	for _, field := range []string{"app.jwt_secret", "app.docs_password", "app.admin_password", "app.default_user_password"} {
 		found := false
 		for _, err := range errs {
 			if err.Field == field {
@@ -164,6 +164,10 @@ func TestProductionValidationAllowsWildcardCORS(t *testing.T) {
 	}
 	if errs := cfg.Validate(); errs.HasErrors() {
 		t.Fatalf("expected wildcard CORS configuration to pass, got %v", errs)
+	}
+	cfg.CORS.AllowOrigins = nil
+	if errs := cfg.Validate(); errs.HasErrors() {
+		t.Fatalf("expected omitted CORS origins to use the unrestricted default, got %v", errs)
 	}
 }
 

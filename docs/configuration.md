@@ -88,7 +88,7 @@ The YAML file is organized by capability:
 | `storage` | S3-compatible endpoint, bucket, credentials, public URL, and upload settings. |
 | `redis` | Optional cache, blacklist, rate-limit, and fallback settings. |
 | `transcoding` | Optional Alibaba Cloud MPS region, pipeline, templates, polling, and worker settings. Set `enabled: true` only when MPS is configured. |
-| `cors` | Allowed origins and HTTP cross-origin behavior; `*` is accepted when explicitly configured. |
+| `cors` | Cross-origin requests allow every origin by default (`*` or an empty origin list). Configure a specific origin list only when restrictions are needed. |
 | `skip_auth` | Optional shared-secret authentication bypass restricted to explicitly configured paths. An empty secret disables it. |
 | `rate_limit` | Global, user, login, upload, and fallback rate limits. |
 | `mail` | SMTP server and verification-mail settings. |
@@ -120,7 +120,7 @@ GO_API_APP__DOCS_PASSWORD=<secret-manager-value>
 GO_API_DATABASE__PASSWORD=<secret-manager-value>
 ```
 
-Do not commit real credentials. Production must replace JWT secrets, documentation credentials, administrator credentials, default user credentials, and external-service credentials. CORS accepts `*` when intentionally configured. Skip-auth remains disabled unless both a secret and allowed paths are configured.
+Do not commit real credentials. Production must replace JWT secrets, documentation credentials, administrator credentials, default user credentials, and external-service credentials. CORS allows all origins by default, including in production. Skip-auth remains disabled unless both a secret and allowed paths are configured.
 
 ## Adding a setting
 

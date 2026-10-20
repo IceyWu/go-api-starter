@@ -2,6 +2,7 @@ package router
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -49,6 +50,30 @@ func TestSetupRegistersPublicDocumentationAndSystemRoutes(t *testing.T) {
 	_, err = db.Exec(string(schema))
 	require.NoError(t, err)
 	r, _, _ := SetupWithConfig(db, config.GlobalConfig)
+
+	for _, tt := range []struct {
+		name, target, forwardedProto, wantScheme string
+	}{
+		{"direct HTTP", "http://api.example/openapi.json", "", "http"},
+		{"direct HTTPS", "https://api.example/openapi.json", "", "https"},
+		{"proxy HTTPS", "http://api.example/openapi.json", "https", "https"},
+		{"proxy chain", "http://api.example/openapi.json", "https, http", "https"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.target, nil)
+			req.Header.Set("X-Forwarded-Proto", tt.forwardedProto)
+			res := httptest.NewRecorder()
+			r.ServeHTTP(res, req)
+			require.Equal(t, http.StatusOK, res.Code)
+			var document struct {
+				Host    string   `json:"host"`
+				Schemes []string `json:"schemes"`
+			}
+			require.NoError(t, json.Unmarshal(res.Body.Bytes(), &document))
+			require.Equal(t, "api.example", document.Host)
+			require.Equal(t, []string{tt.wantScheme}, document.Schemes)
+		})
+	}
 
 	tests := []struct {
 		name   string

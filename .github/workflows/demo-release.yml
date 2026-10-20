@@ -34,7 +34,7 @@ jobs:
           push: true
           tags: ghcr.io/iceywu/lev-stack-demo-api:sha-${{ github.event.pull_request.merge_commit_sha }}
           cache-from: type=gha,scope=lev-stack-demo-api
-          cache-to: type=gha,scope=lev-stack-demo-api,mode=max
+          cache-to: type=gha,scope=lev-stack-demo-api,mode=max,ignore-error=true
       - uses: actions/create-github-app-token@v2
         id: app-token
         with:

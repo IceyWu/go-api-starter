@@ -167,6 +167,7 @@ func (h *XxxHandler) List(c *transport.Context) {
 
 ## Security considerations
 
+- CORS 默认不限制来源，允许所有来源跨域访问；`allow_origins: ["*"]` 或空列表均表示允许所有来源，生产环境也不强制白名单。只有用户明确要求限制时才配置来源白名单。
 - JWT secret 生产环境必须 ≥ 32 字符
 - 密码使用 Argon2 哈希
 - 注册/登录/重置密码均需验证码校验

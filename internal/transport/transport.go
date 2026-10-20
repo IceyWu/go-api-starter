@@ -298,6 +298,10 @@ func CustomRecovery(handler func(*Context, interface{})) HandlerFunc {
 }
 
 func CORS(origins, methods, headers []string) HandlerFunc {
+	// An omitted origin list keeps the template open to all browser clients.
+	if len(origins) == 0 {
+		origins = []string{"*"}
+	}
 	return func(c *Context) {
 		origin := c.GetHeader("Origin")
 		if contains(origins, "*") || contains(origins, origin) {

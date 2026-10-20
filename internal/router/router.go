@@ -7,6 +7,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"net/http"
 	"net/http/pprof"
+	"strings"
 	"time"
 
 	"go-api-starter/internal/transport"
@@ -140,7 +141,7 @@ func SetupWithConfig(db *sqlx.DB, cfg *config.Config) (*transport.Engine, *middl
 	})
 	openAPIDoc := func(c *transport.Context) {
 		scheme := "http"
-		if c.Request.TLS != nil {
+		if c.Request.TLS != nil || strings.EqualFold(strings.TrimSpace(strings.Split(c.GetHeader("X-Forwarded-Proto"), ",")[0]), "https") {
 			scheme = "https"
 		}
 		c.Data(200, "application/json; charset=utf-8", []byte(docs.ReadDocForRequest(c.Request.Host, cfg.Server.BasePath, scheme)))

@@ -85,6 +85,7 @@ common:
     mps_poll_interval_sec: 10
 
   cors:
+    # Allow every origin by default. An empty list also permits every origin.
     allow_origins:
       - "*"
     allow_methods:

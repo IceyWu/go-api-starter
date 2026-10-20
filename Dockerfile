@@ -40,6 +40,6 @@ COPY --from=build /src/migrations /app/migrations
 COPY --from=build /src/public /app/public
 COPY --from=build /go/bin/atlas /usr/local/bin/atlas
 
-EXPOSE 8080
+EXPOSE 8080 9650
 USER 65532:65532
 ENTRYPOINT ["/app/server"]
